@@ -1,0 +1,5 @@
+name: gnusto
+repo: https://github.com/rocketsurgery-games/gnusto.git
+default_branch: main
+runtime: python
+test_cmd: uv run pytest

@@ -7,3 +7,10 @@
 // self-registration import below.
 
 import './cli.js';
+
+// Installed channels (copied from upstream/channels branch + v1 ports)
+import './whatsapp.js';
+import './telegram.js';
+import './discord.js';
+import './emacs.js';
+import './sms-android.js';

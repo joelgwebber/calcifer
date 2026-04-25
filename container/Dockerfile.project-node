@@ -1,0 +1,42 @@
+# NanoClaw Project Agent — Node Runtime
+# Used for background project agents working on Node.js repositories.
+# Includes: node 22, npm, git, gh CLI, claude CLI
+
+FROM node:22-slim
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    gnupg \
+    python3 \
+    python3-yaml \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install GitHub CLI
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      | gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+      | tee /etc/apt/sources.list.d/github-cli.list \
+    && apt-get update && apt-get install -y gh \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install claude-code globally
+RUN npm install -g @anthropic-ai/claude-code
+
+WORKDIR /app
+COPY agent-runner/package*.json ./
+RUN npm install
+COPY agent-runner/ ./
+RUN npm run build
+
+COPY tools/yaks/ /opt/yaks/
+RUN printf '#!/bin/sh\nexec python3 /opt/yaks/yak.py "$@"\n' > /usr/local/bin/yak && chmod +x /usr/local/bin/yak
+
+COPY entrypoint-project.sh /app/entrypoint-project.sh
+
+RUN mkdir -p /workspace/task /workspace/context /workspace/ipc/messages /workspace/ipc/tasks /workspace/ipc/input
+RUN chown -R node:node /workspace && chmod 777 /home/node
+
+USER node
+WORKDIR /workspace/task
+ENTRYPOINT ["/app/entrypoint-project.sh"]

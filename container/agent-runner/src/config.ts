@@ -16,6 +16,8 @@ export interface RunnerConfig {
   agentGroupId: string;
   maxMessagesPerPrompt: number;
   mcpServers: Record<string, { command: string; args: string[]; env: Record<string, string> }>;
+  /** Feature flags for optional tool sets. Current: 'projects' enables project agent tools. */
+  features?: string[];
 }
 
 const DEFAULT_MAX_MESSAGES = 10;
@@ -43,6 +45,7 @@ export function loadConfig(): RunnerConfig {
     agentGroupId: (raw.agentGroupId as string) || '',
     maxMessagesPerPrompt: (raw.maxMessagesPerPrompt as number) || DEFAULT_MAX_MESSAGES,
     mcpServers: (raw.mcpServers as RunnerConfig['mcpServers']) || {},
+    features: (raw.features as string[]) || [],
   };
 
   return _config;

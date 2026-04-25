@@ -1,5 +1,10 @@
 #!/bin/bash
-# Build the NanoClaw agent container image.
+# Build the NanoClaw agent container images.
+#
+# Builds three images:
+#   <base>:latest              — group/chat agents (main image)
+#   nanoclaw-agent-python:latest — project agents (Python repos)
+#   nanoclaw-agent-node:latest   — project agents (Node repos)
 #
 # Reads one optional build flag from ../.env:
 #   INSTALL_CJK_FONTS=true   — add Chinese/Japanese/Korean fonts (~200MB)
@@ -32,14 +37,45 @@ if [ "${INSTALL_CJK_FONTS:-false}" = "true" ]; then
     BUILD_ARGS+=(--build-arg INSTALL_CJK_FONTS=true)
 fi
 
-echo "Building NanoClaw agent container image..."
-echo "Image: ${IMAGE_NAME}:${TAG}"
+# --- Sync yaks plugin into container build context ---
+sync_yaks() {
+  local yaks_dir="$HOME/.claude/plugins/cache/yaks-marketplace/yaks"
+  if [ ! -d "$yaks_dir" ]; then
+    echo "Warning: yaks plugin not found at $yaks_dir — skipping sync (tools/yaks/ may be stale)"
+    return
+  fi
+  local latest
+  latest=$(ls -1 "$yaks_dir" | sort -V | tail -1)
+  if [ -z "$latest" ]; then
+    echo "Warning: no yaks versions found in $yaks_dir — skipping sync"
+    return
+  fi
+  local src="$yaks_dir/$latest"
+  echo "Syncing yaks $latest..."
+  mkdir -p tools/yaks
+  cp "$src/scripts/yak.py" tools/yaks/yak.py
+  rm -rf tools/yaks/yaklib
+  cp -r "$src/scripts/yaklib" tools/yaks/yaklib
+  mkdir -p skills/yak
+  cp "$src/skills/yak/SKILL.md" skills/yak/SKILL.md
+  echo "  Done: tools/yaks/ and skills/yak/SKILL.md updated from v$latest"
+}
+sync_yaks
 
-${CONTAINER_RUNTIME} build "${BUILD_ARGS[@]}" -t "${IMAGE_NAME}:${TAG}" .
+build_image() {
+  local name="$1"
+  local dockerfile="$2"
+  echo "Building ${name}:${TAG} from ${dockerfile}..."
+  ${CONTAINER_RUNTIME} build "${BUILD_ARGS[@]}" -t "${name}:${TAG}" -f "${dockerfile}" .
+  echo "  Done: ${name}:${TAG}"
+}
+
+build_image "${IMAGE_NAME}"              "Dockerfile"
+build_image "nanoclaw-agent-python" "Dockerfile.project-python"
+build_image "nanoclaw-agent-node"   "Dockerfile.project-node"
 
 echo ""
-echo "Build complete!"
-echo "Image: ${IMAGE_NAME}:${TAG}"
-echo ""
-echo "Test with:"
-echo "  echo '{\"prompt\":\"What is 2+2?\",\"groupFolder\":\"test\",\"chatJid\":\"test@g.us\",\"isMain\":false}' | ${CONTAINER_RUNTIME} run -i ${IMAGE_NAME}:${TAG}"
+echo "All images built:"
+echo "  ${IMAGE_NAME}:${TAG}        — group/chat agents"
+echo "  nanoclaw-agent-python:${TAG} — project agents (Python repos)"
+echo "  nanoclaw-agent-node:${TAG}   — project agents (Node repos)"

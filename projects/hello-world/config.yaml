@@ -1,0 +1,6 @@
+name: hello-world
+repo: https://github.com/octocat/Hello-World.git
+default_branch: master
+runtime: node
+serve_cmd: npm start
+serve_port: 3000

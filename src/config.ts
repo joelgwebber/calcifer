@@ -66,3 +66,6 @@ function resolveConfigTimezone(): string {
   return 'UTC';
 }
 export const TIMEZONE = resolveConfigTimezone();
+
+// Project agent system
+export const PROJECTS_DIR = path.join(process.cwd(), 'projects');
