@@ -4,7 +4,7 @@ title: 'OneCLI migration: align credential system with upstream'
 type: feature
 priority: 2
 created: '2026-04-25T14:53:20Z'
-updated: '2026-04-25T15:38:20Z'
+updated: '2026-04-25T18:18:05Z'
 ---
 
 Migrate from the native credential proxy to OneCLI Agent Vault to stay aligned with upstream NanoClaw direction.

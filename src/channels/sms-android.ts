@@ -83,6 +83,7 @@ function createSmsAndroidAdapter(opts: {
               },
               timestamp,
               isGroup: false,
+              isMention: true, // SMS is always a direct message
             };
 
             setupConfig?.onInbound(platformId, null, inbound);

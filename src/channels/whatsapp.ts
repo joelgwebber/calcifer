@@ -571,6 +571,8 @@ registerChannelAdapter('whatsapp', {
                 chatJid,
               },
               timestamp,
+              // DMs always warrant routing; group messages only when bot is @mentioned
+              isMention: !isGroup || content.includes(`@${ASSISTANT_NAME}`),
             };
 
             // WhatsApp doesn't use threads — threadId is null
