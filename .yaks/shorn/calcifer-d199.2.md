@@ -4,7 +4,7 @@ title: 'Bootstrap v2 entity model: /init-first-agent for joel + alicia'
 type: task
 priority: 1
 created: '2026-04-25T18:05:28Z'
-updated: '2026-04-25T18:27:26Z'
+updated: '2026-04-25T20:16:22Z'
 ---
 
 Create users, agent_groups, messaging_groups in the v2 DB. v2 retired the 'main=admin' concept — joel becomes admin via user_roles.

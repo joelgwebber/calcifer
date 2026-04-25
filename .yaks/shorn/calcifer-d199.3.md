@@ -4,7 +4,7 @@ title: Re-register all channels in v2 DB
 type: task
 priority: 2
 created: '2026-04-25T18:05:28Z'
-updated: '2026-04-25T18:05:28Z'
+updated: '2026-04-25T20:16:22Z'
 ---
 
 Channel registrations live in the v2 central DB (messaging_groups table), not the old registered_groups.json. All existing channels need re-wiring.
