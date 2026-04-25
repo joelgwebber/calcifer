@@ -48,8 +48,7 @@ function parseProjectConfig(raw: unknown, sourceFile: string): ProjectConfig | n
     default_branch:
       typeof obj.default_branch === 'string' && obj.default_branch.trim() ? obj.default_branch.trim() : 'main',
     runtime: obj.runtime as ProjectRuntime,
-    clone_flags:
-      typeof obj.clone_flags === 'string' && obj.clone_flags.trim() ? obj.clone_flags.trim() : undefined,
+    clone_flags: typeof obj.clone_flags === 'string' && obj.clone_flags.trim() ? obj.clone_flags.trim() : undefined,
     submodule_depth:
       typeof obj.submodule_depth === 'number' && Number.isInteger(obj.submodule_depth) && obj.submodule_depth > 0
         ? obj.submodule_depth

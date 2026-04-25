@@ -67,8 +67,13 @@ export function registerProjectActions(): void {
     const { getDeliveryAdapter } = await import('./delivery.js');
     const adapter = getDeliveryAdapter();
     if (adapter) {
-      await adapter.deliver(target.channelType, target.platformId, target.threadId, 'chat',
-        JSON.stringify({ type: 'text', text: status }));
+      await adapter.deliver(
+        target.channelType,
+        target.platformId,
+        target.threadId,
+        'chat',
+        JSON.stringify({ type: 'text', text: status }),
+      );
     }
   });
 
@@ -79,8 +84,13 @@ export function registerProjectActions(): void {
     const { getDeliveryAdapter } = await import('./delivery.js');
     const adapter = getDeliveryAdapter();
     if (adapter) {
-      await adapter.deliver(target.channelType, target.platformId, target.threadId, 'chat',
-        JSON.stringify({ type: 'text', text: result }));
+      await adapter.deliver(
+        target.channelType,
+        target.platformId,
+        target.threadId,
+        'chat',
+        JSON.stringify({ type: 'text', text: result }),
+      );
     }
   });
 
@@ -102,8 +112,13 @@ export function registerProjectActions(): void {
     const { getDeliveryAdapter } = await import('./delivery.js');
     const adapter = getDeliveryAdapter();
     if (adapter) {
-      await adapter.deliver(target.channelType, target.platformId, target.threadId, 'chat',
-        JSON.stringify({ type: 'text', text: result }));
+      await adapter.deliver(
+        target.channelType,
+        target.platformId,
+        target.threadId,
+        'chat',
+        JSON.stringify({ type: 'text', text: result }),
+      );
     }
   });
 
@@ -127,8 +142,13 @@ export function registerProjectActions(): void {
     const { getDeliveryAdapter } = await import('./delivery.js');
     const adapter = getDeliveryAdapter();
     if (adapter) {
-      await adapter.deliver(target.channelType, target.platformId, target.threadId, 'chat',
-        JSON.stringify({ type: 'text', text: result }));
+      await adapter.deliver(
+        target.channelType,
+        target.platformId,
+        target.threadId,
+        'chat',
+        JSON.stringify({ type: 'text', text: result }),
+      );
     }
   });
 

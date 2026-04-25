@@ -115,11 +115,7 @@ function createSmsAndroidAdapter(opts: {
       return server?.listening ?? false;
     },
 
-    async deliver(
-      platformId: string,
-      _threadId: string | null,
-      message: OutboundMessage,
-    ): Promise<string | undefined> {
+    async deliver(platformId: string, _threadId: string | null, message: OutboundMessage): Promise<string | undefined> {
       const text = extractText(message.content);
       if (!text) return undefined;
 

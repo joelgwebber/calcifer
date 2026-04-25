@@ -126,9 +126,7 @@ export async function startProjectRun(opts: {
       if (result.status === 'success') {
         updateProjectRun(projectId, { status: 'done', result: lastResult });
         const summary = lastResult ? `**${projectName}** finished:\n\n${lastResult}` : `**${projectName}** finished.`;
-        sendText(target, summary).catch((err) =>
-          log.error('Failed to send project completion message', { err }),
-        );
+        sendText(target, summary).catch((err) => log.error('Failed to send project completion message', { err }));
       } else {
         updateProjectRun(projectId, { status: 'failed', result: result.error ?? null });
         sendText(target, `**${projectName}** failed: ${result.error ?? 'unknown error'}`).catch((err) =>
