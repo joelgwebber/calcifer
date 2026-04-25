@@ -1,0 +1,50 @@
+From e715c73b1a366b0ddb63900a5c596667a55194e2 Mon Sep 17 00:00:00 2001
+From: Joel Webber <jgw@pobox.com>
+Date: Sun, 19 Apr 2026 11:01:23 -0400
+Subject: [PATCH] fix: register Discord ready handler before login() to avoid
+ race condition
+
+discord.js fires the 'ready' event synchronously during ws.connect() inside
+login(), so registering once('ready') after await login() loses the event.
+This caused a 60s timeout on every startup, leaving Discord out of the
+channels array (messages stored but never processed).
+
+Fix: create the connectPromise (with once('ready') listener) before calling
+login(), so the event is captured regardless of when it fires.
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+---
+ src/channels/discord.ts | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/src/channels/discord.ts b/src/channels/discord.ts
+index 7b38951..4894c04 100644
+--- a/src/channels/discord.ts
++++ b/src/channels/discord.ts
+@@ -96,10 +96,9 @@ export class DiscordChannel implements Channel {
+       logger.error({ err: err.message }, 'Discord client error');
+     });
+ 
+-    // Connect to Discord
+-    await this.client.login(this.botToken);
+-
+-    return new Promise<void>((resolve, reject) => {
++    // Register ready handler BEFORE login() — discord.js fires 'ready' synchronously
++    // during ws.connect() (inside login()), so registering after login() races and loses.
++    const connectPromise = new Promise<void>((resolve, reject) => {
+       const timeout = setTimeout(() => {
+         reject(new Error('Discord ready event timeout after 60s'));
+       }, 60000);
+@@ -117,6 +116,9 @@ export class DiscordChannel implements Channel {
+         resolve();
+       });
+     });
++
++    await this.client.login(this.botToken);
++    return connectPromise;
+   }
+ 
+   async sendMessage(jid: string, text: string): Promise<void> {
+-- 
+2.43.0
+
