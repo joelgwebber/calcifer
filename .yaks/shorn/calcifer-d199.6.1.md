@@ -4,7 +4,7 @@ title: Wire family-wiki and personal wiki skills into agent containers
 type: task
 priority: 2
 created: '2026-04-26T00:11:16Z'
-updated: '2026-04-26T00:11:16Z'
+updated: '2026-04-26T02:21:40Z'
 ---
 
 Set up the two-wiki model so personal agents can use both private and shared family knowledge:
