@@ -95,7 +95,7 @@ You are the **external observer**: read task state, add tasks from user requests
 
 ```
 # List open tasks
-yak_project(project_name="hello-world", args=["ls"])
+yak_project(project_name="hello-world", args=["list"])
 
 # View a task
 yak_project(project_name="hello-world", args=["show", "hello-world-abc1"])
@@ -119,7 +119,7 @@ When a project is first set up, run `yak_project init` after the first build com
 When starting a build for a specific task, look up the task ID first, then pass it:
 
 ```
-yak_project(project_name="hello-world", args=["ls"])
+yak_project(project_name="hello-world", args=["list"])
 # → find task ID, e.g. hello-world-abc1
 start_project(project_name="hello-world", yak_id="hello-world-abc1")
 ```

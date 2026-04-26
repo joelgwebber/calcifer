@@ -202,7 +202,7 @@ const yakProject: McpToolDefinition = {
 Use this to list tasks, create new ones, view details, add notes, or initialize tracking. The result is sent as a message.
 
 Examples:
-- List open tasks: args=["ls"]
+- List open tasks: args=["list"]
 - View a task: args=["show", "hello-world-abc1"]
 - Add a task: args=["create", "--title", "Fix login bug", "--type", "bug", "--priority", "2"]
 - Add a note: args=["update", "hello-world-abc1", "--note", "Discovered root cause"]
@@ -211,7 +211,7 @@ Examples:
       type: 'object' as const,
       properties: {
         project_name: { type: 'string', description: 'Project name (must match a configured project)' },
-        args: { type: 'array', items: { type: 'string' }, description: 'Yak CLI arguments, e.g. ["ls"], ["show", "task-id"]' },
+        args: { type: 'array', items: { type: 'string' }, description: 'Yak CLI arguments, e.g. ["list"], ["show", "task-id"]' },
       },
       required: ['project_name', 'args'],
     },
