@@ -4,6 +4,11 @@
  * Registers handlers for system actions sent by the project MCP tools.
  * The agent writes system actions to messages_out; the host's delivery
  * module dispatches them here via registerDeliveryAction.
+ *
+ * Results are injected back into the agent's inbound.db (via writeSessionMessage
+ * + wakeContainer) so Calcifer receives them and can relay them to the user.
+ * This replaces the old adapter.deliver() approach, which bypassed Calcifer
+ * and sent directly to the channel with no agent context.
  */
 import { spawnSync } from 'child_process';
 import fs from 'fs';
@@ -12,9 +17,11 @@ import path from 'path';
 import type { Session } from './types.js';
 import type Database from 'better-sqlite3';
 
+import { wakeContainer } from './container-runner.js';
 import { registerDeliveryAction } from './delivery.js';
+import { getSession } from './db/sessions.js';
 import { log } from './log.js';
-import { getMessagingGroup } from './db/messaging-groups.js';
+import { writeSessionMessage } from './session-manager.js';
 import {
   abandonProjectRun,
   getProjectStatus,
@@ -23,7 +30,6 @@ import {
   startServe,
   stopServe,
 } from './project-manager.js';
-import type { DeliveryTarget } from './project-manager.js';
 import { projectWorkspaceDir } from './project-runner.js';
 
 function findYakScript(): string | null {
@@ -34,128 +40,78 @@ function findYakScript(): string | null {
   return path.join(yakDir, versions[versions.length - 1], 'scripts/yak.py');
 }
 
-function resolveTarget(session: Session): DeliveryTarget | null {
-  if (!session.messaging_group_id) return null;
-  const mg = getMessagingGroup(session.messaging_group_id);
-  if (!mg) return null;
-  return {
-    channelType: mg.channel_type,
-    platformId: mg.platform_id,
-    threadId: session.thread_id,
-  };
+function notifyAgent(session: Session, text: string): Promise<void> {
+  writeSessionMessage(session.agent_group_id, session.id, {
+    id: `sys-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    kind: 'chat',
+    timestamp: new Date().toISOString(),
+    platformId: session.agent_group_id,
+    channelType: 'agent',
+    threadId: null,
+    content: JSON.stringify({ text, sender: 'system', senderId: 'system' }),
+  });
+  const fresh = getSession(session.id);
+  if (fresh) {
+    return wakeContainer(fresh).catch((err: unknown) =>
+      log.error('Failed to wake container after project notification', { err }),
+    );
+  }
+  return Promise.resolve();
 }
 
 export function registerProjectActions(): void {
   registerDeliveryAction('start_project', async (content, session, _inDb: Database.Database) => {
-    const target = resolveTarget(session);
-    if (!target) {
-      log.warn('start_project: no delivery target for session', { sessionId: session.id });
-      return;
-    }
+    const notify = (text: string) => notifyAgent(session, text);
     await startProjectRun({
       projectName: content.project_name as string,
       yakId: (content.yak_id as string | null) ?? undefined,
       prompt: (content.prompt as string | null) ?? undefined,
-      target,
+      notify,
     });
   });
 
   registerDeliveryAction('project_status', async (content, session, _inDb: Database.Database) => {
-    const target = resolveTarget(session);
-    if (!target) return;
     const status = getProjectStatus(content.project_name as string);
-    const { getDeliveryAdapter } = await import('./delivery.js');
-    const adapter = getDeliveryAdapter();
-    if (adapter) {
-      await adapter.deliver(
-        target.channelType,
-        target.platformId,
-        target.threadId,
-        'chat',
-        JSON.stringify({ type: 'text', text: status }),
-      );
-    }
+    await notifyAgent(session, status);
   });
 
   registerDeliveryAction('abandon_project', async (content, session, _inDb: Database.Database) => {
-    const target = resolveTarget(session);
-    if (!target) return;
     const result = abandonProjectRun(content.project_name as string);
-    const { getDeliveryAdapter } = await import('./delivery.js');
-    const adapter = getDeliveryAdapter();
-    if (adapter) {
-      await adapter.deliver(
-        target.channelType,
-        target.platformId,
-        target.threadId,
-        'chat',
-        JSON.stringify({ type: 'text', text: result }),
-      );
-    }
+    await notifyAgent(session, result);
   });
 
   registerDeliveryAction('serve_project', async (content, session, _inDb: Database.Database) => {
-    const target = resolveTarget(session);
-    if (!target) return;
+    const notify = (text: string) => notifyAgent(session, text);
     await startServe({
       projectName: content.project_name as string,
       serveCmd: (content.serve_cmd as string | null) ?? undefined,
       servePort: (content.serve_port as number | null) ?? undefined,
-      target,
+      notify,
     });
   });
 
   registerDeliveryAction('stop_serve', async (content, session, _inDb: Database.Database) => {
-    const target = resolveTarget(session);
-    if (!target) return;
     const result = stopServe(content.project_name as string);
-    const { getDeliveryAdapter } = await import('./delivery.js');
-    const adapter = getDeliveryAdapter();
-    if (adapter) {
-      await adapter.deliver(
-        target.channelType,
-        target.platformId,
-        target.threadId,
-        'chat',
-        JSON.stringify({ type: 'text', text: result }),
-      );
-    }
+    await notifyAgent(session, result);
   });
 
   registerDeliveryAction('restart_serve', async (content, session, _inDb: Database.Database) => {
-    const target = resolveTarget(session);
-    if (!target) return;
-    // Atomic: stop then start
+    const notify = (text: string) => notifyAgent(session, text);
     stopServe(content.project_name as string);
     await startServe({
       projectName: content.project_name as string,
       serveCmd: (content.serve_cmd as string | null) ?? undefined,
       servePort: (content.serve_port as number | null) ?? undefined,
-      target,
+      notify,
     });
   });
 
   registerDeliveryAction('serve_status', async (content, session, _inDb: Database.Database) => {
-    const target = resolveTarget(session);
-    if (!target) return;
     const result = getServeStatus(content.project_name as string);
-    const { getDeliveryAdapter } = await import('./delivery.js');
-    const adapter = getDeliveryAdapter();
-    if (adapter) {
-      await adapter.deliver(
-        target.channelType,
-        target.platformId,
-        target.threadId,
-        'chat',
-        JSON.stringify({ type: 'text', text: result }),
-      );
-    }
+    await notifyAgent(session, result);
   });
 
   registerDeliveryAction('yak_project', async (content, session, _inDb: Database.Database) => {
-    const target = resolveTarget(session);
-    if (!target) return;
-
     const projectName = content.project_name as string;
     const yakArgs = (content.yak_args as string[]) ?? [];
     const workspaceDir = projectWorkspaceDir(projectName);
@@ -178,17 +134,7 @@ export function registerProjectActions(): void {
       output = `**yak result (${projectName}) — error:**\n\n${err instanceof Error ? err.message : String(err)}`;
     }
 
-    const { getDeliveryAdapter } = await import('./delivery.js');
-    const adapter = getDeliveryAdapter();
-    if (adapter) {
-      await adapter.deliver(
-        target.channelType,
-        target.platformId,
-        target.threadId,
-        'chat',
-        JSON.stringify({ type: 'text', text: output || '(no output)' }),
-      );
-    }
+    await notifyAgent(session, output);
   });
 
   log.info('Project system action handlers registered');

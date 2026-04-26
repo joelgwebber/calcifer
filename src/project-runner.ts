@@ -366,7 +366,13 @@ export async function runProjectAgent(
           return;
         }
         const errorDetail = (stderr || stdout).slice(-500);
-        log.error('Project container exited with error', { projectId, code, duration, stderr: stderr.slice(-500), stdout: stdout.slice(-500) });
+        log.error('Project container exited with error', {
+          projectId,
+          code,
+          duration,
+          stderr: stderr.slice(-500),
+          stdout: stdout.slice(-500),
+        });
         resolve({
           status: 'error',
           result: null,

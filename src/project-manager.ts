@@ -1,4 +1,3 @@
-import { getDeliveryAdapter } from './delivery.js';
 import { log } from './log.js';
 import { loadProjectConfigs } from './project-config.js';
 import {
@@ -38,30 +37,7 @@ Your assigned task is **${yakId}** from this project's task tracker. Run \`yak s
 
 // --- Delivery helpers ---
 
-export interface DeliveryTarget {
-  channelType: string;
-  platformId: string;
-  threadId: string | null;
-}
-
-async function sendText(target: DeliveryTarget, text: string): Promise<void> {
-  const adapter = getDeliveryAdapter();
-  if (!adapter) {
-    log.warn('No delivery adapter available for project message', { target });
-    return;
-  }
-  try {
-    await adapter.deliver(
-      target.channelType,
-      target.platformId,
-      target.threadId,
-      'chat',
-      JSON.stringify({ type: 'text', text }),
-    );
-  } catch (err) {
-    log.error('Failed to deliver project message', { target, err });
-  }
-}
+export type Notify = (text: string) => Promise<void>;
 
 // --- Run lifecycle ---
 
@@ -69,23 +45,22 @@ export async function startProjectRun(opts: {
   projectName: string;
   yakId?: string;
   prompt?: string;
-  target: DeliveryTarget;
+  notify: Notify;
 }): Promise<void> {
-  const { projectName, yakId, prompt: extraPrompt, target } = opts;
+  const { projectName, yakId, prompt: extraPrompt, notify } = opts;
 
   const configs = loadProjectConfigs();
   const project = configs.find((c) => c.name === projectName);
   if (!project) {
     const known = configs.map((c) => c.name).join(', ') || 'none';
-    await sendText(target, `No project named "${projectName}" found. Configured projects: ${known}`);
+    await notify(`No project named "${projectName}" found. Configured projects: ${known}`);
     return;
   }
 
   const active = getActiveProjectRun(projectName);
   if (active) {
     const ago = humanDuration(Date.now() - new Date(active.created_at).getTime());
-    await sendText(
-      target,
+    await notify(
       `${projectName} is already running (started ${ago} ago). Use abandon_project to stop it first.`,
     );
     return;
@@ -98,13 +73,13 @@ export async function startProjectRun(opts: {
     id: projectId,
     project_name: projectName,
     yak_id: yakId ?? null,
-    initiated_by_jid: `${target.channelType}:${target.platformId}`,
+    initiated_by_jid: `project:${projectName}`,
   });
 
   log.info('Starting project run', { projectId, projectName, yakId });
 
   const startMsg = yakId ? `Starting work on **${projectName}** (${yakId})…` : `Starting work on **${projectName}**…`;
-  await sendText(target, startMsg);
+  await notify(startMsg);
 
   let lastResult: string | null = null;
 
@@ -126,10 +101,10 @@ export async function startProjectRun(opts: {
       if (result.status === 'success') {
         updateProjectRun(projectId, { status: 'done', result: lastResult });
         const summary = lastResult ? `**${projectName}** finished:\n\n${lastResult}` : `**${projectName}** finished.`;
-        sendText(target, summary).catch((err) => log.error('Failed to send project completion message', { err }));
+        notify(summary).catch((err) => log.error('Failed to send project completion message', { err }));
       } else {
         updateProjectRun(projectId, { status: 'failed', result: result.error ?? null });
-        sendText(target, `**${projectName}** failed: ${result.error ?? 'unknown error'}`).catch((err) =>
+        notify(`**${projectName}** failed: ${result.error ?? 'unknown error'}`).catch((err) =>
           log.error('Failed to send project failure message', { err }),
         );
       }
@@ -182,21 +157,20 @@ export async function startServe(opts: {
   projectName: string;
   serveCmd?: string;
   servePort?: number;
-  target: DeliveryTarget;
+  notify: Notify;
 }): Promise<void> {
-  const { projectName, target } = opts;
+  const { projectName, notify } = opts;
 
   const configs = loadProjectConfigs();
   const project = configs.find((c) => c.name === projectName);
   if (!project) {
-    await sendText(target, `No project named "${projectName}" found.`);
+    await notify(`No project named "${projectName}" found.`);
     return;
   }
 
   const existing = getActiveServeRun(projectName);
   if (existing) {
-    await sendText(
-      target,
+    await notify(
       `**${projectName}** is already serving at http://localhost:${existing.host_port} — call stop_serve first to replace it.`,
     );
     return;
@@ -207,8 +181,7 @@ export async function startServe(opts: {
   const servePort = opts.servePort ?? workspaceJson?.serve_port ?? project.serve_port;
 
   if (!serveCmd || !servePort) {
-    await sendText(
-      target,
+    await notify(
       `**${projectName}**: no serve command configured. Add serve_cmd/serve_port to projects/${projectName}/config.yaml or have the build agent write a serve.json to the workspace root.`,
     );
     return;
@@ -234,11 +207,12 @@ export async function startServe(opts: {
     });
 
     log.info('Serve container started', { projectName, containerName, hostPort });
-    await sendText(target, `**${projectName}** is now serving at http://localhost:${hostPort} (bound to 0.0.0.0 — accessible from any device on the local network)`);
+    await notify(
+      `**${projectName}** is now serving at http://localhost:${hostPort} (bound to 0.0.0.0 — accessible from any device on the local network)`,
+    );
   } catch (err) {
     log.error('Failed to start serve container', { err, projectName });
-    await sendText(
-      target,
+    await notify(
       `Failed to start serve container for **${projectName}**: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
