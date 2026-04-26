@@ -173,9 +173,9 @@ export function registerProjectActions(): void {
       });
       if (result.error) throw result.error;
       if (result.status !== 0) throw new Error((result.stderr || '').trim() || `yak exited with code ${result.status}`);
-      output = result.stdout || '(no output)';
+      output = `**yak result (${projectName}):**\n\n${result.stdout || '(no output)'}`;
     } catch (err) {
-      output = `Error: ${err instanceof Error ? err.message : String(err)}`;
+      output = `**yak result (${projectName}) — error:**\n\n${err instanceof Error ? err.message : String(err)}`;
     }
 
     const { getDeliveryAdapter } = await import('./delivery.js');

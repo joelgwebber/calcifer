@@ -199,7 +199,7 @@ const yakProject: McpToolDefinition = {
     name: 'yak_project',
     description: `Run a yak command against a project's own task tracker (.yaks/ in the project workspace).
 
-Use this to list tasks, create new ones, view details, add notes, or initialize tracking. The result is sent as a message.
+Use this to list tasks, create new ones, view details, add notes, or initialize tracking. Exactly one message arrives with the result — whether the command succeeds or errors, that message IS the complete response. Do not wait for a follow-up.
 
 Examples:
 - List open tasks: args=["list"]
