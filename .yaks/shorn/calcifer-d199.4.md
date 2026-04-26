@@ -4,7 +4,7 @@ title: Modernize project agent IPC to v2 session DB model
 type: feature
 priority: 3
 created: '2026-04-25T18:05:28Z'
-updated: '2026-04-26T15:34:27Z'
+updated: '2026-04-26T15:57:56Z'
 ---
 
 Currently using v1 IPC (stdin JSON + oneShot + stdout markers) for project containers. v2's two-DB session split (inbound.db / outbound.db) is the right model but requires:

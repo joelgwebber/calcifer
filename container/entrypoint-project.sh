@@ -1,11 +1,6 @@
 #!/bin/bash
 set -e
 
-# Compile agent-runner TypeScript (bind-mounted source may have been updated)
-cd /app && npx tsc --outDir /tmp/dist 2>&1 >&2
-ln -sf /app/node_modules /tmp/dist/node_modules
-chmod -R a-w /tmp/dist
-
 # Load credentials
 [ -f /workspace/credentials.env ] && set -a && . /workspace/credentials.env && set +a
 
@@ -36,5 +31,7 @@ if [ -f "$PROJECT_JSON" ] && [ ! -d /workspace/task/.git ]; then
 fi
 
 cd /workspace/task
+
+# Buffer stdin so the agent-runner can read it cleanly after clone completes.
 cat > /tmp/input.json
-node /tmp/dist/index.js < /tmp/input.json
+exec bun run /app/src/project-index.ts < /tmp/input.json
