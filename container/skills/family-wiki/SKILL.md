@@ -1,7 +1,7 @@
 ---
 name: family-wiki
 description: Default wiki for most things — shared family knowledge base covering schedules, travel, household, contacts, and shared documents. Use this unless the content is explicitly personal or sensitive to one person.
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, mcp__qmd__*
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, mcp__seafile__*
 env-guard: SEAFILE_SHARED_LIBRARY
 ---
 
@@ -11,22 +11,15 @@ Default wiki for shared family knowledge. Files are synced from a shared Seafile
 
 ## Location
 
-`/workspace/shared/family-wiki/`
+`/workspace/extra/shared/family-wiki/`
 
 Organized however makes sense. Suggested top-level dirs: `people/`, `travel/`, `household/`, `schedules/`, `documents/`. Add new ones freely.
 
 ## Search
 
-```json
-{
-  "searches": [
-    { "type": "lex", "query": "keyword" },
-    { "type": "vec", "query": "natural language question" }
-  ],
-  "collections": ["family-wiki"],
-  "limit": 10
-}
-```
+Use `mcp__seafile__seafile_search` for keyword search across family wiki files. Optionally scope to the family wiki library ID (available as `SEAFILE_SHARED_LIBRARY` in env).
+
+For broader file discovery, use Glob/Grep directly on the wiki directory.
 
 ## Reading and Writing
 
@@ -43,7 +36,7 @@ Source files (PDFs, images) live alongside their `.md` extracts. When you store 
 ### PDF
 
 ```bash
-pdftotext /workspace/shared/family-wiki/path/to/file.pdf -
+pdftotext /workspace/extra/shared/family-wiki/path/to/file.pdf -
 ```
 
 If output has reasonable text (>50 words per page, no garbled characters): structure it into the companion `.md`.

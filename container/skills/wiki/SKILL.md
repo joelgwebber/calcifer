@@ -1,7 +1,7 @@
 ---
 name: wiki
 description: Private personal wiki — use only for content that is personal or sensitive to one person (health records, finances, private contacts). For anything the family might care about, use the family-wiki skill instead.
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, mcp__qmd__*, mcp__seafile__*
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, mcp__seafile__*
 env-guard: SEAFILE_WIKI_LIBRARY
 ---
 
@@ -17,18 +17,9 @@ Organized however makes sense. Suggested top-level dirs: `vehicles/`, `property/
 
 ## Search
 
-```json
-{
-  "searches": [
-    { "type": "lex", "query": "keyword" },
-    { "type": "vec", "query": "natural language question" }
-  ],
-  "collections": ["joel"],
-  "limit": 10
-}
-```
+Use `mcp__seafile__seafile_search` for keyword search across wiki files. Optionally scope to the wiki library ID (available as `SEAFILE_WIKI_LIBRARY` in env).
 
-Use collection `joel` for Joel, `alicia` for Alicia.
+For broader file discovery, use Glob/Grep directly on the wiki directory.
 
 ## Reading and Writing
 
