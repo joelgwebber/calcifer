@@ -365,11 +365,12 @@ export async function runProjectAgent(
           outputChain.then(() => resolve({ status: 'success', result: null, newSessionId }));
           return;
         }
-        log.error('Project container exited with error', { projectId, code, duration, stderr: stderr.slice(-500) });
+        const errorDetail = (stderr || stdout).slice(-500);
+        log.error('Project container exited with error', { projectId, code, duration, stderr: stderr.slice(-500), stdout: stdout.slice(-500) });
         resolve({
           status: 'error',
           result: null,
-          error: `Project container exited with code ${code}: ${stderr.slice(-200)}`,
+          error: `Project container exited with code ${code}: ${errorDetail.slice(-200)}`,
         });
         return;
       }

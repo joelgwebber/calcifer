@@ -234,7 +234,7 @@ export async function startServe(opts: {
     });
 
     log.info('Serve container started', { projectName, containerName, hostPort });
-    await sendText(target, `**${projectName}** is now serving at http://localhost:${hostPort}`);
+    await sendText(target, `**${projectName}** is now serving at http://localhost:${hostPort} (bound to 0.0.0.0 — accessible from any device on the local network)`);
   } catch (err) {
     log.error('Failed to start serve container', { err, projectName });
     await sendText(
@@ -263,7 +263,7 @@ export function getServeStatus(projectName: string): string {
   const active = getActiveServeRun(projectName);
   if (active) {
     const ago = humanDuration(Date.now() - new Date(active.created_at).getTime());
-    return `**${projectName}** is serving at http://localhost:${active.host_port} (started ${ago} ago).`;
+    return `**${projectName}** is serving at http://localhost:${active.host_port} (bound to 0.0.0.0, started ${ago} ago).`;
   }
   return `**${projectName}** is not currently serving.`;
 }
