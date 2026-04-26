@@ -4,7 +4,7 @@ title: Revisit semantic search across wiki and conversation skills
 type: feature
 priority: 3
 created: '2026-04-26T00:53:13Z'
-updated: '2026-04-26T00:53:13Z'
+updated: '2026-04-26T14:44:30Z'
 ---
 
 We removed QMD from wiki/family-wiki skills in favor of Seafile text search. QMD (or a replacement) should come back once we decide on the right approach.
@@ -26,3 +26,6 @@ SCOPE:
 - family-wiki skill
 - qmd skill (currently dormant)
 - possibly conversation search too
+
+### 2026-04-26T14:44:30Z
+If we implement QMD search, we can avoid having the wiki use Seafile search, eliminating the two SEAFILE_* env vars

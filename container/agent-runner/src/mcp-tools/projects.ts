@@ -41,7 +41,7 @@ const startProject: McpToolDefinition = {
     name: 'start_project',
     description: `Start a background agent on a configured software project. The agent clones the repo, works on the task, commits results to a branch, and sends you a summary when done.
 
-Available projects are in /workspace/agent/projects/*/config.yaml. Read a config to confirm the project name before starting.
+Available projects are in /workspace/extra/projects/*/config.yaml. Read a config to confirm the project name before starting.
 
 The result is delivered as a chat message when the agent finishes — this tool returns immediately.
 

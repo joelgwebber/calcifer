@@ -12,8 +12,8 @@ Background project agents let you run software tasks asynchronously in isolated 
 Read project configs to know what's available:
 
 ```bash
-ls /workspace/project/projects/
-cat /workspace/project/projects/*/config.yaml
+ls /workspace/extra/projects/
+cat /workspace/extra/projects/*/config.yaml
 ```
 
 Key fields: `name`, `runtime`, `serve_cmd`, `serve_port`. If `serve_cmd` is set, the project can be served after a build.
