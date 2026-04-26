@@ -144,8 +144,15 @@ async function main(): Promise<void> {
         sessionId = (event as { session_id: string }).session_id;
         log(`Session: ${sessionId}`);
       } else if (event.type === 'result') {
-        result = (event as { result?: string }).result ?? null;
-        log(`Result: ${result ? result.slice(0, 200) : '(empty)'}`);
+        const resultEvent = event as { result?: string; is_error?: boolean };
+        result = resultEvent.result ?? null;
+        const isError = resultEvent.is_error ?? false;
+        log(`Result: ${result ? result.slice(0, 200) : '(empty)'} (is_error: ${isError})`);
+        if (isError) {
+          // Exit before the SDK iterator throws so we can surface the result text.
+          emitOutput({ status: 'error', result: null, error: result ?? 'Agent completed with error' });
+          process.exit(1);
+        }
       }
     }
 

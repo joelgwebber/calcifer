@@ -5,10 +5,6 @@ allowed-tools:
   - Bash
 ---
 
-Run the following command to regrow a yak:
-
 ```
-python3 /app/skills/yak/scripts/yak.py regrow $ARGUMENTS
+bash /app/skills/yak/run-yak.sh regrow $ARGUMENTS
 ```
-
-This moves the task YAML file back to `hairy/`.

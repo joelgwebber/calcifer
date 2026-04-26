@@ -152,7 +152,7 @@ def cmd_create(args):
         "id": tid,
         "title": args.title,
         "type": args.type or cfg.get("default_type", "task"),
-        "priority": args.priority if args.priority is not None else cfg.get("default_priority", 2),
+        "priority": args.priority if args.priority is not None else cfg.get("default_priority", 3),
         "created": now,
         "updated": now,
     }
@@ -176,7 +176,7 @@ def cmd_create(args):
 # ---------------------------------------------------------------------------
 
 
-def _fmt_task_row(status, t):
+def _fmt_task_row(status, t, pending_ids: set[str] | None = None):
     pri = t.get("priority", "-")
     ttype = t.get("type", "-")
     labels = ",".join(t.get("labels", []))
@@ -184,7 +184,8 @@ def _fmt_task_row(status, t):
     dep_str = f" (deps: {','.join(deps)})" if deps else ""
     label_str = f" [{labels}]" if labels else ""
     ch = _STATUS_CHAR.get(status, status[0].upper())
-    return f"  [{ch}] {t['id']}  p{pri} {ttype:8s} {t.get('title', '')}{label_str}{dep_str}"
+    marker = "~" if pending_ids and t["id"] in pending_ids else " "
+    return f"  [{ch}] {marker}{t['id']}  p{pri} {ttype:8s} {t.get('title', '')}{label_str}{dep_str}"
 
 
 def _spec_from_args(args, defaults: dict | None = None) -> FilterSpec:
@@ -215,6 +216,8 @@ def _spec_from_args(args, defaults: dict | None = None) -> FilterSpec:
 
 
 def cmd_list(args):
+    from yaklib import sync as _sync
+
     root = find_tasks_root()
     spec = _spec_from_args(args)
     tasks = filter_tasks(root, spec)
@@ -228,8 +231,9 @@ def cmd_list(args):
         print("No tasks found.")
         return
 
+    pending = set(_sync.list_pending(root))
     for status, t in tasks:
-        print(_fmt_task_row(status, t))
+        print(_fmt_task_row(status, t, pending))
 
 
 def cmd_show(args):
@@ -314,11 +318,15 @@ def cmd_update(args):
     if getattr(args, "source", None):
         task["source"] = args.source
         changed = True
+    if getattr(args, "last_synced", None):
+        ls = args.last_synced
+        task["last_synced"] = now_iso() if ls == "now" else ls
+        changed = True
     if getattr(args, "note", None):
         ts = now_iso()
         desc = (task.get("description") or "").rstrip()
         sep = "\n\n" if desc else ""
-        task["description"] = f"{desc}{sep}### {ts}\n{args.note}"
+        task["description"] = f"{desc}{sep}---\n▸ {ts}\n{args.note}"
         changed = True
 
     if changed:
@@ -590,8 +598,10 @@ def cmd_search(args):
         print("No tasks found.")
         return
 
+    from yaklib import sync as _sync
+    pending = set(_sync.list_pending(root))
     for status, t in matches:
-        print(_fmt_task_row(status, t))
+        print(_fmt_task_row(status, t, pending))
 
 
 def cmd_stats(args):
@@ -674,7 +684,7 @@ def cmd_import_beads(args):
 
     skip_types = {"message", "molecule", "merge-request"}
     skip_statuses = {"tombstone", "pinned"}
-    priority_map = {0: 1, 1: 1, 2: 2, 3: 3, 4: 3}
+    priority_map = {0: 1, 1: 2, 2: 3, 3: 4, 4: 5}
     type_map = {"bug": "bug", "feature": "feature"}
     bead_status_map = {"in_progress": SHAVING, "closed": SHORN}
 
@@ -709,7 +719,7 @@ def cmd_import_beads(args):
         if bead.get("title"):
             task["title"] = bead["title"]
         task["type"] = type_map.get(bead.get("issue_type", ""), "task")
-        task["priority"] = priority_map.get(bead.get("priority", 2), 2)
+        task["priority"] = priority_map.get(bead.get("priority", 2), 3)
 
         task["created"] = bead.get("created_at") or now_iso()
         task["updated"] = bead.get("updated_at") or task["created"]
@@ -746,6 +756,66 @@ def cmd_import_beads(args):
 
 
 # ---------------------------------------------------------------------------
+# Pending-sync sidecar bookkeeping
+# ---------------------------------------------------------------------------
+
+
+def cmd_sync(args):
+    from yaklib import sync as _sync
+    root = find_tasks_root()
+
+    if args.sync_action == "ls":
+        ids = _sync.list_pending(root)
+        if not ids:
+            print("No pending sync sidecars.")
+            return
+        for tid in ids:
+            print(tid)
+        return
+
+    if args.sync_action == "show":
+        path = _sync.sidecar_path(root, args.id)
+        if not path.exists():
+            print(f"error: no sidecar for {args.id}", file=sys.stderr)
+            sys.exit(1)
+        print(path.read_text(), end="")
+        return
+
+    if args.sync_action == "clear":
+        if _sync.clear_sidecar(root, args.id):
+            print(f"Cleared pending sync for {args.id}")
+        else:
+            print(f"No pending sync for {args.id}")
+        return
+
+    if args.sync_action == "check":
+        rows = _sync.iter_synced_yaks(root)
+        if args.tracker:
+            rows = [r for r in rows if r["tracker"] == args.tracker]
+        if args.json:
+            print(json.dumps(rows, indent=2))
+            return
+        if not rows:
+            print("No yaks with a `source:` URL.")
+            return
+        # Two-line header + one row per yak.
+        id_w = max(len(r["id"]) for r in rows)
+        key_w = max(len(r["key"] or "?") for r in rows)
+        print(f"  {'ID':<{id_w}}  {'TRACKER':<7s}  {'KEY':<{key_w}}  "
+              f"{'LAST_SYNCED':<20s}  {'LOCAL_UPDATED':<20s}  PENDING  LOCAL_DRIFT")
+        for r in rows:
+            ls = (r["last_synced"] or "-")[:19]
+            lu = (r["local_updated"] or "-")[:19]
+            local_drift = "yes" if (r["last_synced"] and r["local_updated"]
+                                    and r["local_updated"] > r["last_synced"]) else "no"
+            pending = "yes" if r["has_pending"] else "no"
+            print(f"  {r['id']:<{id_w}}  {r['tracker']:<7s}  "
+                  f"{r['key'] or '?':<{key_w}}  {ls:<20s}  {lu:<20s}  "
+                  f"{pending:<7s}  {local_drift}")
+        return
+
+
+# ---------------------------------------------------------------------------
 # Dispatch table (used by the CLI entry point)
 # ---------------------------------------------------------------------------
 
@@ -773,5 +843,6 @@ COMMANDS = {
     "detach": cmd_detach,
     "search": cmd_search,
     "stats": cmd_stats,
+    "sync": cmd_sync,
     "import-beads": cmd_import_beads,
 }

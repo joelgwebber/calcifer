@@ -5,10 +5,6 @@ allowed-tools:
   - Bash
 ---
 
-Run the following command to start shaving a yak:
-
 ```
-python3 /app/skills/yak/scripts/yak.py shave $ARGUMENTS
+bash /app/skills/yak/run-yak.sh shave $ARGUMENTS
 ```
-
-This moves the task YAML file from `hairy/` to `shaving/`.

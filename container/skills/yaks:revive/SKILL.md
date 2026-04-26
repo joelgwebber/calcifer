@@ -5,10 +5,6 @@ allowed-tools:
   - Bash
 ---
 
-Run the following command to revive a dead yak:
-
 ```
-python3 /app/skills/yak/scripts/yak.py revive $ARGUMENTS
+bash /app/skills/yak/run-yak.sh revive $ARGUMENTS
 ```
-
-This moves the task file from `.yaks/dead/` back to `.yaks/hairy/`. Use when a slaughtered idea turns out to be worth pursuing after all.

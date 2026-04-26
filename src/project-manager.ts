@@ -60,9 +60,7 @@ export async function startProjectRun(opts: {
   const active = getActiveProjectRun(projectName);
   if (active) {
     const ago = humanDuration(Date.now() - new Date(active.created_at).getTime());
-    await notify(
-      `${projectName} is already running (started ${ago} ago). Use abandon_project to stop it first.`,
-    );
+    await notify(`${projectName} is already running (started ${ago} ago). Use abandon_project to stop it first.`);
     return;
   }
 

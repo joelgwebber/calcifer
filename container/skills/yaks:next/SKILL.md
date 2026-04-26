@@ -5,10 +5,6 @@ allowed-tools:
   - Bash
 ---
 
-Run the following command to show the next yaks to shave:
-
 ```
-python3 /app/skills/yak/scripts/yak.py next $ARGUMENTS
+bash /app/skills/yak/run-yak.sh next $ARGUMENTS
 ```
-
-These are hairy yaks whose dependencies are all shorn (or that have no dependencies).

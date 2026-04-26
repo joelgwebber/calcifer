@@ -37,30 +37,12 @@ if [ "${INSTALL_CJK_FONTS:-false}" = "true" ]; then
     BUILD_ARGS+=(--build-arg INSTALL_CJK_FONTS=true)
 fi
 
-# --- Sync yaks plugin into container build context ---
-sync_yaks() {
-  local yaks_dir="$HOME/.claude/plugins/cache/yaks-marketplace/yaks"
-  if [ ! -d "$yaks_dir" ]; then
-    echo "Warning: yaks plugin not found at $yaks_dir — skipping sync (tools/yaks/ may be stale)"
-    return
-  fi
-  local latest
-  latest=$(ls -1 "$yaks_dir" | sort -V | tail -1)
-  if [ -z "$latest" ]; then
-    echo "Warning: no yaks versions found in $yaks_dir — skipping sync"
-    return
-  fi
-  local src="$yaks_dir/$latest"
-  echo "Syncing yaks $latest..."
-  mkdir -p tools/yaks
-  cp "$src/scripts/yak.py" tools/yaks/yak.py
-  rm -rf tools/yaks/yaklib
-  cp -r "$src/scripts/yaklib" tools/yaks/yaklib
-  mkdir -p skills/yak
-  cp "$src/skills/yak/SKILL.md" skills/yak/SKILL.md
-  echo "  Done: tools/yaks/ and skills/yak/SKILL.md updated from v$latest"
-}
-sync_yaks
+# Verify yaks vendor is present — run sync-yaks.sh to update it.
+if [ ! -f "tools/yaks/yak.py" ]; then
+  echo "Error: tools/yaks/yak.py not found." >&2
+  echo "Run ./sync-yaks.sh to sync the vendor from https://github.com/joelgwebber/yaks" >&2
+  exit 1
+fi
 
 build_image() {
   local name="$1"

@@ -106,6 +106,10 @@ RUN --mount=type=cache,target=/root/.cache/pnpm \
 RUN --mount=type=cache,target=/root/.cache/pnpm \
     pnpm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
 
+# ---- yak task tracker --------------------------------------------------------
+COPY tools/yaks/ /opt/yaks/
+RUN printf '#!/bin/sh\nexec python3 /opt/yaks/yak.py "$@"\n' > /usr/local/bin/yak && chmod +x /usr/local/bin/yak
+
 # ---- Entrypoint --------------------------------------------------------------
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh

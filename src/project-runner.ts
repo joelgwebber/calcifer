@@ -147,15 +147,17 @@ function buildProjectMounts(project: ProjectConfig): VolumeMount[] {
   const agentRunnerSrc = path.join(calciferRoot, 'container', 'agent-runner', 'src');
   const runnerDir = path.join(projectSessionsDir(project.name), 'agent-runner-src');
   if (fs.existsSync(agentRunnerSrc)) {
-    const needsCopy = !fs.existsSync(runnerDir) || (() => {
-      for (const entry of fs.readdirSync(agentRunnerSrc)) {
-        const src = path.join(agentRunnerSrc, entry);
-        const dst = path.join(runnerDir, entry);
-        if (!fs.existsSync(dst)) return true;
-        if (fs.statSync(src).mtimeMs > fs.statSync(dst).mtimeMs) return true;
-      }
-      return false;
-    })();
+    const needsCopy =
+      !fs.existsSync(runnerDir) ||
+      (() => {
+        for (const entry of fs.readdirSync(agentRunnerSrc)) {
+          const src = path.join(agentRunnerSrc, entry);
+          const dst = path.join(runnerDir, entry);
+          if (!fs.existsSync(dst)) return true;
+          if (fs.statSync(src).mtimeMs > fs.statSync(dst).mtimeMs) return true;
+        }
+        return false;
+      })();
     if (needsCopy) {
       fs.cpSync(agentRunnerSrc, runnerDir, { recursive: true });
     }
@@ -264,6 +266,8 @@ export async function runProjectAgent(
     let newSessionId: string | undefined;
     let outputChain = Promise.resolve();
     let hadStreamingOutput = false;
+    let lastOutputWasError = false;
+    let lastOutputError: string | undefined;
 
     container.stdin?.write(JSON.stringify(containerInput));
     container.stdin?.end();
@@ -292,6 +296,12 @@ export async function runProjectAgent(
           try {
             const parsed = JSON.parse(jsonStr) as ContainerOutput;
             if (parsed.newSessionId) newSessionId = parsed.newSessionId;
+            if (parsed.status === 'error') {
+              lastOutputWasError = true;
+              lastOutputError = parsed.error;
+            } else {
+              lastOutputWasError = false;
+            }
             hadStreamingOutput = true;
             resetTimeout();
             outputChain = outputChain.then(() => onOutput(parsed));
@@ -360,12 +370,24 @@ export async function runProjectAgent(
 
       if (code !== 0) {
         if (hadStreamingOutput) {
-          log.info('Project container exited non-zero after producing output — treating as success', {
-            projectId,
-            code,
-            duration,
-          });
-          outputChain.then(() => resolve({ status: 'success', result: null, newSessionId }));
+          if (lastOutputWasError) {
+            log.info('Project container exited non-zero with error output', {
+              projectId,
+              code,
+              duration,
+              error: lastOutputError,
+            });
+            outputChain.then(() =>
+              resolve({ status: 'error', result: null, error: lastOutputError ?? 'Agent completed with error' }),
+            );
+          } else {
+            log.info('Project container exited non-zero after producing output — treating as success', {
+              projectId,
+              code,
+              duration,
+            });
+            outputChain.then(() => resolve({ status: 'success', result: null, newSessionId }));
+          }
           return;
         }
         const errorDetail = (stderr || stdout).slice(-500);

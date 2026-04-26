@@ -5,6 +5,10 @@ allowed-tools:
   - Bash
 ---
 
+Run the following command to show tangled yaks:
+
 ```
-bash /app/skills/yak/run-yak.sh tangled $ARGUMENTS
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/yak.py tangled $ARGUMENTS
 ```
+
+These are hairy yaks that have at least one unshorn dependency.

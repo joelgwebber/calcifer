@@ -6,10 +6,6 @@ allowed-tools:
   - Read
 ---
 
-Run the following command to show task details:
-
 ```
-python3 /app/skills/yak/scripts/yak.py show $ARGUMENTS
+bash /app/skills/yak/run-yak.sh show $ARGUMENTS
 ```
-
-Display the full output to the user.

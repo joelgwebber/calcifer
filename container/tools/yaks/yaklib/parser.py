@@ -71,6 +71,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--remove-label", nargs="+", help="Remove labels")
     sp.add_argument("--note", help="Append a timestamped progress note to the description")
     sp.add_argument("--source", help="External issue URL")
+    sp.add_argument("--last-synced",
+                    help="Stamp last_synced timestamp (ISO8601, or 'now'). "
+                         "Written by /yaks:sync after a successful merge.")
 
     for name in ("shave", "work"):
         sp = sub.add_parser(name, help="Start shaving a yak")
@@ -136,6 +139,24 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--json", action="store_true", help="JSON output")
 
     sub.add_parser("tui", help="Open interactive TUI")
+
+    sp = sub.add_parser("sync", help="Manage pending-sync sidecars (plan and "
+                        "apply are skill-driven; this surface is bookkeeping)")
+    sync_sub = sp.add_subparsers(dest="sync_action", required=True)
+    sync_sub.add_parser("ls", help="List yak IDs with pending sync sidecars")
+    sp_show = sync_sub.add_parser("show", help="Print a sidecar's contents")
+    sp_show.add_argument("id", help="Yak ID")
+    sp_clear = sync_sub.add_parser("clear",
+                                   help="Remove a sidecar (after a successful "
+                                        "apply, or to discard a plan)")
+    sp_clear.add_argument("id", help="Yak ID")
+    sp_check = sync_sub.add_parser("check",
+                                   help="Enumerate yaks with a `source:` URL "
+                                        "(input for sweep / drift-check; "
+                                        "upstream query is skill-driven)")
+    sp_check.add_argument("--json", action="store_true", help="JSON output")
+    sp_check.add_argument("--tracker",
+                          help="Filter by tracker (jira|linear|github|other)")
 
     sp = sub.add_parser("import-beads", help="Import tasks from a beads issues.jsonl file")
     sp.add_argument("--file", help="Path to issues.jsonl (default: auto-detect .beads/issues.jsonl)")

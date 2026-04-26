@@ -5,10 +5,6 @@ allowed-tools:
   - Bash
 ---
 
-Run the following command to reparent a task:
-
 ```
-python3 /app/skills/yak/scripts/yak.py reparent $ARGUMENTS
+bash /app/skills/yak/run-yak.sh reparent $ARGUMENTS
 ```
-
-Use `--parent TASK_ID` to move a task under a new parent (assigns the next available child number). Use `--unparent` to promote a child task to a top-level task (generates a new ID). All descendants are renamed recursively and dependency references across the entire `.yaks/` tree are updated.
