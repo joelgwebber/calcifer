@@ -77,6 +77,14 @@ When you start a build that should be serveable (e.g., "build a web UI"), includ
 
 ## Project task tracking
 
+Three task systems exist — don't confuse them:
+
+| System | What it is | When you use it |
+|--------|-----------|-----------------|
+| `schedule_task` / `list_tasks` | Time-based scheduler for Calcifer's own reminders and recurring actions | Scheduling things for yourself |
+| `yak` skill | Task tracking discipline for agents working *inside* a project repo. Only active when `.yaks/` is in the workspace. | You never invoke this — build agents do |
+| `yak_project` tool | Your window into a project's `.yaks/` tracker from the outside | Any time the user asks about project tasks |
+
 Each project has its own task tracker in `.yaks/` within the cloned repo. Use `yak_project` to read and manage tasks from Calcifer's side.
 
 ### Your role
