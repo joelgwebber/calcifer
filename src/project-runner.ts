@@ -147,12 +147,15 @@ function buildProjectMounts(project: ProjectConfig): VolumeMount[] {
   const agentRunnerSrc = path.join(calciferRoot, 'container', 'agent-runner', 'src');
   const runnerDir = path.join(projectSessionsDir(project.name), 'agent-runner-src');
   if (fs.existsSync(agentRunnerSrc)) {
-    const srcIndex = path.join(agentRunnerSrc, 'index.ts');
-    const cachedIndex = path.join(runnerDir, 'index.ts');
-    const needsCopy =
-      !fs.existsSync(runnerDir) ||
-      !fs.existsSync(cachedIndex) ||
-      (fs.existsSync(srcIndex) && fs.statSync(srcIndex).mtimeMs > fs.statSync(cachedIndex).mtimeMs);
+    const needsCopy = !fs.existsSync(runnerDir) || (() => {
+      for (const entry of fs.readdirSync(agentRunnerSrc)) {
+        const src = path.join(agentRunnerSrc, entry);
+        const dst = path.join(runnerDir, entry);
+        if (!fs.existsSync(dst)) return true;
+        if (fs.statSync(src).mtimeMs > fs.statSync(dst).mtimeMs) return true;
+      }
+      return false;
+    })();
     if (needsCopy) {
       fs.cpSync(agentRunnerSrc, runnerDir, { recursive: true });
     }
