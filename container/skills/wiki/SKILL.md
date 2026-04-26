@@ -11,7 +11,7 @@ Private wiki for one person. Files are synced from Seafile by the daemon — rea
 
 ## Location
 
-`/workspace/group/joel-wiki/` (Joel) or `/workspace/group/alicia-wiki/` (Alicia)
+`/workspace/agent/joel-wiki/` (Joel) or `/workspace/agent/alicia-wiki/` (Alicia)
 
 Organized however makes sense. Suggested top-level dirs: `vehicles/`, `property/`, `financial/`, `health/`, `people/`, `preferences/`, `documents/`. Add new ones freely.
 
@@ -45,7 +45,7 @@ Source files (PDFs, images) live alongside their `.md` extracts in the wiki dire
 ### PDF
 
 ```bash
-pdftotext /workspace/group/joel-wiki/path/to/file.pdf -
+pdftotext /workspace/agent/joel-wiki/path/to/file.pdf -
 ```
 
 If output has reasonable text (>50 words per page, no garbled characters): structure it into the companion `.md`.

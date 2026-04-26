@@ -49,6 +49,8 @@ export interface ContainerConfig {
   maxMessagesPerPrompt?: number;
   /** Feature flags passed to the agent runner (e.g. "projects"). */
   features?: string[];
+  /** Extra env vars injected into the container process (e.g. for skill env-guards). */
+  env?: Record<string, string>;
 }
 
 function emptyConfig(): ContainerConfig {
@@ -90,6 +92,7 @@ export function readContainerConfig(folder: string): ContainerConfig {
       agentGroupId: raw.agentGroupId,
       maxMessagesPerPrompt: raw.maxMessagesPerPrompt,
       features: raw.features,
+      env: raw.env,
     };
   } catch (err) {
     console.error(`[container-config] failed to parse ${p}: ${String(err)}`);
