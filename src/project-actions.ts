@@ -18,7 +18,9 @@ import type { Session } from './types.js';
 import type Database from 'better-sqlite3';
 
 import { wakeContainer } from './container-runner.js';
+import { CONTAINER_RUNTIME_BIN } from './container-runtime.js';
 import { registerDeliveryAction } from './delivery.js';
+import { getActiveServeRun } from './db/project-runs.js';
 import { getSession } from './db/sessions.js';
 import { log } from './log.js';
 import { writeSessionMessage } from './session-manager.js';
@@ -132,6 +134,31 @@ export function registerProjectActions(): void {
       output = `**yak result (${projectName}):**\n\n${result.stdout || '(no output)'}`;
     } catch (err) {
       output = `**yak result (${projectName}) — error:**\n\n${err instanceof Error ? err.message : String(err)}`;
+    }
+
+    await notifyAgent(session, output);
+  });
+
+  registerDeliveryAction('serve_logs', async (content, session, _inDb: Database.Database) => {
+    const projectName = content.project_name as string;
+    const serve = getActiveServeRun(projectName);
+
+    let output: string;
+    if (!serve) {
+      output = `**serve logs (${projectName}):** No active serve container found.`;
+    } else {
+      const result = spawnSync(CONTAINER_RUNTIME_BIN, ['logs', '--tail', '100', serve.container_name], {
+        encoding: 'utf-8',
+        timeout: 10_000,
+      });
+      const combined = [result.stdout, result.stderr].filter(Boolean).join('\n').trim();
+      if (result.error) {
+        output = `**serve logs (${projectName}) — error:** ${result.error.message}`;
+      } else if (!combined) {
+        output = `**serve logs (${projectName}):** (no output yet)`;
+      } else {
+        output = `**serve logs (${projectName}):**\n\`\`\`\n${combined}\n\`\`\``;
+      }
     }
 
     await notifyAgent(session, output);

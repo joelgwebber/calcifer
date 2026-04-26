@@ -3,10 +3,15 @@ import fs from 'fs';
 import net from 'net';
 import path from 'path';
 
-import { CONTAINER_RUNTIME_BIN, hostGatewayArgs, stopContainer } from './container-runtime.js';
+import { OneCLI } from '@onecli-sh/sdk';
+
+import { ONECLI_API_KEY, ONECLI_URL, TIMEZONE } from './config.js';
+import { CONTAINER_RUNTIME_BIN, hostGatewayArgs, readonlyMountArgs, stopContainer } from './container-runtime.js';
 import { log } from './log.js';
 import { ProjectRuntime } from './project-config.js';
 import { projectImageName, projectWorkspaceDir } from './project-runner.js';
+
+const onecli = new OneCLI({ url: ONECLI_URL, apiKey: ONECLI_API_KEY });
 
 const SERVE_PORT_RANGE_START = 8100;
 const SERVE_PORT_RANGE_END = 8199;
@@ -72,17 +77,35 @@ export async function startServeContainer(opts: {
     containerName,
     '--entrypoint',
     'sh',
+    '-e',
+    `TZ=${TIMEZONE}`,
     '-p',
     `0.0.0.0:${hostPort}:${servePort}`,
     '-v',
     `${workspaceDir}:/workspace/task`,
     '-w',
     '/workspace/task',
-    ...hostGatewayArgs(),
-    image,
-    '-c',
-    serveCmd,
   ];
+
+  // OneCLI gateway — injects HTTPS_PROXY + certs so project app code gets credentials
+  const agentIdentifier = `project-${projectName}`;
+  try {
+    await onecli.ensureAgent({ name: projectName, identifier: agentIdentifier });
+    const onecliApplied = await onecli.applyContainerConfig(args, { addHostMapping: false, agent: agentIdentifier });
+    if (onecliApplied) {
+      log.info('OneCLI gateway applied for serve container', { containerName });
+    } else {
+      log.warn('OneCLI gateway not applied — serve container will have no credentials', { containerName });
+    }
+  } catch (err) {
+    log.warn('OneCLI gateway error for serve container', { containerName, err });
+  }
+
+  // Placeholder so SDKs initialize; real credentials injected at request time by OneCLI proxy.
+  args.push('-e', 'ANTHROPIC_API_KEY=placeholder');
+
+  args.push(...hostGatewayArgs());
+  args.push(image, '-c', serveCmd);
 
   log.info('Starting serve container', { projectName, containerName, hostPort, servePort, serveCmd });
 

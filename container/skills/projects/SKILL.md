@@ -53,12 +53,15 @@ mcp__nanoclaw__restart_serve(project_name)
 
 `restart_serve` stops any running serve and starts a fresh one atomically. Use `stop_serve` + `serve_project` only if you need to pass different `serve_cmd`/`serve_port` arguments.
 
-### 4. Checking status
+### 4. Checking status and diagnosing problems
 
 ```
 mcp__nanoclaw__project_status(project_name)  # is a build running?
 mcp__nanoclaw__serve_status(project_name)    # is it serving, and at what URL?
+mcp__nanoclaw__serve_logs(project_name)      # last ~100 lines of serve container output
 ```
+
+Use `serve_logs` when the serve URL is unreachable, returns errors, or the user reports unexpected behavior. Container stdout and stderr are both captured.
 
 ## Serve config resolution
 

@@ -225,6 +225,26 @@ Examples:
   },
 };
 
+const serveLogs: McpToolDefinition = {
+  tool: {
+    name: 'serve_logs',
+    description: `Fetch recent stdout/stderr from a running serve container.
+
+Use this to diagnose why a serve container is failing, crashing, or returning errors. Returns the last ~100 lines of container output. Exactly one message arrives with the result.`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        project_name: { type: 'string', description: 'Project name to fetch logs for' },
+      },
+      required: ['project_name'],
+    },
+  },
+  async handler(args) {
+    writeProjectAction('serve_logs', { project_name: args.project_name });
+    return ok(`Log request sent for "${args.project_name as string}". The result will be sent as a message.`);
+  },
+};
+
 export function registerProjectTools(): void {
   registerTools([
     startProject,
@@ -235,5 +255,6 @@ export function registerProjectTools(): void {
     restartServe,
     serveStatus,
     yakProject,
+    serveLogs,
   ]);
 }
