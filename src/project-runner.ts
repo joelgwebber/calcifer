@@ -14,6 +14,7 @@ import {
   TIMEZONE,
 } from './config.js';
 import { CONTAINER_RUNTIME_BIN, hostGatewayArgs, readonlyMountArgs, stopContainer } from './container-runtime.js';
+import { readEnvFile } from './env.js';
 import { log } from './log.js';
 import { ProjectConfig, ProjectRuntime, getProjectSupplementPath } from './project-config.js';
 
@@ -196,6 +197,11 @@ async function buildProjectContainerArgs(
 
   args.push('-e', `TZ=${TIMEZONE}`);
 
+  const { GITHUB_TOKEN } = readEnvFile(['GITHUB_TOKEN']);
+  if (GITHUB_TOKEN) {
+    args.push('-e', `GITHUB_TOKEN=${GITHUB_TOKEN}`);
+  }
+
   // OneCLI gateway — injects HTTPS_PROXY + certs for credential injection
   const agentIdentifier = `project-${project.name}`;
   try {
@@ -211,10 +217,13 @@ async function buildProjectContainerArgs(
     log.warn('OneCLI gateway error for project container', { containerName, err });
   }
 
-  // Always set ANTHROPIC_API_KEY placeholder so project application code
-  // (e.g. Python anthropic SDK used by the project itself) can initialize.
-  // OneCLI handles real credential injection via the proxy.
-  args.push('-e', 'ANTHROPIC_API_KEY=placeholder');
+  // CLAUDE_CODE_OAUTH_TOKEN=placeholder is a sentinel that applyContainerConfig
+  // already sets via the OneCLI container-config endpoint. We add it explicitly
+  // here as a fallback in case applyContainerConfig didn't run (e.g. no vault).
+  // Do NOT set ANTHROPIC_API_KEY — that would make the claude binary use the
+  // x-api-key auth path, which the OneCLI 'anthropic' type secret does not
+  // intercept. The OAuth Bearer path (CLAUDE_CODE_OAUTH_TOKEN) is the only
+  // path the proxy injects credentials into.
   args.push('-e', 'CLAUDE_CODE_OAUTH_TOKEN=placeholder');
 
   args.push(...hostGatewayArgs());

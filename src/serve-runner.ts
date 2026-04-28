@@ -7,6 +7,7 @@ import { OneCLI } from '@onecli-sh/sdk';
 
 import { ONECLI_API_KEY, ONECLI_URL, TIMEZONE } from './config.js';
 import { CONTAINER_RUNTIME_BIN, hostGatewayArgs, readonlyMountArgs, stopContainer } from './container-runtime.js';
+import { readEnvFile } from './env.js';
 import { log } from './log.js';
 import { ProjectRuntime } from './project-config.js';
 import { projectImageName, projectWorkspaceDir } from './project-runner.js';
@@ -79,6 +80,12 @@ export async function startServeContainer(opts: {
     'sh',
     '-e',
     `TZ=${TIMEZONE}`,
+    '-e',
+    'PYTHONUNBUFFERED=1',
+    '-e',
+    'REQUESTS_CA_BUNDLE=/tmp/onecli-combined-ca.pem',
+    '-e',
+    'TIKTOKEN_CACHE_DIR=/workspace/task/.tiktoken-cache',
     '-p',
     `0.0.0.0:${hostPort}:${servePort}`,
     '-v',
@@ -101,8 +108,15 @@ export async function startServeContainer(opts: {
     log.warn('OneCLI gateway error for serve container', { containerName, err });
   }
 
-  // Placeholder so SDKs initialize; real credentials injected at request time by OneCLI proxy.
-  args.push('-e', 'ANTHROPIC_API_KEY=placeholder');
+  // Serve containers may run app code (e.g. LiteLLM) whose x-api-key requests OneCLI
+  // cannot intercept. Prefer an OAuth token from .env (app code should detect the
+  // sk-ant-oat prefix and use Bearer auth); fall back to a plain API key.
+  const { ANTHROPIC_OAUTH_TOKEN, ANTHROPIC_API_KEY } = readEnvFile(['ANTHROPIC_OAUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+  if (ANTHROPIC_OAUTH_TOKEN) {
+    args.push('-e', `ANTHROPIC_OAUTH_TOKEN=${ANTHROPIC_OAUTH_TOKEN}`);
+  } else if (ANTHROPIC_API_KEY) {
+    args.push('-e', `ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}`);
+  }
 
   args.push(...hostGatewayArgs());
   args.push(image, '-c', serveCmd);

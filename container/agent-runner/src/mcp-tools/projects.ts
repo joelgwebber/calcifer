@@ -43,7 +43,7 @@ const startProject: McpToolDefinition = {
 
 Available projects are in /workspace/extra/projects/*/config.yaml. Read a config to confirm the project name before starting.
 
-The result is delivered as a chat message when the agent finishes — this tool returns immediately.
+The result is delivered as a chat message when the agent finishes — this tool returns immediately. After calling this tool, acknowledge to the user that the project has started and that you will share the result when it arrives. Do NOT predict, speculate about, or fabricate what the agent found or fixed — you have no way to know the outcome until the completion message arrives. Wait silently for that message.
 
 If passing a yak_id, it must be a task ID from the project's own .yaks/ tracker (e.g. hello-world-abc1), not a Calcifer yak. Use yak_project to list available tasks first.`,
     inputSchema: {

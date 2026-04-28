@@ -1,3 +1,5 @@
+import { spawnSync } from 'child_process';
+
 import { log } from './log.js';
 import { loadProjectConfigs } from './project-config.js';
 import {
@@ -10,7 +12,7 @@ import {
   updateServeRun,
 } from './db/project-runs.js';
 import { runProjectAgent } from './project-runner.js';
-import { stopContainer } from './container-runtime.js';
+import { CONTAINER_RUNTIME_BIN, stopContainer } from './container-runtime.js';
 import { readWorkspaceServeJson, startServeContainer, stopServeContainer } from './serve-runner.js';
 
 // --- Prompt construction ---
@@ -208,6 +210,25 @@ export async function startServe(opts: {
     await notify(
       `**${projectName}** is now serving at http://localhost:${hostPort} (bound to 0.0.0.0 — accessible from any device on the local network)`,
     );
+
+    // Health check: tail logs 15s after startup and surface any errors.
+    setTimeout(() => {
+      try {
+        const result = spawnSync(CONTAINER_RUNTIME_BIN, ['logs', '--tail', '30', containerName], {
+          encoding: 'utf-8',
+          timeout: 10_000,
+        });
+        const output = [result.stdout, result.stderr].filter(Boolean).join('\n').trim();
+        if (output && /error|exception|traceback|failed|authentication|rate.?limit/i.test(output)) {
+          const snippet = output.slice(-1500);
+          notify(
+            `**${projectName}** serve container health check — errors detected:\n\`\`\`\n${snippet}\n\`\`\``,
+          ).catch(() => {});
+        }
+      } catch {
+        // Health check failure is non-fatal
+      }
+    }, 15_000);
   } catch (err) {
     log.error('Failed to start serve container', { err, projectName });
     await notify(

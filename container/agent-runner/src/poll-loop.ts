@@ -7,7 +7,7 @@ import {
   migrateLegacyContinuation,
   setContinuation,
 } from './db/session-state.js';
-import { formatMessages, extractRouting, categorizeMessage, isClearCommand, stripInternalTags, type RoutingContext } from './formatter.js';
+import { formatMessages, extractRouting, categorizeMessage, isClearCommand, stripInternalTags, stripHallucinatedEcho, type RoutingContext } from './formatter.js';
 import type { AgentProvider, AgentQuery, ProviderEvent } from './providers/types.js';
 
 const POLL_INTERVAL_MS = 1000;
@@ -380,7 +380,7 @@ function dispatchResultText(text: string, routing: RoutingContext): void {
     scratchpadParts.push(text.slice(lastIndex));
   }
 
-  const scratchpad = stripInternalTags(scratchpadParts.join(''));
+  const scratchpad = stripHallucinatedEcho(stripInternalTags(scratchpadParts.join('')));
 
   // Single-destination shortcut: the agent wrote plain text — send to
   // the session's originating channel (from session_routing) if available,
