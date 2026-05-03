@@ -3,16 +3,12 @@ import fs from 'fs';
 import net from 'net';
 import path from 'path';
 
-import { OneCLI } from '@onecli-sh/sdk';
-
-import { ONECLI_API_KEY, ONECLI_URL, TIMEZONE } from './config.js';
-import { CONTAINER_RUNTIME_BIN, hostGatewayArgs, readonlyMountArgs, stopContainer } from './container-runtime.js';
+import { TIMEZONE } from './config.js';
+import { CONTAINER_RUNTIME_BIN, stopContainer } from './container-runtime.js';
 import { readEnvFile } from './env.js';
 import { log } from './log.js';
 import { ProjectRuntime } from './project-config.js';
 import { projectImageName, projectWorkspaceDir } from './project-runner.js';
-
-const onecli = new OneCLI({ url: ONECLI_URL, apiKey: ONECLI_API_KEY });
 
 const SERVE_PORT_RANGE_START = 8100;
 const SERVE_PORT_RANGE_END = 8199;
@@ -83,8 +79,6 @@ export async function startServeContainer(opts: {
     '-e',
     'PYTHONUNBUFFERED=1',
     '-e',
-    'REQUESTS_CA_BUNDLE=/tmp/onecli-combined-ca.pem',
-    '-e',
     'TIKTOKEN_CACHE_DIR=/workspace/task/.tiktoken-cache',
     '-p',
     `0.0.0.0:${hostPort}:${servePort}`,
@@ -94,23 +88,8 @@ export async function startServeContainer(opts: {
     '/workspace/task',
   ];
 
-  // OneCLI gateway — injects HTTPS_PROXY + certs so project app code gets credentials
-  const agentIdentifier = `project-${projectName}`;
-  try {
-    await onecli.ensureAgent({ name: projectName, identifier: agentIdentifier });
-    const onecliApplied = await onecli.applyContainerConfig(args, { addHostMapping: false, agent: agentIdentifier });
-    if (onecliApplied) {
-      log.info('OneCLI gateway applied for serve container', { containerName });
-    } else {
-      log.warn('OneCLI gateway not applied — serve container will have no credentials', { containerName });
-    }
-  } catch (err) {
-    log.warn('OneCLI gateway error for serve container', { containerName, err });
-  }
-
-  // Serve containers may run app code (e.g. LiteLLM) whose x-api-key requests OneCLI
-  // cannot intercept. Prefer an OAuth token from .env (app code should detect the
-  // sk-ant-oat prefix and use Bearer auth); fall back to a plain API key.
+  // Inject Anthropic credentials directly — serve containers run arbitrary app code
+  // (LiteLLM, anthropic SDK, etc.) that needs credentials via env vars, not via proxy.
   const { ANTHROPIC_OAUTH_TOKEN, ANTHROPIC_API_KEY } = readEnvFile(['ANTHROPIC_OAUTH_TOKEN', 'ANTHROPIC_API_KEY']);
   if (ANTHROPIC_OAUTH_TOKEN) {
     args.push('-e', `ANTHROPIC_OAUTH_TOKEN=${ANTHROPIC_OAUTH_TOKEN}`);
@@ -118,7 +97,6 @@ export async function startServeContainer(opts: {
     args.push('-e', `ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}`);
   }
 
-  args.push(...hostGatewayArgs());
   args.push(image, '-c', serveCmd);
 
   log.info('Starting serve container', { projectName, containerName, hostPort, servePort, serveCmd });
