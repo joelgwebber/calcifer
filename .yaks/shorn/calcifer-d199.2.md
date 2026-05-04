@@ -16,5 +16,6 @@ Steps:
 - Assign joel as owner/admin in user_roles
 - Populate groups/joel/ and groups/alicia/ with container.json + CLAUDE.local.md from migration
 
-### 2026-04-25T18:27:26Z
+---
+▸ 2026-04-25T18:27:26Z
 Joel's agent bootstrapped: ag-1777141351652-tx7j2h @ groups/dm-with-joel. Telegram DM wired (platform_id: telegram:8716844131). Joel is global owner. container.json has seafile, readeck, workflowy, fastmail, simple-memory MCP servers + features=[projects]. Welcome DM confirmed delivered. Alicia's agent pending — needs her to DM the bot from her Telegram account.

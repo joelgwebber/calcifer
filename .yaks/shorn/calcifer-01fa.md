@@ -10,7 +10,8 @@ commit: 69040c9
 
 Route a question or request to another family member's agent: 'Ask Alicia's agent what her schedule looks like next weekend.' Routed through main group. Privacy-preserving: the receiving agent decides what to share based on its own context.
 
-### 2026-04-22T03:25:01Z
+---
+▸ 2026-04-22T03:25:01Z
 Refined design: send-only model, not cross-agent query.
 
 ## Approach

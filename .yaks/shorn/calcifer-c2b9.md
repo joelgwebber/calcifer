@@ -10,7 +10,8 @@ commit: fdcd1e4
 
 Can be used with Hardcover to identify books to read, and pull them from the library.
 
-### 2026-04-21T18:42:31Z
+---
+▸ 2026-04-21T18:42:31Z
 ## Implementation (2026-04-21)
 
 ### What was built

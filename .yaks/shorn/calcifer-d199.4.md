@@ -14,5 +14,6 @@ Currently using v1 IPC (stdin JSON + oneShot + stdout markers) for project conta
 
 Filed at migration time (previously calcifer-2e0a context). Low priority — current v1 IPC approach still works under v2.
 
-### 2026-04-26T15:34:27Z
+---
+▸ 2026-04-26T15:34:27Z
 Investigated root cause: entrypoint-project.sh uses npx tsc + node but v2 agent-runner is Bun-native (bun:sqlite, no tsconfig.json in image). tsc exits code 1 immediately. Error message was blank because tsc output goes to stdout (due to redirect) but failure message only checked stderr. Fixed error message to use (stderr||stdout). Full fix requires either: (a) separate project-mode agent-runner entry point that reads from stdin and uses IPC/DB model, or (b) full v2 session DB model for project agents. The project workspace for hello-world is pre-cloned from before v2 migration, so serve_project still works.

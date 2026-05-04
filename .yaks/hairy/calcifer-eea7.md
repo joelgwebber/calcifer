@@ -129,7 +129,8 @@ LEGAL CONSIDERATIONS:
 - Similar to browser automation for personal account management
 - Do not redistribute or commercialize
 
-### 2026-04-21T17:51:52Z
+---
+▸ 2026-04-21T17:51:52Z
 ## Research findings (2026-04-21)
 
 ### API endpoint confirmed

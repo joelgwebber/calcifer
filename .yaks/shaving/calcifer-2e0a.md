@@ -4,7 +4,7 @@ title: Background project agents with Calcifer-mediated HITL
 type: feature
 priority: 2
 created: '2026-03-02T05:17:29Z'
-updated: '2026-04-26T23:01:55Z'
+updated: '2026-05-04T02:11:56Z'
 ---
 
 Design a secure workflow that allows restricted agents to perform research and development work, then propose changes to a privileged agent for vetting and user approval before integration into core codebase.
@@ -194,10 +194,12 @@ SUCCESS CRITERIA:
 - No unauthorized core modifications possible
 - Workflow is efficient and practical
 
-### 2026-04-22T02:56:34Z
+---
+▸ 2026-04-22T02:56:34Z
 Also consider just trying out Langchain's OpenSWE
 
-### 2026-04-23T18:38:46Z
+---
+▸ 2026-04-23T18:38:46Z
 Design finalized. Key decisions:
 
 ARCHITECTURE:
@@ -241,3 +243,33 @@ OUTPUT:
 - Optional: open GitHub PR via gh CLI
 
 FIRST BUILD SLICE: ask_human MCP server (~100 lines) + pending_questions SQLite table + Calcifer reply routing patch (~30 lines). Everything else wires up around this.
+
+---
+▸ 2026-05-04T02:11:56Z
+Design evolution: per-yak git worktrees + long-running containers.
+
+After building out single-run project agents, the iterative workflow exposed a gap: serial yaks on the same project work fine, but 'putting a yak on ice' while working on others is effectively concurrent — and a single shared workspace cannot handle that.
+
+REVISED ARCHITECTURE:
+
+Filesystem layout:
+  data/projects/{name}/
+    config.yaml              # unchanged
+    repo/                    # main git clone (replaces workspace/)
+    worktrees/{yakId}/       # git worktree per active yak, branch yak-{yakId}
+    sessions/{yakId}/.claude # per-yak Claude SDK state (was shared)
+    context/                 # unchanged
+    ipc/                     # unchanged
+    logs/                    # unchanged
+
+Migration: if workspace/ exists and repo/ does not, treat workspace/ as repo/.
+
+Container identity: nanoclaw-project-{name}-{yakId} (stable, not timestamp-based).
+Container mode: long-running detached (-d), not one-shot stdin.
+IPC: Calcifer writes JSON to /workspace/ipc/input/; container polls.
+Session continuity: sessionId persisted per yak; each turn resumes prior context.
+
+Implementation breakdown:
+  2e0a.13 -- worktree-manager.ts + container-per-yak refactor (foundational)
+  2e0a.14 -- poll-loop / multi-turn IPC in project-index.ts (interactive behavior)
+  2e0a.11 -- create/delete/list now depends on 2e0a.13 (create clones repo, delete prunes worktrees)

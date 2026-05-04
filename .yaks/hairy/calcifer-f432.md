@@ -27,5 +27,6 @@ SCOPE:
 - qmd skill (currently dormant)
 - possibly conversation search too
 
-### 2026-04-26T14:44:30Z
+---
+▸ 2026-04-26T14:44:30Z
 If we implement QMD search, we can avoid having the wiki use Seafile search, eliminating the two SEAFILE_* env vars

@@ -74,6 +74,14 @@ export function getActiveProjectRun(projectName: string): ProjectRun | undefined
     .get(projectName) as ProjectRun | undefined;
 }
 
+export function getActiveYakRun(projectName: string, yakId: string): ProjectRun | undefined {
+  return getDb()
+    .prepare(
+      `SELECT * FROM project_runs WHERE project_name = ? AND yak_id = ? AND status = 'running' ORDER BY created_at DESC LIMIT 1`,
+    )
+    .get(projectName, yakId) as ProjectRun | undefined;
+}
+
 export function getLatestProjectRun(projectName: string): ProjectRun | undefined {
   return getDb()
     .prepare(`SELECT * FROM project_runs WHERE project_name = ? ORDER BY created_at DESC LIMIT 1`)

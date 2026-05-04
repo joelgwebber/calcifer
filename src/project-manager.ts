@@ -7,11 +7,13 @@ import {
   createServeRun,
   getActiveProjectRun,
   getActiveServeRun,
+  getActiveYakRun,
   getLatestProjectRun,
   updateProjectRun,
   updateServeRun,
 } from './db/project-runs.js';
 import { runProjectAgent } from './project-runner.js';
+import { removeWorktree } from './worktree-manager.js';
 import { CONTAINER_RUNTIME_BIN, stopContainer } from './container-runtime.js';
 import { readWorkspaceServeJson, startServeContainer, stopServeContainer } from './serve-runner.js';
 
@@ -59,11 +61,20 @@ export async function startProjectRun(opts: {
     return;
   }
 
-  const active = getActiveProjectRun(projectName);
-  if (active) {
-    const ago = humanDuration(Date.now() - new Date(active.created_at).getTime());
-    await notify(`${projectName} is already running (started ${ago} ago). Use abandon_project to stop it first.`);
-    return;
+  if (yakId) {
+    const activeYak = getActiveYakRun(projectName, yakId);
+    if (activeYak) {
+      const ago = humanDuration(Date.now() - new Date(activeYak.created_at).getTime());
+      await notify(`**${projectName}** (${yakId}) is already running (started ${ago} ago). Use abandon_project to stop it first.`);
+      return;
+    }
+  } else {
+    const active = getActiveProjectRun(projectName);
+    if (active) {
+      const ago = humanDuration(Date.now() - new Date(active.created_at).getTime());
+      await notify(`**${projectName}** is already running (started ${ago} ago). Use abandon_project to stop it first.`);
+      return;
+    }
   }
 
   const prompt = buildPrompt(projectName, yakId, extraPrompt);
@@ -84,7 +95,7 @@ export async function startProjectRun(opts: {
   let lastResult: string | null = null;
 
   const runPromise = runProjectAgent(
-    { projectId, project, prompt, assistantName: 'Calcifer' },
+    { projectId, project, prompt, yakId, assistantName: 'Calcifer' },
     (_proc, containerName) => {
       updateProjectRun(projectId, { container_name: containerName });
     },
@@ -134,9 +145,10 @@ export function getProjectStatus(projectName: string): string {
   return `**${projectName}** last ran${yakPart} ${ago} ago — status: ${latest.status}.`;
 }
 
-export function abandonProjectRun(projectName: string): string {
-  const active = getActiveProjectRun(projectName);
-  if (!active) return `No active run found for **${projectName}**.`;
+export function abandonProjectRun(projectName: string, yakId?: string): string {
+  const active = yakId ? getActiveYakRun(projectName, yakId) : getActiveProjectRun(projectName);
+  const label = yakId ? `**${projectName}** (${yakId})` : `**${projectName}**`;
+  if (!active) return `No active run found for ${label}.`;
 
   if (active.container_name) {
     try {
@@ -147,8 +159,17 @@ export function abandonProjectRun(projectName: string): string {
   }
 
   updateProjectRun(active.id, { status: 'abandoned' });
-  log.info('Project run abandoned', { projectId: active.id, projectName });
-  return `**${projectName}** abandoned.`;
+  log.info('Project run abandoned', { projectId: active.id, projectName, yakId });
+
+  if (active.yak_id) {
+    try {
+      removeWorktree(projectName, active.yak_id);
+    } catch (err) {
+      log.warn('Failed to remove worktree during abandon', { err, projectName, yakId: active.yak_id });
+    }
+  }
+
+  return `${label} abandoned.`;
 }
 
 // --- Serve lifecycle ---

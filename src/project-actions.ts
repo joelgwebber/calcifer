@@ -78,7 +78,10 @@ export function registerProjectActions(): void {
   });
 
   registerDeliveryAction('abandon_project', async (content, session, _inDb: Database.Database) => {
-    const result = abandonProjectRun(content.project_name as string);
+    const result = abandonProjectRun(
+      content.project_name as string,
+      content.yak_id as string | undefined,
+    );
     await notifyAgent(session, result);
   });
 

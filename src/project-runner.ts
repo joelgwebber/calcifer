@@ -17,6 +17,13 @@ import { CONTAINER_RUNTIME_BIN, hostGatewayArgs, readonlyMountArgs, stopContaine
 import { readEnvFile } from './env.js';
 import { log } from './log.js';
 import { ProjectConfig, ProjectRuntime, getProjectSupplementPath } from './project-config.js';
+import {
+  ensureProjectRepo,
+  ensureWorktree,
+  projectRepoDir,
+  projectYakSessionsParent,
+  safeId,
+} from './worktree-manager.js';
 
 // Must match agent-runner output markers
 const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
@@ -33,6 +40,7 @@ export interface ProjectRunInput {
   projectId: string;
   project: ProjectConfig;
   prompt: string;
+  yakId?: string;
   sessionId?: string;
   assistantName?: string;
 }
@@ -73,8 +81,9 @@ export function projectDir(projectName: string): string {
   return path.join(DATA_DIR, 'projects', projectName);
 }
 
+/** Returns the main repo directory. Kept for backward-compat callers (serve, yak_project). */
 export function projectWorkspaceDir(projectName: string): string {
-  return path.join(projectDir(projectName), 'workspace');
+  return projectRepoDir(projectName);
 }
 
 export function projectContextDir(projectName: string): string {
@@ -117,13 +126,16 @@ function writeContextDir(project: ProjectConfig): string {
   return ctxDir;
 }
 
-function buildProjectMounts(project: ProjectConfig): VolumeMount[] {
+function buildProjectMounts(project: ProjectConfig, yakId?: string): VolumeMount[] {
   const mounts: VolumeMount[] = [];
   const calciferRoot = process.cwd();
 
-  const wsDir = projectWorkspaceDir(project.name);
-  fs.mkdirSync(wsDir, { recursive: true });
-  mounts.push({ hostPath: wsDir, containerPath: '/workspace/task', readonly: false });
+  // Ensure main repo exists (clone or migrate workspace/ → repo/).
+  ensureProjectRepo(project);
+
+  // /workspace/task: per-yak worktree when yakId present, main repo otherwise.
+  const taskDir = yakId ? ensureWorktree(project, yakId) : projectRepoDir(project.name);
+  mounts.push({ hostPath: taskDir, containerPath: '/workspace/task', readonly: false });
 
   const ctxDir = writeContextDir(project);
   mounts.push({ hostPath: ctxDir, containerPath: '/workspace/context', readonly: true });
@@ -134,7 +146,11 @@ function buildProjectMounts(project: ProjectConfig): VolumeMount[] {
   fs.mkdirSync(path.join(ipcDir, 'input'), { recursive: true });
   mounts.push({ hostPath: ipcDir, containerPath: '/workspace/ipc', readonly: false });
 
-  const sessionsDir = path.join(projectSessionsDir(project.name), '.claude');
+  // Per-yak .claude state when yakId present; shared fallback otherwise.
+  const sessionsParent = yakId
+    ? projectYakSessionsParent(project.name, yakId)
+    : projectSessionsDir(project.name);
+  const sessionsDir = path.join(sessionsParent, '.claude');
   fs.mkdirSync(sessionsDir, { recursive: true });
   const settingsFile = path.join(sessionsDir, 'settings.json');
   if (!fs.existsSync(settingsFile)) {
@@ -166,7 +182,7 @@ function buildProjectMounts(project: ProjectConfig): VolumeMount[] {
   mounts.push({ hostPath: sessionsDir, containerPath: '/home/node/.claude', readonly: false });
 
   const agentRunnerSrc = path.join(calciferRoot, 'container', 'agent-runner', 'src');
-  const runnerDir = path.join(projectSessionsDir(project.name), 'agent-runner-src');
+  const runnerDir = path.join(sessionsParent, 'agent-runner-src');
   if (fs.existsSync(agentRunnerSrc)) {
     const needsCopy =
       !fs.existsSync(runnerDir) ||
@@ -254,11 +270,14 @@ export async function runProjectAgent(
   onOutput?: (output: ContainerOutput) => Promise<void>,
 ): Promise<ContainerOutput> {
   const startTime = Date.now();
-  const { projectId, project, prompt, sessionId, assistantName } = input;
+  const { projectId, project, prompt, yakId, sessionId, assistantName } = input;
 
-  const mounts = buildProjectMounts(project);
-  const safeId = projectId.replace(/[^a-zA-Z0-9-]/g, '-');
-  const containerName = `nanoclaw-project-${safeId}-${Date.now()}`;
+  const mounts = buildProjectMounts(project, yakId);
+  const safeName = project.name.replace(/[^a-zA-Z0-9-]/g, '-');
+  // Stable name when yakId is known; timestamp-based for ad-hoc runs.
+  const containerName = yakId
+    ? `nanoclaw-project-${safeName}-${safeId(yakId)}`
+    : `nanoclaw-project-${safeName}-${Date.now()}`;
   const containerArgs = await buildProjectContainerArgs(project, mounts, containerName);
 
   const containerInput = {
