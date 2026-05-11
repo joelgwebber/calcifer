@@ -377,7 +377,7 @@ registerChannelAdapter('whatsapp', {
       if (phoneNumber && !state.creds.registered) {
         setTimeout(async () => {
           try {
-            const code = await sock.requestPairingCode(phoneNumber);
+            const code = await sock.requestPairingCode(phoneNumber.replace(/\D/g, ''));
             log.info(`WhatsApp pairing code: ${code}`);
             log.info('Enter in WhatsApp > Linked Devices > Link with phone number');
             fs.writeFileSync(pairingCodeFile, code, 'utf-8');
