@@ -41,12 +41,7 @@ export function ensureProjectRepo(project: ProjectConfig): void {
   if (fs.existsSync(repoDir)) return;
 
   fs.mkdirSync(repoDir, { recursive: true });
-  const cloneArgs = [
-    'clone',
-    ...(project.clone_flags?.split(/\s+/).filter(Boolean) ?? []),
-    project.repo,
-    '.',
-  ];
+  const cloneArgs = ['clone', ...(project.clone_flags?.split(/\s+/).filter(Boolean) ?? []), project.repo, '.'];
   const result = spawnSync('git', cloneArgs, { cwd: repoDir, encoding: 'utf-8' });
   if (result.status !== 0) {
     fs.rmSync(repoDir, { recursive: true, force: true });

@@ -32,7 +32,9 @@ import {
   startServe,
   stopServe,
 } from './project-manager.js';
+import { loadProjectConfigs } from './project-config.js';
 import { projectWorkspaceDir } from './project-runner.js';
+import { ensureProjectRepo } from './worktree-manager.js';
 
 function findYakScript(): string | null {
   const yakDir = path.join(process.env.HOME || '', '.claude/plugins/cache/yaks-marketplace/yaks');
@@ -78,10 +80,7 @@ export function registerProjectActions(): void {
   });
 
   registerDeliveryAction('abandon_project', async (content, session, _inDb: Database.Database) => {
-    const result = abandonProjectRun(
-      content.project_name as string,
-      content.yak_id as string | undefined,
-    );
+    const result = abandonProjectRun(content.project_name as string, content.yak_id as string | undefined);
     await notifyAgent(session, result);
   });
 
@@ -119,6 +118,12 @@ export function registerProjectActions(): void {
   registerDeliveryAction('yak_project', async (content, session, _inDb: Database.Database) => {
     const projectName = content.project_name as string;
     const yakArgs = (content.yak_args as string[]) ?? [];
+
+    // Ensure repo exists (clones or migrates workspace/ → repo/ as needed).
+    const configs = loadProjectConfigs();
+    const project = configs.find((c) => c.name === projectName);
+    if (project) ensureProjectRepo(project);
+
     const workspaceDir = projectWorkspaceDir(projectName);
 
     let output: string;

@@ -134,8 +134,16 @@ function buildProjectMounts(project: ProjectConfig, yakId?: string): VolumeMount
   ensureProjectRepo(project);
 
   // /workspace/task: per-yak worktree when yakId present, main repo otherwise.
-  const taskDir = yakId ? ensureWorktree(project, yakId) : projectRepoDir(project.name);
+  const repoDir = projectRepoDir(project.name);
+  const taskDir = yakId ? ensureWorktree(project, yakId) : repoDir;
   mounts.push({ hostPath: taskDir, containerPath: '/workspace/task', readonly: false });
+
+  // When using a worktree, the worktree's .git file contains an absolute host path
+  // pointing back into the main repo's .git/worktrees/ directory. Git inside the
+  // container needs that path to resolve — mount the main repo at its exact host path.
+  if (yakId) {
+    mounts.push({ hostPath: repoDir, containerPath: repoDir, readonly: false });
+  }
 
   const ctxDir = writeContextDir(project);
   mounts.push({ hostPath: ctxDir, containerPath: '/workspace/context', readonly: true });
@@ -147,9 +155,7 @@ function buildProjectMounts(project: ProjectConfig, yakId?: string): VolumeMount
   mounts.push({ hostPath: ipcDir, containerPath: '/workspace/ipc', readonly: false });
 
   // Per-yak .claude state when yakId present; shared fallback otherwise.
-  const sessionsParent = yakId
-    ? projectYakSessionsParent(project.name, yakId)
-    : projectSessionsDir(project.name);
+  const sessionsParent = yakId ? projectYakSessionsParent(project.name, yakId) : projectSessionsDir(project.name);
   const sessionsDir = path.join(sessionsParent, '.claude');
   fs.mkdirSync(sessionsDir, { recursive: true });
   const settingsFile = path.join(sessionsDir, 'settings.json');

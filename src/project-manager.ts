@@ -65,7 +65,9 @@ export async function startProjectRun(opts: {
     const activeYak = getActiveYakRun(projectName, yakId);
     if (activeYak) {
       const ago = humanDuration(Date.now() - new Date(activeYak.created_at).getTime());
-      await notify(`**${projectName}** (${yakId}) is already running (started ${ago} ago). Use abandon_project to stop it first.`);
+      await notify(
+        `**${projectName}** (${yakId}) is already running (started ${ago} ago). Use abandon_project to stop it first.`,
+      );
       return;
     }
   } else {

@@ -13,7 +13,7 @@ fi
 
 # Clone repo into /workspace/task on first run (volume is empty, no .git present)
 PROJECT_JSON=/workspace/context/project.json
-if [ -f "$PROJECT_JSON" ] && [ ! -d /workspace/task/.git ]; then
+if [ -f "$PROJECT_JSON" ] && [ ! -e /workspace/task/.git ]; then
   REPO=$(node -e "const c=require('$PROJECT_JSON'); process.stdout.write(c.repo)")
   CLONE_FLAGS=$(node -e "const c=require('$PROJECT_JSON'); process.stdout.write(c.clone_flags||'')" 2>/dev/null || true)
   DEFAULT_BRANCH=$(node -e "const c=require('$PROJECT_JSON'); process.stdout.write(c.default_branch||'main')" 2>/dev/null || echo "main")
