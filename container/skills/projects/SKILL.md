@@ -159,17 +159,6 @@ When the user requests changes after a PR is open, start a new build. The worksp
 3. Make changes, commit, push — PR updates automatically
 4. When user says "looks good" or "merge it": `gh pr merge --squash`
 
-### Web UI: visual verification with subtext
-
-When the change involves a web UI (HTML, CSS, JS frontend, any visual component):
-
-1. After building, start the dev server locally (e.g. `npm start &`)
-2. Use subtext tunnel to connect: `/subtext-visual-verification`
-3. Capture a screenshot or session recording
-4. Include the subtext link in the PR body (`gh pr edit --body "..."`) or completion message
-
-If `SUBTEXT_API_KEY` is not set, describe the visual changes in the completion message instead.
-
 ## Behavioral guidance
 
 - **Proactively offer to serve** after a successful build if the project has `serve_cmd` configured or the user's intent was to see a result.
