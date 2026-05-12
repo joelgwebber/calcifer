@@ -18,6 +18,7 @@ export interface ProjectConfig {
   test_cmd?: string;
   serve_cmd?: string;
   serve_port?: number;
+  forward_env?: string[];
 }
 
 const VALID_RUNTIMES: ProjectRuntime[] = ['python', 'node', 'rust'];
@@ -58,6 +59,10 @@ function parseProjectConfig(raw: unknown, sourceFile: string): ProjectConfig | n
     serve_port:
       typeof obj.serve_port === 'number' && Number.isInteger(obj.serve_port) && obj.serve_port > 0
         ? obj.serve_port
+        : undefined,
+    forward_env:
+      Array.isArray(obj.forward_env) && obj.forward_env.every((v) => typeof v === 'string')
+        ? (obj.forward_env as string[])
         : undefined,
   };
 }

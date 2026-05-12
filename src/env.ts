@@ -40,3 +40,17 @@ export function readEnvFile(keys: string[]): Record<string, string> {
 
   return result;
 }
+
+/**
+ * Resolve env var values for the given keys, merging .env file with the
+ * shell environment. Shell env takes precedence over .env so local overrides
+ * work without editing the file.
+ */
+export function resolveEnv(keys: string[]): Record<string, string> {
+  const result = readEnvFile(keys);
+  for (const key of keys) {
+    const shellVal = process.env[key];
+    if (shellVal) result[key] = shellVal;
+  }
+  return result;
+}

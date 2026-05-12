@@ -14,7 +14,7 @@ import {
   TIMEZONE,
 } from './config.js';
 import { CONTAINER_RUNTIME_BIN, hostGatewayArgs, readonlyMountArgs, stopContainer } from './container-runtime.js';
-import { readEnvFile } from './env.js';
+import { resolveEnv } from './env.js';
 import { log } from './log.js';
 import { ProjectConfig, ProjectRuntime, getProjectSupplementPath } from './project-config.js';
 import {
@@ -219,9 +219,10 @@ async function buildProjectContainerArgs(
 
   args.push('-e', `TZ=${TIMEZONE}`);
 
-  const { GITHUB_TOKEN } = readEnvFile(['GITHUB_TOKEN']);
-  if (GITHUB_TOKEN) {
-    args.push('-e', `GITHUB_TOKEN=${GITHUB_TOKEN}`);
+  const forwardKeys = ['GITHUB_TOKEN', ...(project.forward_env ?? [])];
+  const forwardVals = resolveEnv(forwardKeys);
+  for (const key of forwardKeys) {
+    if (forwardVals[key]) args.push('-e', `${key}=${forwardVals[key]}`);
   }
 
   // OneCLI gateway — injects HTTPS_PROXY + certs for credential injection

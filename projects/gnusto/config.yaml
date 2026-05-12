@@ -3,3 +3,6 @@ repo: https://github.com/rocketsurgery-games/gnusto.git
 default_branch: main
 runtime: python
 test_cmd: uv run pytest
+forward_env:
+  - ANTHROPIC_OAUTH_TOKEN
+  - SUBTEXT_API_KEY

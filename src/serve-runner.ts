@@ -5,7 +5,7 @@ import path from 'path';
 
 import { TIMEZONE } from './config.js';
 import { CONTAINER_RUNTIME_BIN, stopContainer } from './container-runtime.js';
-import { readEnvFile } from './env.js';
+import { resolveEnv } from './env.js';
 import { log } from './log.js';
 import { ProjectRuntime } from './project-config.js';
 import { projectImageName, projectWorkspaceDir } from './project-runner.js';
@@ -55,6 +55,7 @@ export async function startServeContainer(opts: {
   runtime: ProjectRuntime;
   serveCmd: string;
   servePort: number;
+  forwardEnv?: string[];
 }): Promise<{ containerName: string; hostPort: number }> {
   const { projectName, runtime, serveCmd, servePort } = opts;
 
@@ -88,13 +89,11 @@ export async function startServeContainer(opts: {
     '/workspace/task',
   ];
 
-  // Inject Anthropic credentials directly — serve containers run arbitrary app code
-  // (LiteLLM, anthropic SDK, etc.) that needs credentials via env vars, not via proxy.
-  const { ANTHROPIC_OAUTH_TOKEN, ANTHROPIC_API_KEY } = readEnvFile(['ANTHROPIC_OAUTH_TOKEN', 'ANTHROPIC_API_KEY']);
-  if (ANTHROPIC_OAUTH_TOKEN) {
-    args.push('-e', `ANTHROPIC_OAUTH_TOKEN=${ANTHROPIC_OAUTH_TOKEN}`);
-  } else if (ANTHROPIC_API_KEY) {
-    args.push('-e', `ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}`);
+  if (opts.forwardEnv?.length) {
+    const vals = resolveEnv(opts.forwardEnv);
+    for (const key of opts.forwardEnv) {
+      if (vals[key]) args.push('-e', `${key}=${vals[key]}`);
+    }
   }
 
   args.push(image, '-c', serveCmd);

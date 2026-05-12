@@ -216,6 +216,7 @@ export async function startServe(opts: {
       runtime: project.runtime,
       serveCmd,
       servePort,
+      forwardEnv: project.forward_env,
     });
 
     const runId = `serve-${projectName}-${Date.now()}`;
