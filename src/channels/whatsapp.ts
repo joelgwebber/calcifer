@@ -125,6 +125,60 @@ function formatWhatsApp(text: string): string {
   return segments.map(({ content, isProtected }) => (isProtected ? content : transformForWhatsApp(content))).join('');
 }
 
+/**
+ * Subset of a normalised Baileys message carrying the types that can host
+ * `contextInfo.mentionedJid`. Kept narrow so tests don't need the full proto shape.
+ */
+type MentionContextSource = {
+  extendedTextMessage?: { contextInfo?: { mentionedJid?: string[] | null } | null } | null;
+  imageMessage?: { contextInfo?: { mentionedJid?: string[] | null } | null } | null;
+  videoMessage?: { contextInfo?: { mentionedJid?: string[] | null } | null } | null;
+  documentMessage?: { contextInfo?: { mentionedJid?: string[] | null } | null } | null;
+};
+
+/**
+ * Detect an explicit @-mention of the bot in a WhatsApp group message.
+ *
+ * WhatsApp carries mentions in `contextInfo.mentionedJid` on the text +
+ * caption-bearing message types. Matches against both the bot's phone JID
+ * and LID — modern clients increasingly emit the LID even when the human
+ * typed a phone-number @-mention. Fixes #2560 (upstream).
+ *
+ * Exported for unit testing. DMs are unconditionally mentions and skip this.
+ */
+export function isBotMentionedInGroup(
+  normalized: MentionContextSource,
+  botPhoneJid: string | undefined,
+  botLidUser: string | undefined,
+): boolean {
+  if (!botPhoneJid && !botLidUser) return false;
+  const mentioned: string[] = [
+    ...(normalized.extendedTextMessage?.contextInfo?.mentionedJid ?? []),
+    ...(normalized.imageMessage?.contextInfo?.mentionedJid ?? []),
+    ...(normalized.videoMessage?.contextInfo?.mentionedJid ?? []),
+    ...(normalized.documentMessage?.contextInfo?.mentionedJid ?? []),
+  ];
+  const botLidJid = botLidUser ? `${botLidUser}@lid` : undefined;
+  return mentioned.some((jid) => {
+    if (!jid) return false;
+    const bare = jid.split(':')[0];
+    return bare === botPhoneJid || bare === botLidJid;
+  });
+}
+
+/**
+ * Compute `InboundMessage.isMention` for a WhatsApp message.
+ *   - DMs are always mentions (router auto-engages on the bot's behalf).
+ *   - Group messages are mentions only when the bot is explicitly @-tagged.
+ *
+ * Returns `true | undefined` (not `true | false`) because `InboundMessage.isMention`
+ * is `boolean | undefined` and the router treats `undefined` as "not a mention".
+ */
+export function computeIsMention(isGroup: boolean, botMentionedInGroup: boolean): true | undefined {
+  if (!isGroup) return true;
+  return botMentionedInGroup ? true : undefined;
+}
+
 /** Map file extension to Baileys media message type. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildMediaMessage(data: Buffer, filename: string, ext: string, caption?: string): any {
@@ -165,6 +219,7 @@ registerChannelAdapter('whatsapp', {
     // LID → phone JID mapping (WhatsApp's new ID system)
     const lidToPhoneMap: Record<string, string> = {};
     let botLidUser: string | undefined;
+    let botPhoneJid: string | undefined;
 
     // Outgoing queue for messages sent while disconnected
     const outgoingQueue: Array<{ jid: string; text: string }> = [];
@@ -448,6 +503,9 @@ registerChannelAdapter('whatsapp', {
           if (sock.user) {
             const phoneUser = sock.user.id.split(':')[0];
             const lidUser = sock.user.lid?.split(':')[0];
+            if (phoneUser) {
+              botPhoneJid = `${phoneUser}@s.whatsapp.net`;
+            }
             if (lidUser && phoneUser) {
               setLidPhoneMapping(lidUser, `${phoneUser}@s.whatsapp.net`);
               botLidUser = lidUser;
@@ -557,6 +615,14 @@ registerChannelAdapter('whatsapp', {
               }
             }
 
+            // Detect explicit @-mentions of the bot in groups via
+            // contextInfo.mentionedJid — the proper WhatsApp API signal.
+            // Text-match on @AssistantName is kept as a fallback for shared-number
+            // mode where the bot name appears literally in the message body.
+            const botMentionedInGroup =
+              isGroup &&
+              (isBotMentionedInGroup(normalized, botPhoneJid, botLidUser) || content.includes(`@${ASSISTANT_NAME}`));
+
             const inbound: InboundMessage = {
               id: msg.key.id || `wa-${Date.now()}`,
               kind: 'chat',
@@ -571,8 +637,7 @@ registerChannelAdapter('whatsapp', {
                 chatJid,
               },
               timestamp,
-              // DMs always warrant routing; group messages only when bot is @mentioned
-              isMention: !isGroup || content.includes(`@${ASSISTANT_NAME}`),
+              isMention: computeIsMention(isGroup, botMentionedInGroup),
             };
 
             // WhatsApp doesn't use threads — threadId is null

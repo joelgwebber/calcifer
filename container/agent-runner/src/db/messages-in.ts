@@ -68,13 +68,24 @@ export function getPendingMessages(isFirstPoll = false): MessageInRow[] {
 
   try {
     const onWakeFilter = hasOnWakeColumn(inbound) ? 'AND (on_wake = 0 OR ?1 = 1)' : '';
+    // Prioritize trigger=1 (wake-eligible) rows over trigger=0 (accumulated
+    // ambient context). Without this, a busy group could fill all N slots with
+    // trigger=0 chatter, push the trigger=1 @mention beyond the LIMIT, and
+    // leave the poll-loop gate (`messages.some(m => m.trigger === 1)`) seeing
+    // no wake-eligible messages — causing the container to sleep indefinitely
+    // even though there IS a pending @mention.
+    //
+    // The ORDER BY puts trigger=1 rows first (sort_priority=0) and trigger=0
+    // rows second (sort_priority=1), each subgroup sorted by seq DESC so the
+    // most recent within each tier is preferred when the cap bites. After the
+    // LIMIT we reverse to restore chronological order for the agent.
     const pending = inbound
       .prepare(
         `SELECT * FROM messages_in
          WHERE status = 'pending'
            AND (process_after IS NULL OR datetime(process_after) <= datetime('now'))
            ${onWakeFilter}
-         ORDER BY seq DESC
+         ORDER BY (CASE WHEN trigger = 1 THEN 0 ELSE 1 END), COALESCE(seq, rowid) DESC
          LIMIT ?2`,
       )
       .all(isFirstPoll ? 1 : 0, getMaxMessagesPerPrompt()) as MessageInRow[];
@@ -163,4 +174,3 @@ export function findQuestionResponse(questionId: string): MessageInRow | undefin
     inbound.close();
   }
 }
-

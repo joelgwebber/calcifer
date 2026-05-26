@@ -155,15 +155,47 @@ export function formatMessages(messages: MessageInRow[]): string {
 }
 
 function formatChatMessages(messages: MessageInRow[]): string {
-  // Each `<message id="..." from="...">...</message>` block is self-contained;
-  // concatenating them reads to the agent as a sequence of distinct messages.
+  // Split by trigger value.
+  //
+  // trigger=0 rows are accumulated ambient context written by the host when
+  // ignored_message_policy='accumulate' fires on a non-engaging message (e.g.
+  // ordinary group chatter when the wiring is engage_mode='mention'). They
+  // ride along with the batch when a real trigger=1 message arrives so the
+  // agent has conversational context, but the agent should NOT respond to
+  // them — only to the trigger=1 messages that actually woke it.
+  //
+  // trigger=1 rows are the canonical wake-eligible messages: @mentions, DMs,
+  // or any other message the router decided the agent should respond to.
+  //
+  // When all messages are trigger=1 (every normal DM conversation), this
+  // function is identical to its previous implementation.
+  //
   // Earlier revisions wrapped multi-message batches in an outer `<messages>`
   // envelope, but the Claude Agent SDK responded to that shape with a
   // synthetic stub (`model: "<synthetic>"`, `content: "No response
   // requested."`) instead of calling the API — see #2555 for the full trace.
   // The fix is simply to drop the wrapper; the single-message path (which
   // already worked) is now just the N=1 case of the same code.
-  return messages.map(formatSingleChat).join('\n');
+  const contextMsgs = messages.filter((m) => m.trigger === 0);
+  const activeMsgs = messages.filter((m) => m.trigger !== 0);
+
+  const parts: string[] = [];
+
+  if (contextMsgs.length > 0) {
+    // Wrap ambient context in a clearly-labelled block so the agent knows not
+    // to respond to these messages. The note attribute is directive: it is
+    // read by the model on every turn that includes group context.
+    const inner = contextMsgs.map(formatSingleChat).join('\n');
+    parts.push(
+      `<group_context note="ambient conversation — for context only, do not respond to these messages">\n${inner}\n</group_context>`,
+    );
+  }
+
+  if (activeMsgs.length > 0) {
+    parts.push(activeMsgs.map(formatSingleChat).join('\n'));
+  }
+
+  return parts.join('\n');
 }
 
 function formatSingleChat(msg: MessageInRow): string {

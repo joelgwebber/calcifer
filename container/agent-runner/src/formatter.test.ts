@@ -24,19 +24,15 @@ afterEach(() => {
   closeSessionDb();
 });
 
-function insertMessage(
-  id: string,
-  kind: string,
-  content: object,
-  opts?: { timestamp?: string },
-) {
+function insertMessage(id: string, kind: string, content: object, opts?: { timestamp?: string; trigger?: number }) {
   const timestamp = opts?.timestamp ?? new Date().toISOString();
+  const trigger = opts?.trigger ?? 1;
   getInboundDb()
     .prepare(
-      `INSERT INTO messages_in (id, kind, timestamp, status, content)
-       VALUES (?, ?, ?, 'pending', ?)`,
+      `INSERT INTO messages_in (id, kind, timestamp, status, trigger, content)
+       VALUES (?, ?, ?, 'pending', ?, ?)`,
     )
-    .run(id, kind, timestamp, JSON.stringify(content));
+    .run(id, kind, timestamp, trigger, JSON.stringify(content));
 }
 
 describe('context timezone header', () => {
@@ -171,9 +167,7 @@ describe('stripInternalTags', () => {
   });
 
   it('strips multi-line internal tags', () => {
-    expect(stripInternalTags('hello <internal>\nsecret\nstuff\n</internal> world')).toBe(
-      'hello  world',
-    );
+    expect(stripInternalTags('hello <internal>\nsecret\nstuff\n</internal> world')).toBe('hello  world');
   });
 
   it('strips multiple internal tag blocks', () => {
@@ -189,8 +183,82 @@ describe('stripInternalTags', () => {
   });
 
   it('preserves content that surrounds internal tags', () => {
-    expect(stripInternalTags('<internal>thinking</internal>The answer is 42')).toBe(
-      'The answer is 42',
-    );
+    expect(stripInternalTags('<internal>thinking</internal>The answer is 42')).toBe('The answer is 42');
+  });
+});
+
+describe('group_context: trigger=0 accumulation (#2436)', () => {
+  // Regression guard: trigger=0 rows are accumulated ambient group chat
+  // (ignored_message_policy='accumulate'). When they ride along with a
+  // trigger=1 @mention, the formatter must present them as context the agent
+  // should NOT respond to, while trigger=1 rows stay as normal <message> blocks.
+
+  it('wraps trigger=0 messages in <group_context>', () => {
+    insertMessage('ctx1', 'chat', { sender: 'Alice', text: 'hey anyone around?' }, { trigger: 0 });
+    const result = formatMessages(getPendingMessages());
+    expect(result).toContain('<group_context');
+    expect(result).toContain('ambient conversation');
+    expect(result).toContain('hey anyone around?');
+  });
+
+  it('trigger=1 messages remain as plain <message> blocks (no group_context wrapper)', () => {
+    insertMessage('m1', 'chat', { sender: 'Alice', text: 'hello' });
+    const result = formatMessages(getPendingMessages());
+    expect(result).not.toContain('<group_context');
+    expect(result).toContain('<message ');
+  });
+
+  it('group_context appears before trigger=1 messages in the output', () => {
+    insertMessage('ctx1', 'chat', { sender: 'Alice', text: 'ambient chat' }, { trigger: 0 });
+    insertMessage('m1', 'chat', { sender: 'Alice', text: '@Calcifer help' });
+    const result = formatMessages(getPendingMessages());
+    const ctxIdx = result.indexOf('<group_context');
+    const msgIdx = result.indexOf('<message ');
+    expect(ctxIdx).toBeGreaterThanOrEqual(0);
+    expect(msgIdx).toBeGreaterThan(ctxIdx);
+  });
+
+  it('multiple trigger=0 messages are all inside the group_context block', () => {
+    insertMessage('ctx1', 'chat', { sender: 'Alice', text: 'msg one' }, { trigger: 0 });
+    insertMessage('ctx2', 'chat', { sender: 'Bob', text: 'msg two' }, { trigger: 0 });
+    insertMessage('m1', 'chat', { sender: 'Alice', text: '@Calcifer help' });
+    const result = formatMessages(getPendingMessages());
+    const openTag = result.indexOf('<group_context');
+    const closeTag = result.indexOf('</group_context>');
+    expect(openTag).toBeGreaterThanOrEqual(0);
+    expect(closeTag).toBeGreaterThan(openTag);
+    // Both context messages must be inside the block
+    const ctxBlock = result.slice(openTag, closeTag);
+    expect(ctxBlock).toContain('msg one');
+    expect(ctxBlock).toContain('msg two');
+    // The @mention must be outside it
+    const afterBlock = result.slice(closeTag);
+    expect(afterBlock).toContain('@Calcifer help');
+  });
+
+  it('trigger=0 messages inside group_context are in chronological order', () => {
+    const t1 = '2026-06-01T10:00:00.000Z';
+    const t2 = '2026-06-01T10:01:00.000Z';
+    insertMessage('ctx1', 'chat', { sender: 'Alice', text: 'first' }, { trigger: 0, timestamp: t1 });
+    insertMessage('ctx2', 'chat', { sender: 'Bob', text: 'second' }, { trigger: 0, timestamp: t2 });
+    insertMessage('m1', 'chat', { sender: 'Alice', text: '@Calcifer go' });
+    const result = formatMessages(getPendingMessages());
+    const firstIdx = result.indexOf('first');
+    const secondIdx = result.indexOf('second');
+    expect(firstIdx).toBeGreaterThanOrEqual(0);
+    expect(secondIdx).toBeGreaterThan(firstIdx);
+  });
+
+  it('all-trigger=0 batch is wrapped entirely in group_context (degenerate case)', () => {
+    // In normal operation the poll-loop gate prevents all-trigger=0 batches
+    // from reaching the formatter, but the formatter must handle it gracefully.
+    insertMessage('ctx1', 'chat', { sender: 'Alice', text: 'just chatting' }, { trigger: 0 });
+    const result = formatMessages(getPendingMessages());
+    expect(result).toContain('<group_context');
+    expect(result).toContain('</group_context>');
+    // No bare <message> block outside group_context
+    const closeTag = result.indexOf('</group_context>');
+    const afterBlock = result.slice(closeTag + '</group_context>'.length);
+    expect(afterBlock).not.toMatch(/<message /);
   });
 });
