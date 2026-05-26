@@ -11,16 +11,9 @@ import './interactive.js';
 import './agents.js';
 import './self-mod.js';
 import { startMcpServer } from './server.js';
-import { loadConfig } from '../config.js';
-import { registerProjectTools } from './projects.js';
 
 function log(msg: string): void {
   console.error(`[mcp-tools] ${msg}`);
-}
-
-const config = loadConfig();
-if (config.features?.includes('projects')) {
-  registerProjectTools();
 }
 
 startMcpServer().catch((err) => {

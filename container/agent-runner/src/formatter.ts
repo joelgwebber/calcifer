@@ -256,24 +256,3 @@ function escapeXml(str: string): string {
 export function stripInternalTags(text: string): string {
   return text.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
 }
-
-/**
- * Detect and remove hallucinated prompt echoes from agent output.
- *
- * After auto-compact, Claude sometimes starts its response by echoing the
- * last user turn verbatim in the "Human: <context .../> <message ...>"
- * format that the formatter uses for inbound messages. When this echoed
- * prefix is the entire output (or precedes actual content), the agent
- * is producing no real response — strip it so nothing reaches the channel.
- *
- * Pattern: output starts with "Human: <context timezone=..." which is the
- * literal start of a formatted inbound message batch.
- */
-export function stripHallucinatedEcho(text: string): string {
-  // If the text starts with the prompt preamble the agent should never echo,
-  // it's an echo artifact — drop it entirely.
-  if (/^Human:\s*<context\b/.test(text.trimStart())) {
-    return '';
-  }
-  return text;
-}

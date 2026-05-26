@@ -15,7 +15,6 @@ import { startActiveDeliveryPoll, startSweepDeliveryPoll, setDeliveryAdapter, st
 import { startHostSweep, stopHostSweep } from './host-sweep.js';
 import { routeInbound } from './router.js';
 import { log } from './log.js';
-import { registerProjectActions } from './project-actions.js';
 
 // Response + shutdown registries live in response-registry.ts to break the
 // circular import cycle: src/index.ts imports src/modules/index.js for side
@@ -150,9 +149,6 @@ async function main(): Promise<void> {
     },
   };
   setDeliveryAdapter(deliveryAdapter);
-
-  // 4b. Project system action handlers
-  registerProjectActions();
 
   // 5. Start delivery polls
   startActiveDeliveryPoll();

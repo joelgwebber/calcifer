@@ -47,26 +47,6 @@ import type { AgentGroup, Session } from './types.js';
 
 const onecli = new OneCLI({ url: ONECLI_URL, apiKey: ONECLI_API_KEY });
 
-// New agents are created in `selective` mode (no secrets). Call this after
-// ensureAgent to flip them to `all` so the vault injects credentials automatically.
-async function ensureAgentSecretModeAll(identifier: string): Promise<void> {
-  try {
-    const res = await fetch(`${ONECLI_URL}/api/agents`);
-    const data = (await res.json()) as { data?: { id: string; identifier: string }[] };
-    const agents = data.data ?? [];
-    const agent = agents.find((a) => a.identifier === identifier);
-    if (!agent) return;
-    await fetch(`${ONECLI_URL}/api/agents/${agent.id}/secret-mode`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'all' }),
-    });
-    log.info('OneCLI agent secret mode set to all', { identifier });
-  } catch (err) {
-    log.warn('Failed to set OneCLI agent secret mode', { identifier, err });
-  }
-}
-
 /** Active containers tracked by session ID. */
 const activeContainers = new Map<string, { process: ChildProcess; containerName: string }>();
 
@@ -454,19 +434,11 @@ async function buildContainerArgs(
     }
   }
 
-  // Container-level env vars from container.json (e.g. skill env-guards).
-  if (containerConfig.env) {
-    for (const [key, value] of Object.entries(containerConfig.env)) {
-      args.push('-e', `${key}=${value}`);
-    }
-  }
-
   // OneCLI gateway — injects HTTPS_PROXY + certs so container API calls
   // are routed through the agent vault for credential injection.
   try {
     if (agentIdentifier) {
-      const { created } = await onecli.ensureAgent({ name: agentGroup.name, identifier: agentIdentifier });
-      if (created) await ensureAgentSecretModeAll(agentIdentifier);
+      await onecli.ensureAgent({ name: agentGroup.name, identifier: agentIdentifier });
     }
     const onecliApplied = await onecli.applyContainerConfig(args, { addHostMapping: false, agent: agentIdentifier });
     if (onecliApplied) {
