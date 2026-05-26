@@ -248,7 +248,7 @@ launchctl unload ~/Library/LaunchAgents/com.nanoclaw.plist
 launchctl kickstart -k gui/$(id -u)/com.nanoclaw  # restart
 
 # Linux (systemd)
-systemctl --user start|stop|restart nanoclaw
+systemctl --user start|stop|restart calcifer
 ```
 
 ## Troubleshooting
