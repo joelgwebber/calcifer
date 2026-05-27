@@ -1,10 +1,14 @@
 /**
- * WhatsApp channel adapter (v2) — native Baileys v6 implementation.
+ * WhatsApp channel adapter (v2) — native Baileys v7 implementation.
  *
  * Implements ChannelAdapter directly (no Chat SDK bridge) using
- * @whiskeysockets/baileys v6 (stable). Ports proven v1 infrastructure:
- * getMessage fallback, outgoing queue, group metadata cache, LID mapping,
- * reconnection with backoff.
+ * @whiskeysockets/baileys 7.0.0-rc.9 (pinned — last release, unmaintained).
+ * Ports proven v1 infrastructure: getMessage fallback, outgoing queue,
+ * group metadata cache, LID mapping, reconnection with backoff.
+ *
+ * LID handling: Baileys v7 provides participantAlt / remoteJidAlt on every
+ * inbound message, and signalRepository.lidMapping.getPNForLID for resolution.
+ * The adapter always resolves to phone JID (@s.whatsapp.net) before emitting.
  *
  * Auth credentials persist in store/auth/. On first run:
  * - If WHATSAPP_PHONE_NUMBER is set → pairing code (printed to log)
@@ -22,6 +26,7 @@ import { pino } from 'pino';
 
 import {
   makeWASocket,
+  proto,
   Browsers,
   DisconnectReason,
   fetchLatestWaWebVersion,
@@ -38,27 +43,6 @@ import { log } from '../log.js';
 import { registerChannelAdapter } from './channel-registry.js';
 import { normalizeOptions, type NormalizedOption } from './ask-question.js';
 import type { ChannelAdapter, ChannelSetup, ConversationInfo, InboundMessage, OutboundMessage } from './adapter.js';
-
-// Baileys v6 bug: getPlatformId sends charCode (49) instead of enum value (1).
-// Fixed in Baileys 7.x but not backported. Without this, pairing codes fail with
-// "couldn't link device" because WhatsApp receives an invalid platform ID.
-// Must use createRequire — ESM `import *` creates a read-only namespace.
-// proto is not available as a named ESM export — use createRequire (same as v1)
-import { createRequire } from 'module';
-const _require = createRequire(import.meta.url);
-const { proto } = _require('@whiskeysockets/baileys') as { proto: any };
-try {
-  const _generics = _require('@whiskeysockets/baileys/lib/Utils/generics') as Record<string, unknown>;
-  _generics.getPlatformId = (browser: string): string => {
-    const platformType =
-      proto.DeviceProps.PlatformType[browser.toUpperCase() as keyof typeof proto.DeviceProps.PlatformType];
-    return platformType ? platformType.toString() : '1';
-  };
-} catch {
-  // If CJS require fails (Node version mismatch), pairing codes may not work
-  // but QR auth will still function fine.
-  log.warn('Could not patch getPlatformId — pairing code auth may fail');
-}
 
 const baileysLogger = pino({ level: 'silent' });
 
@@ -261,21 +245,31 @@ registerChannelAdapter('whatsapp', {
       groupMetadataCache.clear();
     }
 
-    async function translateJid(jid: string): Promise<string> {
+    async function translateJid(jid: string, altJid?: string): Promise<string> {
       if (!jid.endsWith('@lid')) return jid;
       const lidUser = jid.split('@')[0].split(':')[0];
 
+      // 1. Check local cache
       const cached = lidToPhoneMap[lidUser];
       if (cached) return cached;
 
-      // Query Baileys' signal repository
+      // 2. Use the alt JID from Baileys v7 extractAddressingContext
+      //    (provided as remoteJidAlt / participantAlt on every inbound message)
+      if (altJid && !altJid.endsWith('@lid')) {
+        const phoneJid = altJid.includes('@') ? altJid : `${altJid}@s.whatsapp.net`;
+        setLidPhoneMapping(lidUser, phoneJid);
+        log.info('Translated LID via alt JID', { lidJid: jid, phoneJid });
+        return phoneJid;
+      }
+
+      // 3. Query Baileys v7 LID mapping store
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const pn = await (sock.signalRepository as any)?.lidMapping?.getPNForLID(jid);
         if (pn) {
           const phoneJid = `${pn.split('@')[0].split(':')[0]}@s.whatsapp.net`;
           setLidPhoneMapping(lidUser, phoneJid);
-          log.info('Translated LID to phone JID', { lidJid: jid, phoneJid });
+          log.info('Translated LID via signal repository', { lidJid: jid, phoneJid });
           return phoneJid;
         }
       } catch (err) {
@@ -423,8 +417,9 @@ registerChannelAdapter('whatsapp', {
           // Check in-memory cache first (recently sent messages)
           const cached = sentMessageCache.get(key.id || '');
           if (cached) return cached;
-          // Return empty message to prevent indefinite "waiting for this message"
-          return proto.Message.fromObject({});
+          // Return empty proto.Message so Baileys can attempt re-encryption
+          // on retry rather than failing the retry entirely.
+          return proto.Message.create({});
         },
       });
 
@@ -535,12 +530,6 @@ registerChannelAdapter('whatsapp', {
 
       sock.ev.on('creds.update', saveCreds);
 
-      // Phone number sharing events — update LID mapping
-      sock.ev.on('chats.phoneNumberShare', ({ lid, jid }) => {
-        const lidUser = lid?.split('@')[0].split(':')[0];
-        if (lidUser && jid) setLidPhoneMapping(lidUser, jid);
-      });
-
       // Inbound messages
       sock.ev.on('messages.upsert', async ({ messages }) => {
         for (const msg of messages) {
@@ -552,15 +541,9 @@ registerChannelAdapter('whatsapp', {
             if (!rawJid || rawJid === 'status@broadcast') continue;
 
             // Translate LID → phone JID
-            let chatJid = await translateJid(rawJid);
+            // Baileys v7 provides remoteJidAlt on every message for LID resolution
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            if (chatJid.endsWith('@lid') && (msg.key as any).senderPn) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const pn = (msg.key as any).senderPn as string;
-              const phoneJid = pn.includes('@') ? pn : `${pn}@s.whatsapp.net`;
-              setLidPhoneMapping(rawJid.split('@')[0].split(':')[0], phoneJid);
-              chatJid = phoneJid;
-            }
+            const chatJid = await translateJid(rawJid, (msg.key as any).remoteJidAlt);
 
             const timestamp = new Date(Number(msg.messageTimestamp) * 1000).toISOString();
             const isGroup = chatJid.endsWith('@g.us');
@@ -586,7 +569,12 @@ registerChannelAdapter('whatsapp', {
             // Skip empty protocol messages (no text and no attachments)
             if (!content && attachments.length === 0) continue;
 
-            const sender = msg.key.participant || msg.key.remoteJid || '';
+            // Resolve sender: in groups, participant may be LID — use participantAlt
+            const rawSender = msg.key.participant || msg.key.remoteJid || '';
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const sender = rawSender.endsWith('@lid')
+              ? await translateJid(rawSender, (msg.key as any).participantAlt)
+              : rawSender;
             const senderName = msg.pushName || sender.split('@')[0];
             const fromMe = msg.key.fromMe || false;
             // Filter bot's own messages to prevent echo loops.
