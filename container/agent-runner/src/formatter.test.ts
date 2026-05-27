@@ -187,6 +187,27 @@ describe('stripInternalTags', () => {
   });
 });
 
+describe('senderName preferred over sender JID', () => {
+  it('uses senderName when present instead of raw sender JID', () => {
+    insertMessage('m1', 'chat', { sender: '14045426258@s.whatsapp.net', senderName: 'Joel', text: 'hi' });
+    const result = formatMessages(getPendingMessages());
+    expect(result).toContain('sender="Joel"');
+    expect(result).not.toContain('14045426258@s.whatsapp.net');
+  });
+
+  it('falls back to sender when senderName is absent', () => {
+    insertMessage('m1', 'chat', { sender: 'Alice', text: 'hi' });
+    const result = formatMessages(getPendingMessages());
+    expect(result).toContain('sender="Alice"');
+  });
+
+  it('falls back to sender when senderName is empty string', () => {
+    insertMessage('m1', 'chat', { sender: 'Alice', senderName: '', text: 'hi' });
+    const result = formatMessages(getPendingMessages());
+    expect(result).toContain('sender="Alice"');
+  });
+});
+
 describe('group_context: trigger=0 accumulation (#2436)', () => {
   // Regression guard: trigger=0 rows are accumulated ambient group chat
   // (ignored_message_policy='accumulate'). When they ride along with a

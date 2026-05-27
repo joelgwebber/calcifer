@@ -200,7 +200,13 @@ function formatChatMessages(messages: MessageInRow[]): string {
 
 function formatSingleChat(msg: MessageInRow): string {
   const content = parseContent(msg.content);
-  const sender = content.sender || content.author?.fullName || content.author?.userName || 'Unknown';
+  // Prefer senderName (human-readable display name) over sender (raw JID/ID).
+  // WhatsApp populates senderName from msg.pushName, falling back to the
+  // phone number without domain — either way it's more legible than the
+  // full JID. Other adapters that don't set senderName fall through to the
+  // existing author / sender fields unchanged.
+  const sender =
+    content.senderName || content.sender || content.author?.fullName || content.author?.userName || 'Unknown';
   const time = formatLocalTime(msg.timestamp, TIMEZONE);
   const text = content.text || '';
   const idAttr = msg.seq != null ? ` id="${msg.seq}"` : '';
