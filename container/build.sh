@@ -1,10 +1,5 @@
 #!/bin/bash
-# Build the NanoClaw agent container images.
-#
-# Builds three images:
-#   <base>:latest              — group/chat agents (main image)
-#   nanoclaw-agent-python:latest — project agents (Python repos)
-#   nanoclaw-agent-node:latest   — project agents (Node repos)
+# Build the NanoClaw agent container image.
 #
 # Reads one optional build flag from ../.env:
 #   INSTALL_CJK_FONTS=true   — add Chinese/Japanese/Korean fonts (~200MB)
@@ -44,20 +39,11 @@ if [ ! -f "tools/yaks/yak.py" ]; then
   exit 1
 fi
 
-build_image() {
-  local name="$1"
-  local dockerfile="$2"
-  echo "Building ${name}:${TAG} from ${dockerfile}..."
-  ${CONTAINER_RUNTIME} build "${BUILD_ARGS[@]}" -t "${name}:${TAG}" -f "${dockerfile}" .
-  echo "  Done: ${name}:${TAG}"
-}
+echo "Building NanoClaw agent container image..."
+echo "Image: ${IMAGE_NAME}:${TAG}"
 
-build_image "${IMAGE_NAME}"              "Dockerfile"
-build_image "nanoclaw-agent-python" "Dockerfile.project-python"
-build_image "nanoclaw-agent-node"   "Dockerfile.project-node"
+${CONTAINER_RUNTIME} build "${BUILD_ARGS[@]}" -t "${IMAGE_NAME}:${TAG}" .
 
 echo ""
-echo "All images built:"
-echo "  ${IMAGE_NAME}:${TAG}        — group/chat agents"
-echo "  nanoclaw-agent-python:${TAG} — project agents (Python repos)"
-echo "  nanoclaw-agent-node:${TAG}   — project agents (Node repos)"
+echo "Build complete!"
+echo "Image: ${IMAGE_NAME}:${TAG}"
