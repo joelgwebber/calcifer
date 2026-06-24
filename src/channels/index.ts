@@ -7,6 +7,7 @@
 // self-registration import below.
 
 import './cli.js';
+import './web.js';
 
 // Installed channels (copied from upstream/channels branch + v1 ports)
 import './whatsapp.js';
