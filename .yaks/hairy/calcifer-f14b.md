@@ -2,9 +2,9 @@
 id: calcifer-f14b
 title: 'File GH issue: Background agent outputs lost when container restarts'
 type: task
-priority: 2
+priority: 4
 created: '2026-02-27T18:27:16Z'
-updated: '2026-02-27T18:27:16Z'
+updated: '2026-05-26T22:24:55Z'
 ---
 
 Title: Background agent outputs lost when container restarts - TaskOutput doesn't work across messages

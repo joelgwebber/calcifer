@@ -2,9 +2,9 @@
 id: calcifer-2e0a
 title: Background project agents with Calcifer-mediated HITL
 type: feature
-priority: 2
+priority: 4
 created: '2026-03-02T05:17:29Z'
-updated: '2026-05-26T03:34:24Z'
+updated: '2026-05-26T22:24:45Z'
 ---
 
 Design a secure workflow that allows restricted agents to perform research and development work, then propose changes to a privileged agent for vetting and user approval before integration into core codebase.
