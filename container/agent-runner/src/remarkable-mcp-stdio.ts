@@ -14,8 +14,7 @@ import { zipSync } from 'fflate';
 
 const DEVICE_TOKEN = process.env.REMARKABLE_DEVICE_TOKEN;
 const AUTH_HOST = 'https://webapp-prod.cloud.remarkable.engineering';
-const SYNC_HOST = 'https://eu.tectonic.remarkable.com';
-const UPLOAD_HOST = 'https://internal.cloud.remarkable.com';
+const INTERNAL_HOST = 'https://internal.cloud.remarkable.com';
 
 if (!DEVICE_TOKEN) {
   console.error('REMARKABLE_DEVICE_TOKEN not set');
@@ -27,7 +26,8 @@ let userToken: string | null = null;
 async function refreshUserToken(): Promise<string> {
   const response = await fetch(`${AUTH_HOST}/token/json/2/user/new`, {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${DEVICE_TOKEN}` },
+    headers: { 'Authorization': `Bearer ${DEVICE_TOKEN}`, 'Content-Type': 'application/json' },
+    body: '{}',
   });
   if (!response.ok) {
     throw new Error(`Token refresh failed (${response.status}): ${await response.text()}`);
@@ -40,9 +40,10 @@ async function getToken(): Promise<string> {
   return userToken ?? refreshUserToken();
 }
 
-async function syncGet(urlPath: string): Promise<Response> {
+async function internalGet(urlPath: string, rmFilename?: string): Promise<Response> {
+  const extraHeaders: Record<string, string> = rmFilename ? { 'rm-filename': rmFilename } : {};
   const doGet = async (token: string) =>
-    fetch(`${SYNC_HOST}${urlPath}`, { headers: { 'Authorization': `Bearer ${token}` } });
+    fetch(`${INTERNAL_HOST}${urlPath}`, { headers: { 'Authorization': `Bearer ${token}`, ...extraHeaders } });
   let resp = await doGet(await getToken());
   if (resp.status === 401) {
     userToken = null;
@@ -51,9 +52,9 @@ async function syncGet(urlPath: string): Promise<Response> {
   return resp;
 }
 
-async function uploadPost(urlPath: string, headers: Record<string, string>, body: Uint8Array): Promise<Response> {
+async function internalPost(urlPath: string, headers: Record<string, string>, body: Uint8Array): Promise<Response> {
   const doPost = async (token: string) =>
-    fetch(`${UPLOAD_HOST}${urlPath}`, {
+    fetch(`${INTERNAL_HOST}${urlPath}`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, ...headers },
       body: body as unknown as BodyInit,
@@ -98,24 +99,24 @@ interface DocInfo {
 }
 
 async function getRootEntries(): Promise<IndexEntry[]> {
-  const rootResp = await syncGet('/sync/v4/root');
+  const rootResp = await internalGet('/sync/v4/root');
   if (!rootResp.ok) throw new Error(`Root fetch failed (${rootResp.status}): ${await rootResp.text()}`);
   const { hash: rootHash } = await rootResp.json() as { hash: string };
 
-  const idxResp = await syncGet(`/sync/v3/files/${rootHash}`);
+  const idxResp = await internalGet(`/sync/v3/files/${rootHash}`, 'root.docSchema');
   if (!idxResp.ok) throw new Error(`Root index fetch failed (${idxResp.status}): ${await idxResp.text()}`);
   return parseIndex(await idxResp.text());
 }
 
 async function getDocMetadata(docId: string, indexHash: string): Promise<DocMetadata | null> {
-  const idxResp = await syncGet(`/sync/v3/files/${indexHash}`);
+  const idxResp = await internalGet(`/sync/v3/files/${indexHash}`, `${docId}.docSchema`);
   if (!idxResp.ok) return null;
   const entries = parseIndex(await idxResp.text());
 
   const metaEntry = entries.find(e => e.name === `${docId}.metadata`);
   if (!metaEntry) return null;
 
-  const metaResp = await syncGet(`/sync/v3/files/${metaEntry.hash}`);
+  const metaResp = await internalGet(`/sync/v3/files/${metaEntry.hash}`, `${docId}.metadata`);
   if (!metaResp.ok) return null;
 
   try {
@@ -181,10 +182,11 @@ const CONTENT_TYPES: Record<string, string> = {
 
 server.tool(
   'remarkable_upload_pdf',
-  'Upload a PDF or EPUB to the reMarkable cloud. Appears on the device after the next sync. Note: uploads always go to the root folder.',
+  'Upload a PDF or EPUB to the reMarkable cloud. Appears on the device after the next sync. Use remarkable_list to find folder IDs for the parent_id parameter.',
   {
     file_path: z.string().describe('Absolute path to a PDF or EPUB file'),
     name: z.string().optional().describe('Display name on the device (defaults to filename without extension)'),
+    parent_id: z.string().optional().describe('Folder ID to upload into (omit for root). Get IDs from remarkable_list.'),
   },
   async (args) => {
     const ext = path.extname(args.file_path).toLowerCase();
@@ -192,11 +194,14 @@ server.tool(
     const pdfData = await fs.readFile(args.file_path);
     const displayName = args.name ?? path.basename(args.file_path, ext);
 
-    const resp = await uploadPost(
+    const meta: Record<string, string> = { file_name: displayName };
+    if (args.parent_id) meta.parentID = args.parent_id;
+
+    const resp = await internalPost(
       '/doc/v2/files',
       {
         'Content-Type': contentType,
-        'rm-meta': Buffer.from(JSON.stringify({ file_name: displayName })).toString('base64'),
+        'rm-meta': Buffer.from(JSON.stringify(meta)).toString('base64'),
         'rm-source': 'RoR-Browser',
       },
       pdfData as Uint8Array,
@@ -225,13 +230,13 @@ server.tool(
     const entry = rootEntries.find(e => e.name === args.document_id);
     if (!entry) throw new Error(`Document ${args.document_id} not found`);
 
-    const idxResp = await syncGet(`/sync/v3/files/${entry.hash}`);
+    const idxResp = await internalGet(`/sync/v3/files/${entry.hash}`, `${args.document_id}.docSchema`);
     if (!idxResp.ok) throw new Error(`Document index fetch failed (${idxResp.status})`);
     const fileEntries = parseIndex(await idxResp.text());
 
     const files: Record<string, Uint8Array> = {};
     await Promise.all(fileEntries.map(async (fileEntry) => {
-      const resp = await syncGet(`/sync/v3/files/${fileEntry.hash}`);
+      const resp = await internalGet(`/sync/v3/files/${fileEntry.hash}`, fileEntry.name);
       if (!resp.ok) return;
       files[fileEntry.name] = new Uint8Array(await resp.arrayBuffer());
     }));

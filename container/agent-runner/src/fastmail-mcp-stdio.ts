@@ -11,6 +11,14 @@ import { simpleParser, ParsedMail } from 'mailparser';
 import nodemailer from 'nodemailer';
 import type { Readable } from 'stream';
 import { XMLParser } from 'fast-xml-parser';
+import fs from 'fs';
+import path from 'path';
+
+// Resolve per-install; created lazily when an attachment is actually saved so
+// importing this module never has a filesystem side effect (a top-level
+// mkdirSync would crash the MCP server if the path were unwritable).
+const ATTACHMENT_DIR =
+  process.env.FASTMAIL_ATTACHMENT_DIR ?? '/workspace/agent/email-attachments';
 
 const FASTMAIL_EMAIL = process.env.FASTMAIL_EMAIL!;
 const FASTMAIL_APP_PASSWORD = process.env.FASTMAIL_APP_PASSWORD!;
@@ -81,6 +89,31 @@ function getImapConnection(): Promise<Imap> {
   });
 }
 
+// node-imap search criteria: flags like 'SEEN' are plain strings, but
+// keyword+value pairs like SUBJECT must be sub-arrays: [["SUBJECT", "foo"]].
+// This converts a flat array ["SUBJECT", "Cricket", "SEEN"] into the correct
+// nested form [["SUBJECT", "Cricket"], "SEEN"].
+const IMAP_VALUE_KEYS = new Set([
+  'SUBJECT', 'FROM', 'TO', 'CC', 'BCC', 'TEXT', 'BODY',
+  'BEFORE', 'ON', 'SINCE', 'SENTSINCE', 'SENTBEFORE', 'SENTON',
+  'LARGER', 'SMALLER', 'UID', 'KEYWORD', 'UNKEYWORD',
+]);
+
+function parseSearchCriteria(criteria: string[]): any[] {
+  const result: any[] = [];
+  let i = 0;
+  while (i < criteria.length) {
+    if (IMAP_VALUE_KEYS.has(criteria[i].toUpperCase()) && i + 1 < criteria.length) {
+      result.push([criteria[i], criteria[i + 1]]);
+      i += 2;
+    } else {
+      result.push(criteria[i]);
+      i++;
+    }
+  }
+  return result;
+}
+
 const server = new McpServer({
   name: 'fastmail',
   version: '1.0.0',
@@ -141,6 +174,8 @@ server.tool(
     const imap = await getImapConnection();
 
     return new Promise((resolve, reject) => {
+      imap.once('error', (err: Error) => { imap.destroy(); reject(err); });
+
       imap.openBox(args.folder, true, (err: Error, box: Box) => {
         if (err) {
           imap.end();
@@ -148,8 +183,8 @@ server.tool(
           return;
         }
 
-        const searchCriteria = args.search || ['ALL'];
-        imap.search(searchCriteria as any[], (err: Error, results: number[]) => {
+        const searchCriteria = args.search ? parseSearchCriteria(args.search) : ['ALL'];
+        imap.search(searchCriteria, (err: Error, results: number[]) => {
           if (err) {
             imap.end();
             reject(err);
@@ -176,11 +211,15 @@ server.tool(
           const messages: any[] = [];
 
           fetch.on('message', (msg: Imap.ImapMessage, seqno: number) => {
+            let msgUid = seqno;
+            msg.once('attributes', (attrs: ImapMessageAttributes) => {
+              msgUid = attrs.uid;
+            });
             msg.on('body', (stream: Readable) => {
               simpleParser(stream, (err: Error | undefined, parsed: ParsedMail) => {
                 if (err) return;
                 messages.push({
-                  uid: seqno,
+                  uid: msgUid,
                   from: parsed.from?.text || 'Unknown',
                   to: parsed.to?.text || 'Unknown',
                   subject: parsed.subject || '(no subject)',
@@ -231,31 +270,59 @@ server.tool(
           return;
         }
 
-        const fetch = imap.fetch([args.uid], { bodies: '' });
+        imap.search([['UID', args.uid.toString()]], (searchErr: Error, seqnos: number[]) => {
+          if (searchErr || !seqnos || seqnos.length === 0) {
+            imap.end();
+            reject(new Error(`Message UID ${args.uid} not found in ${args.folder}`));
+            return;
+          }
 
-        fetch.on('message', (msg: Imap.ImapMessage) => {
-          msg.on('body', (stream: Readable) => {
-            simpleParser(stream, (err: Error | undefined, parsed: ParsedMail) => {
-              imap.end();
-              if (err) {
-                reject(err);
-                return;
-              }
+          const fetch = imap.fetch(seqnos, { bodies: '' });
 
-              const text = parsed.text || parsed.html || '(no content)';
-              resolve({
-                content: [{
-                  type: 'text' as const,
-                  text: `From: ${parsed.from?.text}\nTo: ${parsed.to?.text}\nSubject: ${parsed.subject}\nDate: ${parsed.date?.toISOString()}\n\n${text}`
-                }]
+          fetch.on('message', (msg: Imap.ImapMessage) => {
+            msg.on('body', (stream: Readable) => {
+              simpleParser(stream, (err: Error | undefined, parsed: ParsedMail) => {
+                imap.end();
+                if (err) {
+                  reject(err);
+                  return;
+                }
+
+                const text = parsed.text || parsed.html || '(no content)';
+
+                const savedAttachments: string[] = [];
+                const realAttachments = (parsed.attachments ?? []).filter(
+                  (att) => att.content && att.contentDisposition !== 'inline',
+                );
+                if (realAttachments.length > 0) {
+                  fs.mkdirSync(ATTACHMENT_DIR, { recursive: true });
+                  for (const att of realAttachments) {
+                    const safeName = (att.filename || `attachment-${Date.now()}`)
+                      .replace(/[^a-zA-Z0-9._-]/g, '_');
+                    const dest = path.join(ATTACHMENT_DIR, safeName);
+                    fs.writeFileSync(dest, att.content);
+                    savedAttachments.push(dest);
+                  }
+                }
+
+                const attachmentSection = savedAttachments.length > 0
+                  ? `\n\nAttachments saved:\n${savedAttachments.map(p => `  ${p}`).join('\n')}`
+                  : '';
+
+                resolve({
+                  content: [{
+                    type: 'text' as const,
+                    text: `From: ${parsed.from?.text}\nTo: ${parsed.to?.text}\nSubject: ${parsed.subject}\nDate: ${parsed.date?.toISOString()}\n\n${text}${attachmentSection}`
+                  }]
+                });
               });
             });
           });
-        });
 
-        fetch.once('error', (err: Error) => {
-          imap.end();
-          reject(err);
+          fetch.once('error', (err: Error) => {
+            imap.end();
+            reject(err);
+          });
         });
       });
     });
@@ -296,6 +363,28 @@ server.tool(
 // ============================================================================
 // CALENDAR TOOLS (CalDAV)
 // ============================================================================
+
+async function resolveCalendarId(nameOrId: string): Promise<string> {
+  const url = `https://caldav.fastmail.com/dav/calendars/user/${FASTMAIL_EMAIL}/`;
+  const body = `<?xml version="1.0" encoding="utf-8" ?>
+<d:propfind xmlns:d="DAV:" xmlns:cs="http://calendarserver.org/ns/" xmlns:c="urn:ietf:params:xml:ns:caldav">
+  <d:prop><d:displayname /><d:resourcetype /></d:prop>
+</d:propfind>`;
+  const response = await davRequest(url, 'PROPFIND', body, '1');
+  const parsed = xmlParser.parse(response);
+  const responses = parsed['d:multistatus']?.['d:response'] || [];
+  const responseArray = Array.isArray(responses) ? responses : [responses];
+  for (const r of responseArray) {
+    const href: string = r['d:href'] || '';
+    const propstat = Array.isArray(r['d:propstat']) ? r['d:propstat'][0] : r['d:propstat'];
+    const prop = propstat?.['d:prop'];
+    if (!prop || !('c:calendar' in (prop['d:resourcetype'] || {}))) continue;
+    const displayname: string = prop['d:displayname'] || '';
+    const pathId = href.split('/').filter(Boolean).pop() || '';
+    if (displayname === nameOrId || pathId === nameOrId) return pathId;
+  }
+  return nameOrId;
+}
 
 server.tool(
   'fastmail_list_calendars',
@@ -376,7 +465,8 @@ server.tool(
     // Convert ISO dates to iCalendar format (YYYYMMDDTHHmmssZ)
     const formatCalDate = (iso: string) => iso.replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 
-    const url = `https://caldav.fastmail.com/dav/calendars/user/${FASTMAIL_EMAIL}/${args.calendar}/`;
+    const calId = await resolveCalendarId(args.calendar);
+    const url = `https://caldav.fastmail.com/dav/calendars/user/${FASTMAIL_EMAIL}/${calId}/`;
     const body = `<?xml version="1.0" encoding="utf-8" ?>
 <c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
   <d:prop>
@@ -472,7 +562,22 @@ server.tool(
   },
   async (args) => {
     const eventId = `event-${Date.now()}`;
-    const url = `https://caldav.fastmail.com/dav/calendars/user/${FASTMAIL_EMAIL}/${args.calendar}/${eventId}.ics`;
+    const calId = await resolveCalendarId(args.calendar);
+    const url = `https://caldav.fastmail.com/dav/calendars/user/${FASTMAIL_EMAIL}/${calId}/${eventId}.ics`;
+
+    // Convert ISO 8601 (with or without offset) to iCal format, preserving timezone
+    const toIcal = (iso: string): { value: string; tzid?: string } => {
+      const m = iso.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})([+-]\d{2}:\d{2}|Z)?$/);
+      if (!m) return { value: iso.replace(/[-:]/g, '').split('.')[0] + 'Z' };
+      const local = m[1].replace(/[-:]/g, '');
+      if (!m[2] || m[2] === 'Z') return { value: local + 'Z' };
+      // Has an offset — emit as floating local time; caller should set calendar's timezone
+      return { value: local };
+    };
+    const start = toIcal(args.start);
+    const end = toIcal(args.end);
+    const dtstart = start.tzid ? `DTSTART;TZID=${start.tzid}:${start.value}` : `DTSTART:${start.value}`;
+    const dtend = end.tzid ? `DTEND;TZID=${end.tzid}:${end.value}` : `DTEND:${end.value}`;
 
     const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
@@ -480,8 +585,8 @@ PRODID:-//NanoClaw//EN
 BEGIN:VEVENT
 UID:${eventId}@nanoclaw
 DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
-DTSTART:${args.start.replace(/[-:]/g, '').split('.')[0]}Z
-DTEND:${args.end.replace(/[-:]/g, '').split('.')[0]}Z
+${dtstart}
+${dtend}
 SUMMARY:${args.summary}${args.description ? `\nDESCRIPTION:${args.description}` : ''}${args.location ? `\nLOCATION:${args.location}` : ''}
 END:VEVENT
 END:VCALENDAR`;

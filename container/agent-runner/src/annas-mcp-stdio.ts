@@ -115,11 +115,11 @@ server.tool(
     const apiResp = await httpGet(apiUrl);
     if (!apiResp.ok) throw new Error(`Fast download API failed (${apiResp.status}): ${await apiResp.text()}`);
 
-    const result = await apiResp.json() as { DownloadURL?: string; Error?: string };
-    if (result.Error) throw new Error(`Download API error: ${result.Error}`);
-    if (!result.DownloadURL) throw new Error('No download URL in API response');
+    const result = await apiResp.json() as { download_url?: string; error?: string };
+    if (result.error) throw new Error(`Download API error: ${result.error}`);
+    if (!result.download_url) throw new Error('No download URL in API response');
 
-    const fileResp = await fetch(result.DownloadURL, { headers: { 'User-Agent': UA } });
+    const fileResp = await fetch(result.download_url, { headers: { 'User-Agent': UA } });
     if (!fileResp.ok) throw new Error(`File download failed (${fileResp.status})`);
 
     await fs.mkdir(DOWNLOAD_PATH, { recursive: true });
