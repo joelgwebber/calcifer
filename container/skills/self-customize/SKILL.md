@@ -14,7 +14,7 @@ You can modify your own environment. Different kinds of changes have different w
 - **`CLAUDE.local.md` or files in your workspace** → Edit directly, no approval needed. Your workspace (`/workspace/agent/`) is persisted on the host. (Note: the composed `CLAUDE.md` itself is read-only and regenerated every spawn — write to `CLAUDE.local.md` instead.)
 - **System package (apt) or global npm package** → `install_packages`. Requires admin approval. On approval, image rebuild + container restart happen automatically.
 - **MCP server** → `add_mcp_server`. Requires admin approval. On approval, container restarts with the new server wired up (no rebuild — bun runs TS directly).
-- **Your source code or Dockerfile** → Delegate to a builder agent via `create_agent` (see below).
+- **Your source code, a new bundled skill, or the Dockerfile** → If your container has the project repo mounted **read-write** (owner agents do — see "Growing a New Skill" for how to tell), edit it there and commit. Otherwise delegate to a builder agent via `create_agent` (see below).
 - **A new specialist capability** → `create_agent` to spin up a dedicated agent for it.
 
 ## Workflow: Code Changes via Builder Agent
@@ -85,3 +85,56 @@ User: "Can you transcribe audio?"
 - **The change is for a one-off task** — just do it in your workspace, don't modify the container
 - **The request is ambiguous** — ask the user what they actually need before spinning up builders or requesting installs
 - **You don't know if it will work** — prototype in your workspace first (`pnpm install` in `/workspace/agent/`), then promote to container-level install if it proves useful
+
+## Growing a New Skill (idea → play → real, tracked skill)
+
+A capability you build yourself has a natural lifecycle. Ride it deliberately — and
+track the moment it stops being a toy.
+
+**The trap to avoid:** writing a `SKILL.md` under `container/skills/<name>/` that merely
+*documents* code which only exists in your gitignored workspace (`groups/*`). That ships
+a doc with no body — nobody else can install it, and the code is one `rm` away from gone.
+
+### The glide-path
+
+1. **Play.** Prototype freely in your workspace (`/workspace/agent/<name>/`). No yak
+   needed — this is throwaway exploration, and it's where live runtime state (config, DB,
+   `node_modules`) belongs for good. `pnpm install` here; iterate until it works.
+
+2. **Decide it's real.** The moment you want it to persist, be reliable, or be reusable,
+   stop and open tracking **before** writing promoted code. Per the yaks workflow you may
+   not write "real" code without a shaving yak. Create a yak — or a small herd (a parent
+   feature yak + child tasks for the pieces: scaffold, each source/integration, alerts,
+   scheduling). Shave the one you're starting. Park future ideas/extensions as additional
+   hairy yaks so they're tracked instead of lost; slaughter ideas you've decided against.
+
+3. **Promote** the code out of the gitignored workspace into a **version-controlled,
+   self-contained** skill at `container/skills/<name>/`. Two routes for the actual edit:
+   - **Direct (owner agents):** if the project repo is mounted read-write in your
+     container, edit it there and you own the whole loop. Check `/workspace/extra/` for a
+     writable checkout (your `CLAUDE.local.md` names the exact path, e.g.
+     `/workspace/extra/<project>`). This is the same tree your yaks CLI already runs in.
+   - **Builder agent:** if you have no writable repo mount, delegate to a builder agent
+     via `create_agent` (see above) with the prototype path + the checklist below as
+     acceptance criteria.
+
+   Leave the running workspace prototype in place so you don't disrupt a live deployment;
+   repoint any schedule at the skill copy once it's verified.
+
+4. **Commit + push.** Stage the new skill files **together with the shorn yak** that
+   tracked the work and commit them in one commit (yaks norm: the shear and the code land
+   together), then push. Keep the commit scoped: do not sweep in unrelated working-tree
+   changes, `node_modules`, or installation-specific files (`groups/*`, local configs,
+   `.claude/settings.json`).
+
+5. **Iterate.** Further work — a new source, a bug fix, hardening — is new yaks under the
+   herd, each shaved before you touch code and shorn + committed when done.
+
+### A promoted skill is self-contained — checklist
+
+- [ ] **Code lives in the skill dir** (`container/skills/<name>/`), not only in the workspace. The skill mount is **read-only** at `/app/skills/<name>`; runnable code is fine there, writes are not.
+- [ ] **No hardcoded group/workspace paths in code.** Resolve a writable data dir from an env var with a sensible default (e.g. `process.env.MY_DIR ?? '/workspace/agent/<name>'`). Writable state (config, DB, `node_modules`, caches) lives in that data dir — never in the RO skill mount.
+- [ ] **Behaviour is config-driven, not user-specific.** No one person's neighbourhoods/IDs/accounts baked into the code; read them from a `config.json` and ship a `config.example.json`.
+- [ ] **Dependencies are declared** (a `package.json` in the skill) and installed into the data dir during a documented one-time setup step — not committed `node_modules`.
+- [ ] **No live runtime identifiers in docs.** Don't hardcode a scheduled-task ID or session ID in `SKILL.md`; they're created at registration time and go stale. Tell the reader how to look them up.
+- [ ] **No dead code.** If you inlined something, delete the abandoned module.
