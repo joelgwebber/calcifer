@@ -1,0 +1,23 @@
+{
+  "neighborhoods": {
+    "label": ["Upper West Side", "Hell's Kitchen", "Chelsea", "West Village", "Greenwich Village"],
+    "streeteasy_areas": [135, 152, 115, 163, 157, 116],
+    "craigslist_postal": ["10024", "10023", "10025", "10036", "10019", "10018", "10011", "10001", "10014", "10012", "10003"]
+  },
+  "price": { "min": null, "max": 15000 },
+  "beds": { "min": 3, "max": null },
+  "no_fee_only": false,
+  "active": true,
+  "sources": {
+    "streeteasy": { "enabled": true },
+    "craigslist": { "enabled": true },
+    "stonehenge": {
+      "enabled": true,
+      "neighborhoods": ["upper west side", "chelsea", "west village", "greenwich village", "midtown west"]
+    },
+    "glenwood": {
+      "enabled": true,
+      "neighborhoods": ["Upper West Side", "Midtown West", "Downtown"]
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "nyc-apt",
+  "private": true,
+  "description": "Runtime dependencies for the nyc-apt monitor. Install into the data dir ($NYC_APT_DIR), not the read-only skill mount. See SKILL.md.",
+  "type": "module",
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "streeteasy-api": "^0.4.0"
+  }
+}
