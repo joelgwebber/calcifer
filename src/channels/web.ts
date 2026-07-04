@@ -44,6 +44,7 @@ import path from 'path';
 import { log } from '../log.js';
 import type { ChannelAdapter, ChannelSetup, OutboundMessage } from './adapter.js';
 import { registerChannelAdapter } from './channel-registry.js';
+import { listThreads, loadThreadHistory } from './web-history.js';
 
 const CHANNEL_TYPE = 'web';
 const DEFAULT_PLATFORM_ID = 'web:local';
@@ -181,6 +182,38 @@ function createAdapter(): ChannelAdapter {
     });
   }
 
+  function handleHistory(res: http.ServerResponse, url: URL): void {
+    const platformId = url.searchParams.get('platformId') || DEFAULT_PLATFORM_ID;
+    const threadId = url.searchParams.get('threadId');
+    if (!threadId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end('{"error":"threadId required"}');
+      return;
+    }
+    try {
+      const messages = loadThreadHistory(platformId, threadId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ messages }));
+    } catch (err) {
+      log.error('web history load failed', { err });
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end('{"error":"history load failed"}');
+    }
+  }
+
+  function handleThreads(res: http.ServerResponse, url: URL): void {
+    const platformId = url.searchParams.get('platformId') || DEFAULT_PLATFORM_ID;
+    try {
+      const threads = listThreads(platformId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ threads }));
+    } catch (err) {
+      log.error('web thread list failed', { err });
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end('{"error":"thread list failed"}');
+    }
+  }
+
   function serveStatic(url: URL, res: http.ServerResponse): void {
     const distDir = path.resolve(process.cwd(), 'web', 'dist');
     const requested = url.pathname === '/' ? '/index.html' : url.pathname;
@@ -229,6 +262,14 @@ function createAdapter(): ChannelAdapter {
     }
     if (req.method === 'POST' && url.pathname === '/api/send') {
       handleSend(req, res, config);
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/history') {
+      handleHistory(res, url);
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/threads') {
+      handleThreads(res, url);
       return;
     }
     serveStatic(url, res);

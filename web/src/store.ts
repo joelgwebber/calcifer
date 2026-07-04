@@ -25,6 +25,8 @@ type State = {
   titles: Record<string, string>;
   /** Per-thread running flag (agent is working). */
   running: Record<string, boolean>;
+  /** Threads whose transcript has been loaded from the host (7c3a.2). */
+  hydrated: Record<string, boolean>;
   /**
    * The selected thread id. CENTRALIZED here so the assistant-ui runtime's
    * currentThreadId and our store stay in sync — never hold this in
@@ -43,6 +45,10 @@ type Actions = {
   setRunning: (threadId: string, running: boolean) => void;
   /** Ensure a thread entry exists (for out-of-band/pushed messages). */
   ensureThread: (threadId: string) => void;
+  /** Replace the thread list with the host's known conversations (on connect). */
+  hydrateThreadList: (threads: { threadId: string; title: string }[]) => void;
+  /** Replace a thread's transcript with host-loaded history and mark it hydrated. */
+  setThreadMessages: (threadId: string, messages: MyMessage[]) => void;
 };
 
 const DEFAULT_TITLE = 'New chat';
@@ -59,6 +65,7 @@ export const useStore = create<State & Actions>((set, get) => {
     messages: { [initialThreadId]: [] },
     titles: { [initialThreadId]: DEFAULT_TITLE },
     running: { [initialThreadId]: false },
+    hydrated: {},
     currentThreadId: initialThreadId,
 
     setCurrentThreadId: (id) => set({ currentThreadId: id }),
@@ -86,9 +93,42 @@ export const useStore = create<State & Actions>((set, get) => {
       }));
     },
 
+    hydrateThreadList: (threads) =>
+      set((s) => {
+        if (threads.length === 0) return {};
+        const threadIds = threads.map((t) => t.threadId);
+        const titles: Record<string, string> = {};
+        const messages: Record<string, MyMessage[]> = {};
+        const running: Record<string, boolean> = {};
+        for (const t of threads) {
+          titles[t.threadId] = t.title || DEFAULT_TITLE;
+          // Preserve any messages/running state already accumulated live.
+          messages[t.threadId] = s.messages[t.threadId] ?? [];
+          running[t.threadId] = s.running[t.threadId] ?? false;
+        }
+        return { threadIds, titles, messages, running, currentThreadId: threadIds[0] };
+      }),
+
+    setThreadMessages: (threadId, msgs) =>
+      set((s) => {
+        const currentTitle = s.titles[threadId] ?? DEFAULT_TITLE;
+        const firstUser = msgs.find((m) => m.role === 'user');
+        return {
+          messages: { ...s.messages, [threadId]: msgs },
+          hydrated: { ...s.hydrated, [threadId]: true },
+          titles:
+            currentTitle === DEFAULT_TITLE && firstUser
+              ? { ...s.titles, [threadId]: truncate(firstUser.text) }
+              : s.titles,
+        };
+      }),
+
     appendMessage: (threadId, message) =>
       set((s) => {
         const existing = s.messages[threadId] ?? [];
+        // Dedupe by id: guards against a history fetch racing an SSE push of
+        // the same message.
+        if (existing.some((m) => m.id === message.id)) return {};
         const wasEmpty = existing.length === 0;
         const isFirstUser = wasEmpty && message.role === 'user';
         return {

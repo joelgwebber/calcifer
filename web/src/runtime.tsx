@@ -31,6 +31,33 @@ type TypingEventPayload = {
   threadId: string | null;
 };
 
+/**
+ * Load a thread's transcript from the host and hydrate it into the store,
+ * once per thread. Called on connect (for the selected thread) and on switch.
+ * A host that's down or a thread with no session yet leaves the in-memory
+ * state untouched.
+ */
+async function fetchHistory(threadId: string): Promise<void> {
+  if (useStore.getState().hydrated[threadId]) return;
+  try {
+    const res = await fetch(
+      `/api/history?platformId=${encodeURIComponent(PLATFORM_ID)}&threadId=${encodeURIComponent(threadId)}`,
+    );
+    if (!res.ok) return;
+    const data = (await res.json()) as { messages: MyMessage[] };
+    const history = data.messages ?? [];
+    const local = useStore.getState().messages[threadId] ?? [];
+    // Don't wipe live/optimistic messages if the host has nothing to offer.
+    if (history.length === 0 && local.length > 0) {
+      useStore.getState().setThreadMessages(threadId, local);
+      return;
+    }
+    useStore.getState().setThreadMessages(threadId, history);
+  } catch {
+    // Host unreachable — keep whatever is in memory.
+  }
+}
+
 export function RuntimeProvider({ children }: { children: ReactNode }) {
   const currentThreadId = useStore((s) => s.currentThreadId);
   const messages = useStore((s) => s.messages[s.currentThreadId] ?? []);
@@ -73,6 +100,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     },
     onSwitchToThread: (id) => {
       useStore.getState().setCurrentThreadId(id);
+      void fetchHistory(id);
     },
     onRename: (id, title) => {
       useStore.getState().renameThread(id, title);
@@ -89,6 +117,29 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     onNew,
     adapters: { threadList },
   });
+
+  // On connect: hydrate the thread list from the host, then load the selected
+  // thread's transcript. Runs once; new/unpersisted threads are left as-is.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/threads?platformId=${encodeURIComponent(PLATFORM_ID)}`);
+        if (res.ok) {
+          const data = (await res.json()) as { threads: { threadId: string; title: string }[] };
+          if (!cancelled && data.threads?.length) {
+            useStore.getState().hydrateThreadList(data.threads);
+          }
+        }
+      } catch {
+        // Host unreachable — start with the empty in-memory thread.
+      }
+      if (!cancelled) await fetchHistory(useStore.getState().currentThreadId);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Open a single SSE connection for the lifetime of the app.
   useEffect(() => {

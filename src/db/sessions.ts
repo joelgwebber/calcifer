@@ -63,6 +63,16 @@ export function getSessionsByAgentGroup(agentGroupId: string): Session[] {
   return getDb().prepare('SELECT * FROM sessions WHERE agent_group_id = ?').all(agentGroupId) as Session[];
 }
 
+// Active sessions for one messaging group, most-recently-active first. Used by
+// the web UI to hydrate its thread list (one thread == one per-thread session).
+export function getActiveSessionsByMessagingGroup(messagingGroupId: string): Session[] {
+  return getDb()
+    .prepare(
+      "SELECT * FROM sessions WHERE messaging_group_id = ? AND status = 'active' ORDER BY COALESCE(last_active, created_at) DESC",
+    )
+    .all(messagingGroupId) as Session[];
+}
+
 export function getActiveSessions(): Session[] {
   return getDb().prepare("SELECT * FROM sessions WHERE status = 'active'").all() as Session[];
 }

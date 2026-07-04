@@ -4,7 +4,7 @@ title: 'Web UI: thread history load (merge inbound.db + outbound.db)'
 type: task
 priority: 2
 created: '2026-06-13T12:00:00Z'
-updated: '2026-06-13T12:00:00Z'
+updated: '2026-07-04T18:18:51Z'
 ---
 
 PARENT YAK: calcifer-7c3a
@@ -39,3 +39,7 @@ sent in thread A never appears in thread B's transcript (distinct sessions).
   is a RemoteThreadList feature; ExternalStore titles are ours to manage.)
 - Session lifecycle vs. durability: sessions persist under data/v2-sessions/, but
   confirm they aren't pruned out from under the UI.
+
+---
+▸ 2026-07-04T18:18:49Z
+DONE + verified end-to-end. Host: new src/channels/web-history.ts with loadThreadHistory(platformId,threadId) (resolves web mg -> findSession -> opens inbound.db+outbound.db READ-ONLY, maps messages_in kind chat->user & messages_out kind chat->assistant, merges by timestamp) and listThreads(platformId) (getActiveSessionsByMessagingGroup, titled from first user msg, newest-first). Added getActiveSessionsByMessagingGroup to db/sessions.ts. Wired GET /api/history and GET /api/threads into web.ts. Key correctness fix: inbound timestamps are ISO-8601 (…T…Z) but outbound uses SQLite datetime('now') ('YYYY-MM-DD HH:MM:SS', UTC, no zone) — normalized to epoch-UTC (toEpoch) before merge, else Date.parse reads outbound as LOCAL and scrambles order; validated the interleave is correct. Client: store gains hydrated map + hydrateThreadList + setThreadMessages, and appendMessage now dedupes by id (guards history/SSE race). runtime.tsx hydrates thread list on connect, loads current thread's history, and lazy-loads on onSwitchToThread; empty-history guard avoids wiping optimistic/live msgs. Segregation verified (each thread's history from its own session DBs only). Verified in browser via chrome-devtools: reload restores all 6 threads + current transcript (was: single empty thread before); switching a thread lazy-loads its history; sending in a RESTORED thread appends live reply with no clobber/dupe and reuses the existing session. Host rebuilt (tsc) + systemd service restarted to serve new endpoints. Both host + web typecheck/build green.
