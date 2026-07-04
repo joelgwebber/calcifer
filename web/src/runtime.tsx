@@ -63,7 +63,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
   const threadList: ExternalStoreThreadListAdapter = {
     threadId: currentThreadId,
     threads: threadIds.map((id) => ({
-      threadId: id,
+      id,
       title: titles[id],
       status: 'regular' as const,
     })),

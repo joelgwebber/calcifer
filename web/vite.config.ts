@@ -7,7 +7,13 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
-    allowedHosts: ['localhost', 'hearth'],
+    // Headless box reached over Tailscale — bind every interface (equivalent to
+    // --host 0.0.0.0) so `npm run dev` alone is enough; no CLI flag needed.
+    host: true,
+    // Vite 5 rejects requests whose Host header isn't allow-listed. Accept
+    // localhost, the bare hostname, and the whole tailnet (leading-dot =
+    // this domain + all subdomains, so hearth.hamlet-algol.ts.net matches).
+    allowedHosts: ['localhost', 'hearth', '.hamlet-algol.ts.net'],
     proxy: {
       '/api': {
         target: 'http://localhost:8787',
