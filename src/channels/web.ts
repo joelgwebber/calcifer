@@ -42,6 +42,19 @@ import http from 'http';
 import path from 'path';
 
 import { log } from '../log.js';
+import type { AuthedUser } from './web-auth.js';
+import {
+  authenticateRequest,
+  clearFailures,
+  getCredential,
+  isLockedOut,
+  issueSession,
+  recordFailure,
+  requireAuth,
+  SESSION_COOKIE,
+  sessionCookieHeader,
+  verifyPassword,
+} from './web-auth.js';
 import type { ChannelAdapter, ChannelSetup, OutboundMessage } from './adapter.js';
 import { registerChannelAdapter } from './channel-registry.js';
 import { listThreads, loadThreadHistory } from './web-history.js';
@@ -76,6 +89,48 @@ function extractText(message: OutboundMessage): string | null {
   return null;
 }
 
+/**
+ * Resolve the authenticated user for a request. With auth enabled (the secure
+ * default), this is the cookie-verified user or null. With auth disabled
+ * (WEB_UI_REQUIRE_AUTH=false, local dev only), it falls back to a synthetic
+ * `web:local` user so the single-tenant no-auth flow still works.
+ *
+ * The user's id doubles as its routing platform_id, so everything downstream
+ * (SSE scope, inbound sender, history/thread lookups) keys off `userId` and a
+ * client can never spoof another user's namespace.
+ */
+function resolveUser(req: http.IncomingMessage): AuthedUser | null {
+  if (!requireAuth()) {
+    return { userId: DEFAULT_PLATFORM_ID, displayName: null, handle: 'local' };
+  }
+  return authenticateRequest(req.headers.cookie);
+}
+
+function sendJson(res: http.ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(body));
+}
+
+function unauthorized(res: http.ServerResponse): void {
+  sendJson(res, 401, { error: 'unauthorized' });
+}
+
+/** Read a request body up to MAX_BODY_BYTES, rejecting oversize payloads. */
+function readBody(req: http.IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk;
+      if (body.length > MAX_BODY_BYTES) {
+        req.destroy();
+        reject(new Error('payload too large'));
+      }
+    });
+    req.on('end', () => resolve(body));
+    req.on('error', reject);
+  });
+}
+
 const CONTENT_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -104,8 +159,15 @@ function createAdapter(): ChannelAdapter {
     }
   }
 
-  function handleStream(req: http.IncomingMessage, res: http.ServerResponse, url: URL): void {
-    const platformId = url.searchParams.get('platformId') || DEFAULT_PLATFORM_ID;
+  function handleStream(req: http.IncomingMessage, res: http.ServerResponse): void {
+    const user = resolveUser(req);
+    if (!user) {
+      unauthorized(res);
+      return;
+    }
+    // SSE is scoped to the authenticated user's own platform_id — a client
+    // cannot subscribe to another user's stream.
+    const platformId = user.userId;
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
@@ -132,40 +194,43 @@ function createAdapter(): ChannelAdapter {
     });
   }
 
-  function handleSend(req: http.IncomingMessage, res: http.ServerResponse, config: ChannelSetup): void {
-    let body = '';
-    let aborted = false;
-    req.on('data', (chunk) => {
-      body += chunk;
-      if (body.length > MAX_BODY_BYTES) {
-        aborted = true;
-        res.writeHead(413, { 'Content-Type': 'application/json' });
-        res.end('{"error":"payload too large"}');
-        req.destroy();
-      }
-    });
-    req.on('end', () => {
-      if (aborted) return;
-      let payload: Record<string, unknown>;
-      try {
-        payload = JSON.parse(body) as Record<string, unknown>;
-      } catch {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end('{"error":"invalid json"}');
-        return;
-      }
+  async function handleSend(req: http.IncomingMessage, res: http.ServerResponse, config: ChannelSetup): Promise<void> {
+    const user = resolveUser(req);
+    if (!user) {
+      unauthorized(res);
+      return;
+    }
 
-      const text = typeof payload.text === 'string' ? payload.text : '';
-      const threadId = typeof payload.threadId === 'string' ? payload.threadId : null;
-      const platformId = typeof payload.platformId === 'string' ? payload.platformId : DEFAULT_PLATFORM_ID;
-      if (!text) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end('{"error":"empty text"}');
-        return;
-      }
+    let body: string;
+    try {
+      body = await readBody(req);
+    } catch {
+      sendJson(res, 413, { error: 'payload too large' });
+      return;
+    }
 
-      const id = `web-in-${Date.now()}-${rand()}`;
-      void Promise.resolve(
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      sendJson(res, 400, { error: 'invalid json' });
+      return;
+    }
+
+    const text = typeof payload.text === 'string' ? payload.text : '';
+    const threadId = typeof payload.threadId === 'string' ? payload.threadId : null;
+    if (!text) {
+      sendJson(res, 400, { error: 'empty text' });
+      return;
+    }
+
+    // platform_id + sender identity are derived from the authenticated user,
+    // NEVER from the client. senderId is the nanoclaw user id so the router's
+    // permission gate resolves the real user (owner/member) for this agent.
+    const platformId = user.userId;
+    const id = `web-in-${Date.now()}-${rand()}`;
+    try {
+      await Promise.resolve(
         config.onInbound(platformId, threadId, {
           id,
           kind: 'chat',
@@ -173,45 +238,120 @@ function createAdapter(): ChannelAdapter {
           // Direct address: the web user is always talking to their agent.
           isMention: true,
           isGroup: true,
-          content: { text, sender: 'web', senderId: platformId },
+          content: {
+            text,
+            sender: user.handle,
+            senderId: user.userId,
+            senderName: user.displayName ?? undefined,
+          },
         }),
-      ).catch((err) => log.error('web onInbound threw', { err }));
+      );
+    } catch (err) {
+      log.error('web onInbound threw', { err });
+    }
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, id }));
-    });
+    sendJson(res, 200, { ok: true, id });
   }
 
-  function handleHistory(res: http.ServerResponse, url: URL): void {
-    const platformId = url.searchParams.get('platformId') || DEFAULT_PLATFORM_ID;
+  function handleHistory(req: http.IncomingMessage, res: http.ServerResponse, url: URL): void {
+    const user = resolveUser(req);
+    if (!user) {
+      unauthorized(res);
+      return;
+    }
     const threadId = url.searchParams.get('threadId');
     if (!threadId) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end('{"error":"threadId required"}');
+      sendJson(res, 400, { error: 'threadId required' });
       return;
     }
     try {
-      const messages = loadThreadHistory(platformId, threadId);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ messages }));
+      // Scoped to the authenticated user's own messaging group.
+      const messages = loadThreadHistory(user.userId, threadId);
+      sendJson(res, 200, { messages });
     } catch (err) {
       log.error('web history load failed', { err });
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end('{"error":"history load failed"}');
+      sendJson(res, 500, { error: 'history load failed' });
     }
   }
 
-  function handleThreads(res: http.ServerResponse, url: URL): void {
-    const platformId = url.searchParams.get('platformId') || DEFAULT_PLATFORM_ID;
+  function handleThreads(req: http.IncomingMessage, res: http.ServerResponse): void {
+    const user = resolveUser(req);
+    if (!user) {
+      unauthorized(res);
+      return;
+    }
     try {
-      const threads = listThreads(platformId);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ threads }));
+      const threads = listThreads(user.userId);
+      sendJson(res, 200, { threads });
     } catch (err) {
       log.error('web thread list failed', { err });
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end('{"error":"thread list failed"}');
+      sendJson(res, 500, { error: 'thread list failed' });
     }
+  }
+
+  async function handleLogin(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    let body: string;
+    try {
+      body = await readBody(req);
+    } catch {
+      sendJson(res, 413, { error: 'payload too large' });
+      return;
+    }
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      sendJson(res, 400, { error: 'invalid json' });
+      return;
+    }
+    const handle = typeof payload.handle === 'string' ? payload.handle.trim().toLowerCase() : '';
+    const password = typeof payload.password === 'string' ? payload.password : '';
+    if (!handle || !password) {
+      sendJson(res, 400, { error: 'handle and password required' });
+      return;
+    }
+
+    const userId = `web:${handle}`;
+    if (isLockedOut(userId)) {
+      sendJson(res, 429, { error: 'too many attempts, try again later' });
+      return;
+    }
+
+    const cred = getCredential(userId);
+    // Always run verify (even with no row) to keep timing uniform, then decide.
+    const ok = cred ? verifyPassword(password, cred.pw_hash) : false;
+    if (!ok) {
+      recordFailure(userId);
+      // Generic message — don't reveal whether the handle exists.
+      sendJson(res, 401, { error: 'invalid credentials' });
+      return;
+    }
+
+    clearFailures(userId);
+    const token = issueSession(userId);
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Set-Cookie': sessionCookieHeader(token),
+    });
+    const user = authenticateRequest(`${SESSION_COOKIE}=${token}`);
+    res.end(JSON.stringify({ handle, displayName: user?.displayName ?? null }));
+  }
+
+  function handleLogout(res: http.ServerResponse): void {
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Set-Cookie': sessionCookieHeader(null),
+    });
+    res.end('{"ok":true}');
+  }
+
+  function handleMe(req: http.IncomingMessage, res: http.ServerResponse): void {
+    const user = resolveUser(req);
+    if (!user) {
+      unauthorized(res);
+      return;
+    }
+    sendJson(res, 200, { handle: user.handle, displayName: user.displayName, authRequired: requireAuth() });
   }
 
   function serveStatic(url: URL, res: http.ServerResponse): void {
@@ -256,20 +396,44 @@ function createAdapter(): ChannelAdapter {
     }
 
     const url = new URL(req.url ?? '/', 'http://localhost');
+    const fail = (err: unknown) => {
+      log.error('web request handler threw', { path: url.pathname, err });
+      try {
+        sendJson(res, 500, { error: 'internal error' });
+      } catch {
+        // response already partially sent
+      }
+    };
+
+    // Auth endpoints (ungated — they establish or report the session).
+    if (req.method === 'POST' && url.pathname === '/api/login') {
+      void handleLogin(req, res).catch(fail);
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/api/logout') {
+      handleLogout(res);
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/me') {
+      handleMe(req, res);
+      return;
+    }
+
+    // Data endpoints (auth-gated inside each handler via resolveUser).
     if (req.method === 'GET' && url.pathname === '/api/stream') {
-      handleStream(req, res, url);
+      handleStream(req, res);
       return;
     }
     if (req.method === 'POST' && url.pathname === '/api/send') {
-      handleSend(req, res, config);
+      void handleSend(req, res, config).catch(fail);
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/history') {
-      handleHistory(res, url);
+      handleHistory(req, res, url);
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/threads') {
-      handleThreads(res, url);
+      handleThreads(req, res);
       return;
     }
     serveStatic(url, res);

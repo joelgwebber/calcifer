@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import { uuid } from './uuid';
 
-export const PLATFORM_ID = 'web:local';
-
 export type MyMessage = {
   id: string;
   role: 'user' | 'assistant';

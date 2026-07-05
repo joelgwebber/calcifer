@@ -6,7 +6,7 @@ import {
   type ThreadMessageLike,
   type ExternalStoreThreadListAdapter,
 } from '@assistant-ui/react';
-import { useStore, type MyMessage, PLATFORM_ID } from './store';
+import { useStore, type MyMessage } from './store';
 import { uuid } from './uuid';
 
 const convertMessage = (m: MyMessage): ThreadMessageLike => ({
@@ -40,9 +40,7 @@ type TypingEventPayload = {
 async function fetchHistory(threadId: string): Promise<void> {
   if (useStore.getState().hydrated[threadId]) return;
   try {
-    const res = await fetch(
-      `/api/history?platformId=${encodeURIComponent(PLATFORM_ID)}&threadId=${encodeURIComponent(threadId)}`,
-    );
+    const res = await fetch(`/api/history?threadId=${encodeURIComponent(threadId)}`, { credentials: 'same-origin' });
     if (!res.ok) return;
     const data = (await res.json()) as { messages: MyMessage[] };
     const history = data.messages ?? [];
@@ -82,8 +80,9 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     // NOT in this response. nanoclaw is async/push.
     await fetch('/api/send', {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platformId: PLATFORM_ID, threadId, text }),
+      body: JSON.stringify({ threadId, text }),
     });
   };
 
@@ -124,7 +123,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch(`/api/threads?platformId=${encodeURIComponent(PLATFORM_ID)}`);
+        const res = await fetch('/api/threads', { credentials: 'same-origin' });
         if (res.ok) {
           const data = (await res.json()) as { threads: { threadId: string; title: string }[] };
           if (!cancelled && data.threads?.length) {
@@ -143,7 +142,9 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
 
   // Open a single SSE connection for the lifetime of the app.
   useEffect(() => {
-    const source = new EventSource(`/api/stream?platformId=${encodeURIComponent(PLATFORM_ID)}`);
+    // Cookie is sent automatically for same-origin EventSource; the server
+    // scopes the stream to the authenticated user's own platform_id.
+    const source = new EventSource('/api/stream');
 
     const onMessage = (event: MessageEvent) => {
       const payload = JSON.parse(event.data) as MessageEventPayload;

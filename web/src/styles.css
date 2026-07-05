@@ -23,9 +23,7 @@ body,
 }
 
 body {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: var(--text);
   background: var(--bg);
 }
@@ -46,10 +44,111 @@ body {
 }
 
 .sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 16px;
   font-weight: 700;
   font-size: 15px;
   border-bottom: 1px solid var(--border);
+}
+
+.logout-button {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* ---- Auth ---- */
+.app-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--muted);
+}
+
+.login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: var(--sidebar-bg);
+}
+
+.login-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 320px;
+  padding: 28px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+}
+
+.login-title {
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.login-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.login-input {
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.login-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.login-error {
+  font-size: 13px;
+  color: #c02626;
+}
+
+.login-button {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--user-text);
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.login-button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .thread-list {
@@ -107,7 +206,7 @@ body {
   background: rgba(0, 0, 0, 0.05);
 }
 
-.thread-list-item[data-active="true"] .thread-list-item-trigger {
+.thread-list-item[data-active='true'] .thread-list-item-trigger {
   background: rgba(59, 110, 245, 0.12);
   color: var(--accent);
   font-weight: 600;
