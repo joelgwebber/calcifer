@@ -58,6 +58,7 @@ import {
 import type { ChannelAdapter, ChannelSetup, OutboundMessage } from './adapter.js';
 import { registerChannelAdapter } from './channel-registry.js';
 import { listThreads, loadThreadHistory } from './web-history.js';
+import { annotateForUser, listViews, queryViewForUser, recordForUser, ViewDataError } from './web-views.js';
 
 const CHANNEL_TYPE = 'web';
 const DEFAULT_PLATFORM_ID = 'web:local';
@@ -354,6 +355,106 @@ function createAdapter(): ChannelAdapter {
     sendJson(res, 200, { handle: user.handle, displayName: user.displayName, authRequired: requireAuth() });
   }
 
+  function sendViewError(res: http.ServerResponse, err: unknown): void {
+    if (err instanceof ViewDataError) {
+      sendJson(res, err.status, { error: err.message });
+      return;
+    }
+    log.error('view request failed', { err });
+    sendJson(res, 500, { error: 'internal error' });
+  }
+
+  function handleViewsList(req: http.IncomingMessage, res: http.ServerResponse): void {
+    if (!resolveUser(req)) {
+      unauthorized(res);
+      return;
+    }
+    sendJson(res, 200, { views: listViews() });
+  }
+
+  function handleViewData(req: http.IncomingMessage, res: http.ServerResponse, view: string, url: URL): void {
+    const user = resolveUser(req);
+    if (!user) {
+      unauthorized(res);
+      return;
+    }
+    let filters: Record<string, unknown> = {};
+    const rawFilters = url.searchParams.get('filters');
+    if (rawFilters) {
+      try {
+        filters = JSON.parse(rawFilters) as Record<string, unknown>;
+      } catch {
+        sendJson(res, 400, { error: 'filters must be valid JSON' });
+        return;
+      }
+    }
+    const pageRaw = parseInt(url.searchParams.get('page') ?? '', 10);
+    const pageSizeRaw = parseInt(url.searchParams.get('pageSize') ?? '', 10);
+    try {
+      const result = queryViewForUser(user.userId, view, {
+        collection: url.searchParams.get('collection') ?? undefined,
+        filters,
+        q: url.searchParams.get('q') ?? undefined,
+        sort: url.searchParams.get('sort') ?? undefined,
+        page: Number.isFinite(pageRaw) ? pageRaw : undefined,
+        pageSize: Number.isFinite(pageSizeRaw) ? pageSizeRaw : undefined,
+      });
+      sendJson(res, 200, result);
+    } catch (err) {
+      sendViewError(res, err);
+    }
+  }
+
+  function handleViewRecord(req: http.IncomingMessage, res: http.ServerResponse, view: string, id: string): void {
+    const user = resolveUser(req);
+    if (!user) {
+      unauthorized(res);
+      return;
+    }
+    try {
+      const record = recordForUser(user.userId, view, id);
+      if (!record) {
+        sendJson(res, 404, { error: 'record not found' });
+        return;
+      }
+      sendJson(res, 200, { record });
+    } catch (err) {
+      sendViewError(res, err);
+    }
+  }
+
+  async function handleAnnotate(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    if (!resolveUser(req)) {
+      unauthorized(res);
+      return;
+    }
+    let body: string;
+    try {
+      body = await readBody(req);
+    } catch {
+      sendJson(res, 413, { error: 'payload too large' });
+      return;
+    }
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(body) as Record<string, unknown>;
+    } catch {
+      sendJson(res, 400, { error: 'invalid json' });
+      return;
+    }
+    const view = typeof payload.view === 'string' ? payload.view : '';
+    const entityId = typeof payload.entity_id === 'string' ? payload.entity_id : '';
+    const key = typeof payload.key === 'string' ? payload.key : '';
+    const value =
+      typeof payload.value === 'string' ? payload.value : payload.value == null ? null : String(payload.value);
+    try {
+      annotateForUser(view, entityId, key, value);
+      sendJson(res, 200, { ok: true });
+    } catch (err) {
+      sendViewError(res, err);
+    }
+  }
+
   function serveStatic(url: URL, res: http.ServerResponse): void {
     const distDir = path.resolve(process.cwd(), 'web', 'dist');
     const requested = url.pathname === '/' ? '/index.html' : url.pathname;
@@ -436,6 +537,27 @@ function createAdapter(): ChannelAdapter {
       handleThreads(req, res);
       return;
     }
+
+    // Skill views (calcifer-1d51).
+    if (req.method === 'GET' && url.pathname === '/api/views') {
+      handleViewsList(req, res);
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/api/annotations') {
+      void handleAnnotate(req, res).catch(fail);
+      return;
+    }
+    const viewDataMatch = /^\/api\/views\/([^/]+)\/data$/.exec(url.pathname);
+    if (req.method === 'GET' && viewDataMatch) {
+      handleViewData(req, res, decodeURIComponent(viewDataMatch[1]), url);
+      return;
+    }
+    const viewRecordMatch = /^\/api\/views\/([^/]+)\/record\/(.+)$/.exec(url.pathname);
+    if (req.method === 'GET' && viewRecordMatch) {
+      handleViewRecord(req, res, decodeURIComponent(viewRecordMatch[1]), decodeURIComponent(viewRecordMatch[2]));
+      return;
+    }
+
     serveStatic(url, res);
   }
 

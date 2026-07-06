@@ -1,0 +1,73 @@
+{
+  "view": "apartments",
+  "title": "Apartments",
+  "icon": "building",
+  "skill": "nyc-apt",
+  "idField": "id",
+  "data": { "type": "sqlite", "path": "nyc-apt/listings.db", "table": "listings" },
+  "baseFilter": { "status": { "eq": "active" } },
+  "defaultSort": "-first_seen_at",
+  "fields": {
+    "address": { "type": "text", "label": "Address", "search": true },
+    "neighborhood": { "type": "text", "label": "Neighborhood", "filter": "multiselect", "search": true },
+    "price": { "type": "money", "label": "Price", "filter": "range", "sort": true },
+    "net_effective_price": { "type": "money", "label": "Net effective" },
+    "beds": { "type": "number", "label": "Beds", "filter": "range", "sort": true },
+    "baths": { "type": "number", "label": "Baths" },
+    "source": { "type": "badge", "label": "Source", "filter": "multiselect" },
+    "source_type": { "type": "text", "label": "Source type" },
+    "broker": { "type": "text", "label": "Broker" },
+    "broker_agent": { "type": "text", "label": "Agent" },
+    "no_fee": { "type": "bool", "label": "No-fee", "filter": "toggle" },
+    "months_free": { "type": "number", "label": "Months free" },
+    "available_at": { "type": "text", "label": "Available" },
+    "first_seen_at": { "type": "datetime", "label": "Found", "filter": "daterange", "sort": true },
+    "last_seen_at": { "type": "datetime", "label": "Last seen" },
+    "status": { "type": "text", "label": "Status" },
+    "url": { "type": "link", "label": "Listing" },
+    "notes": { "type": "text", "label": "Notes" }
+  },
+  "collections": {
+    "recent": { "label": "New (24h)", "filter": { "first_seen_at": { "gte": "now-24h" } }, "sort": "-first_seen_at" },
+    "week": { "label": "New (7d)", "filter": { "first_seen_at": { "gte": "now-7d" } }, "sort": "-first_seen_at" },
+    "starred": { "label": "Starred", "annotation": { "star": true }, "sort": "-first_seen_at" }
+  },
+  "list": {
+    "card": {
+      "title": "{address}",
+      "subtitle": "{price} · {beds}BR · {neighborhood}",
+      "badges": [
+        { "label": "No-fee", "when": "{no_fee}" },
+        { "label": "{source}" }
+      ],
+      "actions": ["star", { "type": "open", "href": "{url}", "label": "Open" }]
+    }
+  },
+  "detail": {
+    "fields": [
+      "price",
+      "net_effective_price",
+      "beds",
+      "baths",
+      "neighborhood",
+      "source",
+      "source_type",
+      "broker",
+      "broker_agent",
+      "no_fee",
+      "months_free",
+      "available_at",
+      "first_seen_at",
+      "last_seen_at",
+      "status",
+      "notes"
+    ],
+    "timeline": { "source": "sightings", "foreignKey": "listing_id", "date": "seen_at", "label": "{price}" },
+    "actions": [
+      "star",
+      { "type": "open", "href": "{url}", "label": "Open listing" },
+      { "type": "ask", "label": "Draft inquiry", "prompt": "Draft an inquiry message for the apartment at {address} ({url})." }
+    ]
+  },
+  "annotations": ["star", "note"]
+}
