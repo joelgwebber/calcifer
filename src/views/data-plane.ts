@@ -16,7 +16,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 
 import { getAnnotationsFor, getEntityIdsWithAnnotation } from '../db/annotations.js';
-import { GROUPS_DIR } from '../config.js';
+import { GROUPS_DIR, SHARED_DATA_DIR } from '../config.js';
 import { log } from '../log.js';
 import type { FilterValue, ViewManifest } from './manifest.js';
 
@@ -54,7 +54,10 @@ function dbPath(manifest: ViewManifest, agentGroupFolder: string): string {
   if (manifest.data.type !== 'sqlite' || !manifest.data.path) {
     throw new ViewDataError(501, `view "${manifest.view}" data.type not supported: ${manifest.data.type}`);
   }
-  return path.join(GROUPS_DIR, agentGroupFolder, manifest.data.path);
+  // scope=shared reads one family-wide DB from the shared root, independent of
+  // the viewing user's agent group; scope=agent (default) is per-user.
+  const root = manifest.data.scope === 'shared' ? SHARED_DATA_DIR : path.join(GROUPS_DIR, agentGroupFolder);
+  return path.join(root, manifest.data.path);
 }
 
 function openReadonly(p: string): Database.Database | null {

@@ -71,7 +71,13 @@ export interface DetailSpec {
 
 export interface DataSource {
   type: 'sqlite' | 'http' | 'agent';
-  /** For sqlite: path relative to the agent group workspace (groups/<folder>/). */
+  /**
+   * Where a sqlite `path` is resolved:
+   *   'agent'  (default) — the viewing user's agent-group workspace (per-user data)
+   *   'shared'          — the cross-agent shared data root (one family-wide DB)
+   */
+  scope?: 'agent' | 'shared';
+  /** For sqlite: path relative to the resolved root (agent workspace or shared root). */
   path?: string;
   table?: string;
 }
@@ -127,7 +133,7 @@ function validate(raw: unknown, source: string): ViewManifest | null {
     icon: typeof m.icon === 'string' ? m.icon : undefined,
     skill: typeof m.skill === 'string' ? (m.skill as string) : (m.view as string),
     idField: typeof m.idField === 'string' ? (m.idField as string) : 'id',
-    data: m.data as DataSource,
+    data: { scope: 'agent', ...(m.data as DataSource) },
     fields: m.fields as Record<string, FieldSpec>,
     baseFilter: (m.baseFilter as Record<string, FilterValue>) ?? undefined,
     collections: (m.collections as Record<string, CollectionSpec>) ?? undefined,
