@@ -17,6 +17,7 @@ export interface CardSpec {
   title: string;
   subtitle?: string;
   thumbnail?: string;
+  trailing?: string;
   badges?: Array<{ label: string; when?: string }>;
   actions?: ActionSpec[];
 }
@@ -57,7 +58,10 @@ export interface ViewSummary {
   icon?: string;
 }
 
-export type Row = Record<string, unknown> & { _ann?: Record<string, string>; _timeline?: Array<Record<string, unknown>> };
+export type Row = Record<string, unknown> & {
+  _ann?: Record<string, string>;
+  _timeline?: Array<Record<string, unknown>>;
+};
 
 export interface QueryResult {
   items: Row[];

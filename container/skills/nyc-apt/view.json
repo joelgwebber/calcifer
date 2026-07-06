@@ -35,11 +35,9 @@
   "list": {
     "card": {
       "title": "{address}",
-      "subtitle": "{price} · {beds}BR · {neighborhood}",
-      "badges": [
-        { "label": "No-fee", "when": "{no_fee}" },
-        { "label": "{source}" }
-      ],
+      "subtitle": "{beds}BR · {neighborhood}",
+      "trailing": "price",
+      "badges": [{ "label": "No-fee", "when": "{no_fee}" }, { "label": "{source}" }],
       "actions": ["star", { "type": "open", "href": "{url}", "label": "Open" }]
     }
   },
@@ -66,7 +64,11 @@
     "actions": [
       "star",
       { "type": "open", "href": "{url}", "label": "Open listing" },
-      { "type": "ask", "label": "Draft inquiry", "prompt": "Draft an inquiry message for the apartment at {address} ({url})." }
+      {
+        "type": "ask",
+        "label": "Draft inquiry",
+        "prompt": "Draft an inquiry message for the apartment at {address} ({url})."
+      }
     ]
   },
   "annotations": ["star", "note"]

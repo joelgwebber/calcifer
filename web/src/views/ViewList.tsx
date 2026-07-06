@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { fetchManifest, fetchViewData, setAnnotation } from './api';
 import { Filters } from './Filters';
-import { interpolate, truthyToken } from './primitives';
+import { FieldValue, interpolate, truthyToken } from './primitives';
 import type { ActionSpec, FilterState, QueryResult, Row, ViewManifest } from './types';
 
 function parseFilters(raw: string | null): FilterState {
@@ -181,7 +181,9 @@ function Card({ manifest, row, onStar }: { manifest: ViewManifest; row: Row; onS
   const card = manifest.list.card;
   const id = String(row[manifest.idField]);
   const starred = row._ann?.star === 'true';
+  const note = row._ann?.note;
   const hasStar = manifest.annotations?.includes('star');
+  const trailingField = card.trailing ? manifest.fields[card.trailing] : undefined;
 
   return (
     <div className="card">
@@ -199,7 +201,13 @@ function Card({ manifest, row, onStar }: { manifest: ViewManifest; row: Row; onS
               ))}
           </div>
         )}
+        {note && <div className="card-note">📝 {note}</div>}
       </Link>
+      {card.trailing && trailingField && (
+        <div className="card-trailing">
+          <FieldValue type={trailingField.type} value={row[card.trailing]} />
+        </div>
+      )}
       <div className="card-actions">
         {hasStar && (
           <button className={`icon-button ${starred ? 'starred' : ''}`} title="Star" onClick={onStar}>

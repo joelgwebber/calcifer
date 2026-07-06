@@ -25,11 +25,17 @@ export function ViewDetail() {
   }, [view, id]);
 
   if (!manifest) return <div className="view-loading">Loading…</div>;
-  if (notFound) return <div className="view-error">Record not found. <Link to={`/app/${view}`}>Back</Link></div>;
+  if (notFound)
+    return (
+      <div className="view-error">
+        Record not found. <Link to={`/app/${view}`}>Back</Link>
+      </div>
+    );
   if (!row) return <div className="view-loading">Loading…</div>;
 
   const starred = row._ann?.star === 'true';
   const hasStar = manifest.annotations?.includes('star');
+  const hasNote = manifest.annotations?.includes('note');
   const titleField = manifest.list.card.title;
 
   async function toggleStar() {
@@ -58,6 +64,8 @@ export function ViewDetail() {
       </div>
 
       <h1 className="detail-title">{interpolate(titleField, row)}</h1>
+
+      {hasNote && <NoteEditor view={view} id={id} initial={row._ann?.note ?? ''} />}
 
       <table className="detail-fields">
         <tbody>
@@ -89,6 +97,33 @@ export function ViewDetail() {
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+function NoteEditor({ view, id, initial }: { view: string; id: string; initial: string }) {
+  const [text, setText] = useState(initial);
+  const [saved, setSaved] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  async function save() {
+    setSaved('saving');
+    await setAnnotation(view, id, 'note', text.trim() ? text.trim() : null);
+    setSaved('saved');
+    setTimeout(() => setSaved('idle'), 1500);
+  }
+
+  return (
+    <div className="note-editor">
+      <div className="note-label">Notes</div>
+      <textarea
+        className="note-input"
+        value={text}
+        placeholder="Add a shared note…"
+        rows={2}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={save}
+      />
+      <div className="note-status">{saved === 'saving' ? 'Saving…' : saved === 'saved' ? 'Saved' : ''}</div>
     </div>
   );
 }

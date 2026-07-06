@@ -54,6 +54,8 @@ export interface CardSpec {
   title: string;
   subtitle?: string;
   thumbnail?: string;
+  /** A single field rendered typed + prominent on the trailing edge (e.g. price). */
+  trailing?: string;
   badges?: Array<{ label: string; when?: string }>;
   actions?: ActionSpec[];
 }
