@@ -22,11 +22,12 @@ export const SENDER_ALLOWLIST_PATH = path.join(HOME_DIR, '.config', 'nanoclaw', 
 export const STORE_DIR = path.resolve(PROJECT_ROOT, 'store');
 export const GROUPS_DIR = path.resolve(PROJECT_ROOT, 'groups');
 export const DATA_DIR = path.resolve(PROJECT_ROOT, 'data');
-// Cross-agent shared data root. Skills that produce family-shared data (one
-// writer, many readers) live under here and are mounted into every agent's
-// container at a common path. The web view data plane reads scope=shared
-// sources from here, independent of the viewing user's agent group.
-export const SHARED_DATA_DIR = path.resolve(PROJECT_ROOT, 'store', 'shared');
+// Cross-agent shared data root under the canonical operational dir (data/).
+// Skills that produce family-shared data (one writer, many readers) live here
+// and are mounted into every agent's container at a common path. The web view
+// data plane reads scope=shared sources from here, independent of the viewing
+// user's agent group.
+export const SHARED_DATA_DIR = path.resolve(DATA_DIR, 'shared');
 
 // Per-checkout image tag so two installs on the same host don't share
 // `nanoclaw-agent:latest` and clobber each other on rebuild.

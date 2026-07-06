@@ -4,7 +4,7 @@
   "icon": "building",
   "skill": "nyc-apt",
   "idField": "id",
-  "data": { "type": "sqlite", "path": "nyc-apt/listings.db", "table": "listings" },
+  "data": { "type": "sqlite", "scope": "shared", "path": "nyc-apt/listings.db", "table": "listings" },
   "baseFilter": { "status": { "eq": "active" } },
   "defaultSort": "-first_seen_at",
   "fields": {
