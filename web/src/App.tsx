@@ -1,61 +1,106 @@
 import { useEffect, useState } from 'react';
+import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
 import { fetchMe, logout, type Me } from './api';
 import { RuntimeProvider } from './runtime';
-import { Login } from './ui/Login';
 import { ThreadList } from './ui/ThreadList';
 import { Thread } from './ui/Thread';
+import { fetchViewList } from './views/api';
+import type { ViewSummary } from './views/types';
+import { ViewList } from './views/ViewList';
+import { ViewDetail } from './views/ViewDetail';
+import { Login } from './ui/Login';
 
 type AuthState = { status: 'loading' } | { status: 'anon' } | { status: 'authed'; me: Me };
 
 export function App() {
+  return (
+    <BrowserRouter>
+      <AuthedApp />
+    </BrowserRouter>
+  );
+}
+
+function AuthedApp() {
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
 
   useEffect(() => {
     let cancelled = false;
     void fetchMe().then((me) => {
-      if (cancelled) return;
-      setAuth(me ? { status: 'authed', me } : { status: 'anon' });
+      if (!cancelled) setAuth(me ? { status: 'authed', me } : { status: 'anon' });
     });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  if (auth.status === 'loading') {
-    return <div className="app-loading">Loading…</div>;
-  }
-  if (auth.status === 'anon') {
-    return <Login onSuccess={(me) => setAuth({ status: 'authed', me })} />;
-  }
+  if (auth.status === 'loading') return <div className="app-loading">Loading…</div>;
+  if (auth.status === 'anon') return <Login onSuccess={(me) => setAuth({ status: 'authed', me })} />;
 
   const onLogout = async () => {
     await logout();
     setAuth({ status: 'anon' });
   };
 
-  return <ChatApp me={auth.me} onLogout={onLogout} />;
+  return <Shell me={auth.me} onLogout={onLogout} />;
 }
 
-function ChatApp({ me, onLogout }: { me: Me; onLogout: () => void }) {
+function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
+  const [views, setViews] = useState<ViewSummary[]>([]);
+  useEffect(() => {
+    void fetchViewList().then(setViews);
+  }, []);
   const label = me.displayName || me.handle;
+
   return (
     <RuntimeProvider>
-      <div className="app">
-        <aside className="sidebar">
-          <div className="sidebar-header">
-            <span>nanoclaw</span>
-            {me.authRequired && (
-              <button className="logout-button" title={`Signed in as ${label}`} onClick={onLogout}>
-                Sign out
-              </button>
-            )}
-          </div>
-          <ThreadList />
-        </aside>
-        <main className="main">
-          <Thread />
+      <div className="shell">
+        <nav className="rail">
+          <div className="rail-brand">nanoclaw</div>
+          <NavLink to="/" end className={({ isActive }) => `rail-link ${isActive ? 'active' : ''}`}>
+            Chat
+          </NavLink>
+          {views.length > 0 && <div className="rail-section">Apps</div>}
+          {views.map((v) => (
+            <NavLink
+              key={v.view}
+              to={`/app/${v.view}`}
+              className={({ isActive }) => `rail-link ${isActive ? 'active' : ''}`}
+            >
+              {v.title}
+            </NavLink>
+          ))}
+          <div className="rail-spacer" />
+          {me.authRequired && (
+            <button className="rail-logout" title={`Signed in as ${label}`} onClick={onLogout}>
+              Sign out
+            </button>
+          )}
+        </nav>
+
+        <main className="shell-main">
+          <Routes>
+            <Route path="/" element={<ChatPane />} />
+            <Route path="/app/:view" element={<ViewList />} />
+            <Route path="/app/:view/:id" element={<ViewDetail />} />
+          </Routes>
         </main>
       </div>
     </RuntimeProvider>
+  );
+}
+
+function ChatPane() {
+  return (
+    <div className="chat">
+      <aside className="sidebar">
+        <div className="sidebar-header">
+          <span>Conversations</span>
+        </div>
+        <ThreadList />
+      </aside>
+      <div className="chat-main">
+        <Thread />
+      </div>
+    </div>
   );
 }
