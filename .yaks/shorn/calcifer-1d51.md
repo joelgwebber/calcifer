@@ -4,7 +4,7 @@ title: Declarative skill views — addressable, auth'd UI surfaces for skills
 type: feature
 priority: 2
 created: '2026-07-06T18:18:17Z'
-updated: '2026-07-06T18:26:27Z'
+updated: '2026-07-07T22:28:03Z'
 depends_on:
 - calcifer-7c3a.1
 - calcifer-7c3a.6
@@ -38,3 +38,7 @@ Working, addressable, auth'd apartments browser (list/detail/filter/star/open) b
 
 ## Relationship to 7c3a
 Sibling to the web-UI herd (7c3a). 7c3a.4 (inline cards) remains the near-term conversational surface; this herd is the persistent/addressable surface. Cards link into views.
+
+---
+▸ 2026-07-07T22:28:03Z
+v0 COMPLETE end-to-end and owner-verified. Declarative skill-views delivered: annotations store (.1), manifest format (.2), sqlite read data-plane w/ annotation merge (.3), web render layer + addressable auth'd routes (.4), apartments first consumer (.5), family-shared scope (.8), and chat<->view bridging — cards + ask action (.6). First consumer (shared NYC apartment browser) live at /app/apartments: browse/filter/sort/star/note/deep-link, plus send_card cards in chat and an ask escape-valve back to the agent. Post-v0 extensibility (.7) retired into top-level yaks 851f/7b34/d720/0917 (custom-backend tier -> Wiki + Seafile views, far-tier render/SSE).

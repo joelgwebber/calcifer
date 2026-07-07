@@ -2,9 +2,9 @@
 id: calcifer-7c3a.7
 title: 'Web UI: mobile (React Native) + verify ExternalStore parity'
 type: task
-priority: 3
+priority: 4
 created: '2026-06-13T12:00:00Z'
-updated: '2026-06-13T12:00:00Z'
+updated: '2026-07-07T22:25:15Z'
 ---
 
 PARENT YAK: calcifer-7c3a
