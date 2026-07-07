@@ -257,7 +257,7 @@ Check these first when something goes wrong:
 
 | What | Where |
 |------|-------|
-| Host logs | `logs/nanoclaw.error.log` first (delivery failures, crash-loop backoff, warnings), then `logs/nanoclaw.log` for the full routing chain |
+| Host logs | `logs/calcifer.error.log` first (delivery failures, crash-loop backoff, warnings), then `logs/calcifer.log` for the full routing chain. (The service unit is `calcifer.service`; ignore any stale `logs/nanoclaw.*` — that was the pre-rebrand name.) |
 | Setup logs | `logs/setup.log` (overall), `logs/setup-steps/*.log` (per-step: bootstrap, environment, container, onecli, mounts, service, etc.) |
 | Session DBs | `data/v2-sessions/<agent-group>/<session>/` — `inbound.db` (`messages_in`: did the message reach the container?), `outbound.db` (`messages_out`: did the agent produce a response?) |
 

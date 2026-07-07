@@ -30,8 +30,8 @@ src/container-runner.ts               container/agent-runner/
 
 | Log | Location | Content |
 |-----|----------|---------|
-| **Main app logs** | `logs/nanoclaw.log` | Host-side WhatsApp, routing, container spawning |
-| **Main app errors** | `logs/nanoclaw.error.log` | Host-side errors |
+| **Main app logs** | `logs/calcifer.log` | Host-side WhatsApp, routing, container spawning |
+| **Main app errors** | `logs/calcifer.error.log` | Host-side errors |
 | **Container run logs** | `groups/{folder}/logs/container-*.log` | Per-run: input, mounts, stderr, stdout |
 | **Claude sessions** | `~/.claude/projects/` | Claude Code session history |
 
@@ -59,7 +59,7 @@ Debug level shows:
 
 ### 1. "No adapter for channel type" / Messages silently lost (null platformMsgId)
 
-**Symptom:** The bot stops replying. `logs/nanoclaw.error.log` shows repeated:
+**Symptom:** The bot stops replying. `logs/calcifer.error.log` shows repeated:
 ```
 WARN No adapter for channel type channelType="telegram"
 WARN No adapter for channel type channelType="signal"
@@ -79,7 +79,7 @@ ps aux | grep 'nanoclaw/dist/index.js' | grep -v grep
 systemctl --user list-units 'nanoclaw*' --all
 
 # Confirm channel adapters registered by the current process
-grep "Channel adapter started" logs/nanoclaw.log | tail -10
+grep "Channel adapter started" logs/calcifer.log | tail -10
 ```
 
 **Fix:**
@@ -327,7 +327,7 @@ pnpm exec tsx scripts/q.ts store/messages.db "DELETE FROM sessions WHERE group_f
 
 To verify session resumption is working, check the logs for the same session ID across messages:
 ```bash
-grep "Session initialized" logs/nanoclaw.log | tail -5
+grep "Session initialized" logs/calcifer.log | tail -5
 # Should show the SAME session ID for consecutive messages in the same group
 ```
 
@@ -387,6 +387,6 @@ echo -e "\n7. Recent container logs?"
 ls -t groups/*/logs/container-*.log 2>/dev/null | head -3 || echo "No container logs yet"
 
 echo -e "\n8. Session continuity working?"
-SESSIONS=$(grep "Session initialized" logs/nanoclaw.log 2>/dev/null | tail -5 | awk '{print $NF}' | sort -u | wc -l)
+SESSIONS=$(grep "Session initialized" logs/calcifer.log 2>/dev/null | tail -5 | awk '{print $NF}' | sort -u | wc -l)
 [ "$SESSIONS" -le 2 ] && echo "OK (recent sessions reusing IDs)" || echo "CHECK - multiple different session IDs, may indicate resumption issues"
 ```
