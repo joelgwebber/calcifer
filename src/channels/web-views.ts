@@ -11,9 +11,16 @@ import { clearAnnotation, setAnnotation } from '../db/annotations.js';
 import { getAgentGroup } from '../db/agent-groups.js';
 import { getMessagingGroupAgents, getMessagingGroupByPlatform } from '../db/messaging-groups.js';
 import { getViewRecord, queryView, ViewDataError, type QueryParams, type QueryResult } from '../views/data-plane.js';
-import { getView, listViewSummaries, type ViewSummary } from '../views/manifest.js';
+import { getView, listViewSummaries, type ViewManifest, type ViewSummary } from '../views/manifest.js';
 
 export { ViewDataError };
+
+/** Full manifest for a view — safe to hand to the client (declarative UI config, no secrets). */
+export function getManifestForClient(viewName: string): ViewManifest {
+  const m = getView(viewName);
+  if (!m) throw new ViewDataError(404, `unknown view: ${viewName}`);
+  return m;
+}
 
 /** userId (web:<handle>) -> the folder of the agent group they're wired to. */
 function resolveAgentGroupFolder(userId: string): string | null {

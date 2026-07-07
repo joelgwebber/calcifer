@@ -58,7 +58,14 @@ import {
 import type { ChannelAdapter, ChannelSetup, OutboundMessage } from './adapter.js';
 import { registerChannelAdapter } from './channel-registry.js';
 import { listThreads, loadThreadHistory } from './web-history.js';
-import { annotateForUser, listViews, queryViewForUser, recordForUser, ViewDataError } from './web-views.js';
+import {
+  annotateForUser,
+  getManifestForClient,
+  listViews,
+  queryViewForUser,
+  recordForUser,
+  ViewDataError,
+} from './web-views.js';
 
 const CHANNEL_TYPE = 'web';
 const DEFAULT_PLATFORM_ID = 'web:local';
@@ -372,6 +379,18 @@ function createAdapter(): ChannelAdapter {
     sendJson(res, 200, { views: listViews() });
   }
 
+  function handleViewManifest(req: http.IncomingMessage, res: http.ServerResponse, view: string): void {
+    if (!resolveUser(req)) {
+      unauthorized(res);
+      return;
+    }
+    try {
+      sendJson(res, 200, { manifest: getManifestForClient(view) });
+    } catch (err) {
+      sendViewError(res, err);
+    }
+  }
+
   function handleViewData(req: http.IncomingMessage, res: http.ServerResponse, view: string, url: URL): void {
     const user = resolveUser(req);
     if (!user) {
@@ -555,6 +574,11 @@ function createAdapter(): ChannelAdapter {
     const viewRecordMatch = /^\/api\/views\/([^/]+)\/record\/(.+)$/.exec(url.pathname);
     if (req.method === 'GET' && viewRecordMatch) {
       handleViewRecord(req, res, decodeURIComponent(viewRecordMatch[1]), decodeURIComponent(viewRecordMatch[2]));
+      return;
+    }
+    const viewManifestMatch = /^\/api\/views\/([^/]+)$/.exec(url.pathname);
+    if (req.method === 'GET' && viewManifestMatch) {
+      handleViewManifest(req, res, decodeURIComponent(viewManifestMatch[1]));
       return;
     }
 
