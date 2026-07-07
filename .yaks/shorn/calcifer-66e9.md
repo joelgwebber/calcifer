@@ -4,7 +4,7 @@ title: 'Retire store/: migrate WhatsApp (Baileys) auth to data/, delete v1 lefto
 type: task
 priority: 2
 created: '2026-07-07T20:10:37Z'
-updated: '2026-07-07T20:25:21Z'
+updated: '2026-07-07T20:57:39Z'
 labels:
 - infra
 ---
@@ -14,3 +14,7 @@ store/ can't be nuked wholesale: store/auth + store/pairing-code.txt are the LIV
 ---
 ▸ 2026-07-07T20:25:21Z
 BLOCKED (reverted). Repointed whatsapp.ts AUTH_DIR + pairing-code to data/whatsapp-auth, removed dangling STORE_DIR, copied store/auth->data/whatsapp-auth, restarted. WhatsApp then QR-looped with reason=408. Investigation: the 408 closures + QR emission PREDATE the migration restart (persistent since ~22:33 in logs, across earlier restarts) -> the linked-device WhatsApp session is GONE (Baileys only emits QR when creds are unregistered), a pre-existing issue independent of the auth-path change (today's frequent restarts may have stressed it). Rolled back whatsapp.ts + config.ts (git checkout), removed data/whatsapp-auth, restarted onto pristine store/auth. store/ NOT deleted. PLAN: complete this as part of a WhatsApp RE-PAIR — point AUTH_DIR at data/whatsapp-auth first, re-pair (QR/pairing code, needs owner), confirm connected, then delete store/. Until re-paired, leave store/ as-is.
+
+---
+▸ 2026-07-07T20:57:36Z
+DONE via re-pair. Root cause of the earlier BLOCKED note was a misdiagnosis off a STALE log (logs/nanoclaw.log, last written May 3) — the real service log is logs/calcifer.log, which showed WhatsApp actually Connected on the old store/auth creds today. Completed the intended migration: repointed AUTH_DIR -> data/whatsapp-auth and pairing file -> data/whatsapp-pairing-code.txt, removed dangling STORE_DIR from config.ts, wiped to a fresh auth dir, restarted -> pairing-code mode (WHATSAPP_PHONE_NUMBER set). Owner paired (code MXMR-XLKE); 'Connected to WhatsApp' 16:56, stable, creds.json written. Deleted store/ (dead auth + v1 leftovers nanoclaw.db/messages.db/auth-status.txt; was gitignored).

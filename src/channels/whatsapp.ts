@@ -10,7 +10,7 @@
  * inbound message, and signalRepository.lidMapping.getPNForLID for resolution.
  * The adapter always resolves to phone JID (@s.whatsapp.net) before emitting.
  *
- * Auth credentials persist in store/auth/. On first run:
+ * Auth credentials persist in data/whatsapp-auth/. On first run:
  * - If WHATSAPP_PHONE_NUMBER is set → pairing code (printed to log)
  * - Otherwise → QR code (printed to log)
  * Subsequent restarts reuse the saved session automatically.
@@ -46,7 +46,7 @@ import type { ChannelAdapter, ChannelSetup, ConversationInfo, InboundMessage, Ou
 
 const baileysLogger = pino({ level: 'silent' });
 
-const AUTH_DIR = path.join(process.cwd(), 'store', 'auth');
+const AUTH_DIR = path.join(DATA_DIR, 'whatsapp-auth');
 const GROUP_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
 const GROUP_METADATA_CACHE_TTL_MS = 60_000; // 1 min for outbound sends
 const SENT_MESSAGE_CACHE_MAX = 256;
@@ -234,7 +234,7 @@ registerChannelAdapter('whatsapp', {
     let rejectFirstOpen: ((err: Error) => void) | undefined;
 
     // Pairing code file for the setup skill to poll
-    const pairingCodeFile = path.join(process.cwd(), 'store', 'pairing-code.txt');
+    const pairingCodeFile = path.join(DATA_DIR, 'whatsapp-pairing-code.txt');
 
     // --- Helpers ---
 
