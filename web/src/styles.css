@@ -728,6 +728,80 @@ body {
   border-bottom-left-radius: 4px;
 }
 
+/* Structured cards (send_card) as inline generative-UI message parts (7c3a.4).
+   A card-only assistant bubble sheds the grey pill so the card stands alone;
+   degrades to a card-on-pill where :has() is unsupported. */
+.message-assistant .message-bubble:has(.chat-card) {
+  background: transparent;
+  padding: 0;
+  max-width: 85%;
+}
+
+.chat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  min-width: 220px;
+  white-space: normal;
+}
+
+.chat-card-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.chat-card-body,
+.chat-card-line {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.chat-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.chat-card-action {
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.chat-card-action:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.chat-card-action-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.chat-card-action-primary:hover {
+  background: var(--accent);
+  filter: brightness(0.95);
+}
+
+.chat-card-action-danger {
+  border-color: #e5484d;
+  color: #e5484d;
+}
+
+.chat-card-action-danger:hover {
+  background: rgba(229, 72, 77, 0.08);
+}
+
 /* ---- Composer ---- */
 .composer {
   display: flex;

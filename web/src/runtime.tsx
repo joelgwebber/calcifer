@@ -9,12 +9,25 @@ import {
 import { useStore, type MyMessage } from './store';
 import { uuid } from './uuid';
 
-const convertMessage = (m: MyMessage): ThreadMessageLike => ({
-  role: m.role,
-  content: [{ type: 'text', text: m.text }],
-  id: m.id,
-  createdAt: new Date(m.createdAt),
-});
+const convertMessage = (m: MyMessage): ThreadMessageLike => {
+  // A structured card renders as a generative-UI tool-call part (rendered by
+  // the `card` tool UI in Thread.tsx). `result` MUST be defined: assistant-ui
+  // treats a tool-call part with `result === undefined` as still-running.
+  if (m.card) {
+    return {
+      role: m.role,
+      content: [{ type: 'tool-call', toolCallId: m.id, toolName: 'card', args: m.card, result: {} }],
+      id: m.id,
+      createdAt: new Date(m.createdAt),
+    };
+  }
+  return {
+    role: m.role,
+    content: [{ type: 'text', text: m.text }],
+    id: m.id,
+    createdAt: new Date(m.createdAt),
+  };
+};
 
 /** SSE payload shapes emitted by the host. */
 type MessageEventPayload = {
@@ -24,6 +37,7 @@ type MessageEventPayload = {
     role: 'assistant';
     text: string;
     createdAt: string;
+    card?: MyMessage['card'];
   };
 };
 
@@ -157,6 +171,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         role: 'assistant',
         text: payload.message.text,
         createdAt: Date.parse(payload.message.createdAt),
+        card: payload.message.card,
       });
       state.setRunning(threadId, false);
     };

@@ -1,11 +1,32 @@
 import { create } from 'zustand';
 import { uuid } from './uuid';
 
+/**
+ * Structured card (send_card). Mirrors the host's WebCard shape
+ * (src/channels/web-cards.ts) — the two packages don't share modules, so keep
+ * these in sync by hand.
+ */
+export type CardAction = {
+  label: string;
+  url: string;
+  style?: 'primary' | 'danger' | 'default';
+};
+
+export type Card = {
+  title?: string;
+  description?: string;
+  children?: string[];
+  actions?: CardAction[];
+  fallbackText?: string;
+};
+
 export type MyMessage = {
   id: string;
   role: 'user' | 'assistant';
   text: string;
   createdAt: number;
+  /** Present when this assistant turn is a structured card (calcifer-7c3a.4). */
+  card?: Card;
 };
 
 function truncate(text: string, max = 40): string {

@@ -57,6 +57,7 @@ import {
 } from './web-auth.js';
 import type { ChannelAdapter, ChannelSetup, OutboundMessage } from './adapter.js';
 import { registerChannelAdapter } from './channel-registry.js';
+import { normalizeCard } from './web-cards.js';
 import { listThreads, loadThreadHistory } from './web-history.js';
 import {
   annotateForUser,
@@ -624,8 +625,18 @@ function createAdapter(): ChannelAdapter {
     },
 
     async deliver(platformId, threadId, message: OutboundMessage): Promise<string | undefined> {
-      // Slice scope: text only. Cards (send_card) and file attachments are
-      // tracked in calcifer-7c3a.4 / calcifer-7c3a.3 respectively.
+      // Structured cards (send_card) render as generative-UI message parts
+      // (calcifer-7c3a.4). File attachments are still text-only (calcifer-7c3a.3).
+      const card = normalizeCard(message.content);
+      if (card) {
+        const id = `web-out-${Date.now()}-${rand()}`;
+        broadcast(platformId, 'message', {
+          threadId: threadId ?? null,
+          message: { id, role: 'assistant', text: card.fallbackText ?? '', card, createdAt: new Date().toISOString() },
+        });
+        return undefined;
+      }
+
       const text = extractText(message);
       if (text === null) return undefined;
       const id = `web-out-${Date.now()}-${rand()}`;

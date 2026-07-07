@@ -24,6 +24,7 @@ import { getMessagingGroupAgents, getMessagingGroupByPlatform } from '../db/mess
 import { findSessionForAgent, getActiveSessionsByMessagingGroup } from '../db/sessions.js';
 import { log } from '../log.js';
 import { inboundDbPath, outboundDbPath } from '../session-manager.js';
+import { normalizeCard, type WebCard } from './web-cards.js';
 
 const CHANNEL_TYPE = 'web';
 
@@ -33,6 +34,8 @@ export interface HistoryMessage {
   text: string;
   /** Epoch milliseconds (UTC). Matches the client store's MyMessage.createdAt. */
   createdAt: number;
+  /** Structured card (send_card), when the row is a display card (calcifer-7c3a.4). */
+  card?: WebCard;
 }
 
 export interface ThreadSummary {
@@ -71,6 +74,15 @@ function extractText(contentJson: string): string | null {
     // Non-JSON content — ignore (nothing sensible to render).
   }
   return null;
+}
+
+/** Parse a display card (send_card) out of a message row's JSON content blob. */
+function extractCard(contentJson: string): WebCard | null {
+  try {
+    return normalizeCard(JSON.parse(contentJson));
+  } catch {
+    return null;
+  }
 }
 
 function openReadonly(dbPath: string): Database.Database | null {
@@ -130,10 +142,22 @@ export function loadThreadHistory(platformId: string, threadId: string): History
   const outDb = openReadonly(outboundDbPath(session.agent_group_id, session.id));
   if (outDb) {
     try {
+      // 'chat' = plain assistant text; 'chat-sdk' = structured (send_card).
       const rows = outDb
-        .prepare("SELECT id, timestamp, content FROM messages_out WHERE kind = 'chat' ORDER BY seq ASC")
+        .prepare("SELECT id, timestamp, content FROM messages_out WHERE kind IN ('chat', 'chat-sdk') ORDER BY seq ASC")
         .all() as Array<{ id: string; timestamp: string; content: string }>;
       for (const r of rows) {
+        const card = extractCard(r.content);
+        if (card) {
+          messages.push({
+            id: r.id,
+            role: 'assistant',
+            text: card.fallbackText ?? '',
+            card,
+            createdAt: toEpoch(r.timestamp),
+          });
+          continue;
+        }
         const text = extractText(r.content);
         if (text) messages.push({ id: r.id, role: 'assistant', text, createdAt: toEpoch(r.timestamp) });
       }
