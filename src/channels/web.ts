@@ -56,6 +56,7 @@ import {
   verifyPassword,
 } from './web-auth.js';
 import type { ChannelAdapter, ChannelSetup, OutboundMessage } from './adapter.js';
+import type { NormalizedOption } from './ask-question.js';
 import { registerChannelAdapter } from './channel-registry.js';
 import { normalizeCard } from './web-cards.js';
 import { listThreads, loadThreadHistory } from './web-history.js';
@@ -155,6 +156,14 @@ const CONTENT_TYPES: Record<string, string> = {
 function createAdapter(): ChannelAdapter {
   let server: http.Server | null = null;
   const clients = new Set<SseClient>();
+
+  // Live interactive prompts (ask_user_question + host/onecli approvals, all
+  // delivered as `ask_question` payloads) awaiting a click: questionId ->
+  // options, used to validate a posted answer. Best-effort — cleared on answer
+  // and bounded; a miss (e.g. after a host restart) just skips validation, the
+  // pending_* row in the DB is still the source of truth (calcifer-7c3a.5).
+  const pendingQuestions = new Map<string, NormalizedOption[]>();
+  const PENDING_QUESTIONS_MAX = 128;
 
   function broadcast(platformId: string, event: string, data: unknown): void {
     const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -504,6 +513,55 @@ function createAdapter(): ChannelAdapter {
     });
   }
 
+  // A click on an interactive prompt's option button (ask_user_question / host
+  // approval / onecli). Resolves userId from the authenticated session (never
+  // trusted from the client), then hands off to the host's onAction, which
+  // routes through dispatchResponse to whatever handler owns the pending row
+  // (calcifer-7c3a.5).
+  async function handleAction(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    config: ChannelSetup,
+  ): Promise<void> {
+    const user = resolveUser(req);
+    if (!user) {
+      unauthorized(res);
+      return;
+    }
+    let body: string;
+    try {
+      body = await readBody(req);
+    } catch {
+      sendJson(res, 413, { error: 'payload too large' });
+      return;
+    }
+    let parsed: { questionId?: unknown; value?: unknown };
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      sendJson(res, 400, { error: 'invalid json' });
+      return;
+    }
+    const { questionId, value } = parsed;
+    if (typeof questionId !== 'string' || !questionId || typeof value !== 'string') {
+      sendJson(res, 400, { error: 'questionId and value required' });
+      return;
+    }
+    // Validate against the delivered options when we still have them. A miss is
+    // permissive: the pending row in the DB is authoritative and may outlive our
+    // in-memory map (e.g. across a host restart).
+    const options = pendingQuestions.get(questionId);
+    if (options && !options.some((o) => o.value === value)) {
+      sendJson(res, 400, { error: 'unknown option' });
+      return;
+    }
+    pendingQuestions.delete(questionId);
+    config.onAction(questionId, value, user.userId);
+    // Nudge every tab on this user's stream to show the prompt as answered.
+    broadcast(user.userId, 'answered', { questionId, value });
+    sendJson(res, 200, { ok: true });
+  }
+
   function handleRequest(req: http.IncomingMessage, res: http.ServerResponse, config: ChannelSetup): void {
     // Permissive CORS so a cross-origin dev server also works (the Vite proxy
     // makes this same-origin in practice, but this keeps direct access easy).
@@ -547,6 +605,10 @@ function createAdapter(): ChannelAdapter {
     }
     if (req.method === 'POST' && url.pathname === '/api/send') {
       void handleSend(req, res, config).catch(fail);
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/api/action') {
+      void handleAction(req, res, config).catch(fail);
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/history') {
@@ -625,6 +687,43 @@ function createAdapter(): ChannelAdapter {
     },
 
     async deliver(platformId, threadId, message: OutboundMessage): Promise<string | undefined> {
+      // Interactive prompt: ask_user_question + host/onecli approvals all arrive
+      // as an `ask_question` payload. Render as an inline card with option
+      // buttons; the click round-trips through POST /api/action -> onAction
+      // (calcifer-7c3a.5).
+      const content = message.content as Record<string, unknown> | undefined;
+      if (
+        content &&
+        typeof content === 'object' &&
+        content.type === 'ask_question' &&
+        typeof content.questionId === 'string' &&
+        Array.isArray(content.options)
+      ) {
+        const questionId = content.questionId;
+        const options = content.options as NormalizedOption[];
+        pendingQuestions.set(questionId, options);
+        while (pendingQuestions.size > PENDING_QUESTIONS_MAX) {
+          pendingQuestions.delete(pendingQuestions.keys().next().value!);
+        }
+        const id = `web-out-${Date.now()}-${rand()}`;
+        broadcast(platformId, 'message', {
+          threadId: threadId ?? null,
+          message: {
+            id,
+            role: 'assistant',
+            text: '',
+            createdAt: new Date().toISOString(),
+            question: {
+              questionId,
+              title: typeof content.title === 'string' ? content.title : '',
+              question: typeof content.question === 'string' ? content.question : '',
+              options,
+            },
+          },
+        });
+        return undefined;
+      }
+
       // Structured cards (send_card) render as generative-UI message parts
       // (calcifer-7c3a.4). File attachments are still text-only (calcifer-7c3a.3).
       const card = normalizeCard(message.content);

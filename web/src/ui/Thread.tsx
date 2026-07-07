@@ -1,5 +1,6 @@
 import { ThreadPrimitive, MessagePrimitive, ComposerPrimitive } from '@assistant-ui/react';
 import { CardMessagePart } from './Card';
+import { QuestionMessagePart } from './Question';
 
 export function Thread() {
   return (
@@ -38,7 +39,9 @@ function AssistantMessage() {
   return (
     <MessagePrimitive.Root className="message message-assistant">
       <div className="message-bubble">
-        <MessagePrimitive.Parts components={{ tools: { by_name: { card: CardMessagePart } } }} />
+        <MessagePrimitive.Parts
+          components={{ tools: { by_name: { card: CardMessagePart, question: QuestionMessagePart } } }}
+        />
       </div>
     </MessagePrimitive.Root>
   );

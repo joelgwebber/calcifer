@@ -20,6 +20,23 @@ export type Card = {
   fallbackText?: string;
 };
 
+/**
+ * Interactive prompt (ask_user_question / approval). Mirrors the host's
+ * ask_question payload (calcifer-7c3a.5).
+ */
+export type QuestionOption = { label: string; value: string; selectedLabel: string };
+
+export type Question = {
+  questionId: string;
+  title: string;
+  question: string;
+  options: QuestionOption[];
+  /** Selected option value once answered (this session or another tab). */
+  answer?: string;
+  /** History-loaded prompts are inert — shown resolved, not clickable. */
+  resolved?: boolean;
+};
+
 export type MyMessage = {
   id: string;
   role: 'user' | 'assistant';
@@ -27,6 +44,8 @@ export type MyMessage = {
   createdAt: number;
   /** Present when this assistant turn is a structured card (calcifer-7c3a.4). */
   card?: Card;
+  /** Present when this assistant turn is an interactive prompt (calcifer-7c3a.5). */
+  question?: Question;
 };
 
 function truncate(text: string, max = 40): string {
@@ -68,6 +87,8 @@ type Actions = {
   hydrateThreadList: (threads: { threadId: string; title: string }[]) => void;
   /** Replace a thread's transcript with host-loaded history and mark it hydrated. */
   setThreadMessages: (threadId: string, messages: MyMessage[]) => void;
+  /** Mark an interactive prompt answered (by questionId, across all threads). */
+  answerQuestion: (questionId: string, value: string) => void;
 };
 
 const DEFAULT_TITLE = 'New chat';
@@ -192,5 +213,22 @@ export const useStore = create<State & Actions>((set, get) => {
       }),
 
     setRunning: (threadId, running) => set((s) => ({ running: { ...s.running, [threadId]: running } })),
+
+    answerQuestion: (questionId, value) =>
+      set((s) => {
+        const messages = { ...s.messages };
+        for (const tid of Object.keys(messages)) {
+          let changed = false;
+          const list = messages[tid].map((m) => {
+            if (m.question && m.question.questionId === questionId && m.question.answer == null) {
+              changed = true;
+              return { ...m, question: { ...m.question, answer: value } };
+            }
+            return m;
+          });
+          if (changed) messages[tid] = list;
+        }
+        return { messages };
+      }),
   };
 });

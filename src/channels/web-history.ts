@@ -28,6 +28,16 @@ import { normalizeCard, type WebCard } from './web-cards.js';
 
 const CHANNEL_TYPE = 'web';
 
+/** A prompt (ask_user_question / approval) as reconstructed from history. */
+export interface HistoryQuestion {
+  questionId: string;
+  title: string;
+  question: string;
+  options: Array<{ label: string; value: string; selectedLabel: string }>;
+  /** History-loaded prompts are inert — we can't confirm they're still pending. */
+  resolved: true;
+}
+
 export interface HistoryMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -36,6 +46,8 @@ export interface HistoryMessage {
   createdAt: number;
   /** Structured card (send_card), when the row is a display card (calcifer-7c3a.4). */
   card?: WebCard;
+  /** Interactive prompt (ask_question), rendered inert on reload (calcifer-7c3a.5). */
+  question?: HistoryQuestion;
 }
 
 export interface ThreadSummary {
@@ -80,6 +92,23 @@ function extractText(contentJson: string): string | null {
 function extractCard(contentJson: string): WebCard | null {
   try {
     return normalizeCard(JSON.parse(contentJson));
+  } catch {
+    return null;
+  }
+}
+
+/** Parse an interactive prompt (ask_question) out of a message row's content. */
+function extractQuestion(contentJson: string): HistoryQuestion | null {
+  try {
+    const c = JSON.parse(contentJson) as Record<string, unknown>;
+    if (c.type !== 'ask_question' || typeof c.questionId !== 'string' || !Array.isArray(c.options)) return null;
+    return {
+      questionId: c.questionId,
+      title: typeof c.title === 'string' ? c.title : '',
+      question: typeof c.question === 'string' ? c.question : '',
+      options: c.options as HistoryQuestion['options'],
+      resolved: true,
+    };
   } catch {
     return null;
   }
@@ -156,6 +185,11 @@ export function loadThreadHistory(platformId: string, threadId: string): History
             card,
             createdAt: toEpoch(r.timestamp),
           });
+          continue;
+        }
+        const question = extractQuestion(r.content);
+        if (question) {
+          messages.push({ id: r.id, role: 'assistant', text: '', question, createdAt: toEpoch(r.timestamp) });
           continue;
         }
         const text = extractText(r.content);

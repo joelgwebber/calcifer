@@ -4,7 +4,7 @@ title: 'Web UI: human-in-the-loop approvals as inline tool UI'
 type: feature
 priority: 2
 created: '2026-06-13T12:00:00Z'
-updated: '2026-06-13T12:00:00Z'
+updated: '2026-07-07T22:36:31Z'
 ---
 
 PARENT YAK: calcifer-7c3a
@@ -37,3 +37,7 @@ instead of a text DM.
 ## Depends on
 
 7c3a.4 (card rendering) and ideally 7c3a.6 (so the approver is a real web user).
+
+---
+▸ 2026-07-07T22:36:31Z
+DONE + verified end-to-end in browser as web:joel. Unified mechanism: ask_user_question AND host requestApproval AND onecli approvals all emit type:'ask_question' payloads, so one path covers all three. Host: web.ts deliver renders ask_question over the 'message' SSE event (message.question={questionId,title,question,options}); POST /api/action resolves userId from the auth cookie (never client-trusted), validates the option against an in-memory pendingQuestions map (permissive on miss — DB pending row is authoritative), calls config.onAction(questionId,value,userId) -> dispatchResponse, and broadcasts an 'answered' SSE event so all the user's tabs sync. web-history.ts renders reloaded prompts inert (resolved:true). Frontend: MyMessage.question, convertMessage -> tool-call part toolName 'question' (result defined), Thread.tsx registers it, Question.tsx renders title/question/option-buttons -> optimistic answerQuestion + POST; answered shows '✓ selectedLabel', resolved shows inert note. Verified: agent ask_user_question ('Approval test', Approve/Deny) -> card -> clicked Approve -> card '✓ Approve' -> agent unblocked with 'You chose Approve.'

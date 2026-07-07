@@ -802,6 +802,69 @@ body {
   background: rgba(229, 72, 77, 0.08);
 }
 
+/* Interactive prompts / approvals (ask_question) as inline tool UI (7c3a.5). */
+.message-assistant .message-bubble:has(.chat-question) {
+  background: transparent;
+  padding: 0;
+  max-width: 85%;
+}
+
+.chat-question {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: var(--bg);
+  min-width: 240px;
+  white-space: normal;
+}
+
+.chat-question-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.chat-question-body {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.chat-question-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.chat-question-option {
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--bg);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.chat-question-option:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.chat-question-answered {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.chat-question-resolved {
+  font-size: 13px;
+  color: var(--muted);
+}
+
 /* ---- Composer ---- */
 .composer {
   display: flex;

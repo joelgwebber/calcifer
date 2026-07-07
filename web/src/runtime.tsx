@@ -10,9 +10,18 @@ import { useStore, type MyMessage } from './store';
 import { sendUserMessage } from './send';
 
 const convertMessage = (m: MyMessage): ThreadMessageLike => {
-  // A structured card renders as a generative-UI tool-call part (rendered by
-  // the `card` tool UI in Thread.tsx). `result` MUST be defined: assistant-ui
-  // treats a tool-call part with `result === undefined` as still-running.
+  // Cards and interactive prompts render as generative-UI tool-call parts
+  // (rendered by the `card` / `question` tool UIs in Thread.tsx). `result` MUST
+  // be defined: assistant-ui treats a tool-call part with `result === undefined`
+  // as still-running.
+  if (m.question) {
+    return {
+      role: m.role,
+      content: [{ type: 'tool-call', toolCallId: m.id, toolName: 'question', args: m.question, result: {} }],
+      id: m.id,
+      createdAt: new Date(m.createdAt),
+    };
+  }
   if (m.card) {
     return {
       role: m.role,
@@ -38,7 +47,13 @@ type MessageEventPayload = {
     text: string;
     createdAt: string;
     card?: MyMessage['card'];
+    question?: MyMessage['question'];
   };
+};
+
+type AnsweredEventPayload = {
+  questionId: string;
+  value: string;
 };
 
 type TypingEventPayload = {
@@ -155,6 +170,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         text: payload.message.text,
         createdAt: Date.parse(payload.message.createdAt),
         card: payload.message.card,
+        question: payload.message.question,
       });
       state.setRunning(threadId, false);
     };
@@ -167,13 +183,20 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       state.setRunning(threadId, true);
     };
 
+    const onAnswered = (event: MessageEvent) => {
+      const payload = JSON.parse(event.data) as AnsweredEventPayload;
+      useStore.getState().answerQuestion(payload.questionId, payload.value);
+    };
+
     source.addEventListener('message', onMessage);
     source.addEventListener('typing', onTyping);
+    source.addEventListener('answered', onAnswered);
     // "ready" is informational; no handler needed beyond the open connection.
 
     return () => {
       source.removeEventListener('message', onMessage);
       source.removeEventListener('typing', onTyping);
+      source.removeEventListener('answered', onAnswered);
       source.close();
     };
   }, []);
