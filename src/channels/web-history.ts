@@ -20,8 +20,8 @@ import fs from 'fs';
 
 import Database from 'better-sqlite3';
 
-import { getMessagingGroupByPlatform } from '../db/messaging-groups.js';
-import { findSession, getActiveSessionsByMessagingGroup } from '../db/sessions.js';
+import { getMessagingGroupAgents, getMessagingGroupByPlatform } from '../db/messaging-groups.js';
+import { findSessionForAgent, getActiveSessionsByMessagingGroup } from '../db/sessions.js';
 import { log } from '../log.js';
 import { inboundDbPath, outboundDbPath } from '../session-manager.js';
 
@@ -86,6 +86,18 @@ function truncate(text: string, max = 40): string {
 }
 
 /**
+ * The agent group the web messaging group is CURRENTLY wired to. Thread list
+ * and history must scope to this — a messaging group can accumulate sessions
+ * under multiple agent groups over time (e.g. after an admin re-points the
+ * wiring), and without scoping those stale sessions surface as duplicate
+ * threads (same threadId) and shadow the live session's history.
+ */
+function currentAgentGroupId(mgId: string): string | null {
+  const agents = getMessagingGroupAgents(mgId);
+  return agents.length > 0 ? agents[0].agent_group_id : null;
+}
+
+/**
  * Full timestamp-ordered transcript for one web thread. Returns [] when the
  * thread has never been opened (no session yet) or the messaging group is
  * unknown — the client treats that as "start fresh".
@@ -93,7 +105,9 @@ function truncate(text: string, max = 40): string {
 export function loadThreadHistory(platformId: string, threadId: string): HistoryMessage[] {
   const mg = getMessagingGroupByPlatform(CHANNEL_TYPE, platformId);
   if (!mg) return [];
-  const session = findSession(mg.id, threadId);
+  const agentGroupId = currentAgentGroupId(mg.id);
+  if (!agentGroupId) return [];
+  const session = findSessionForAgent(agentGroupId, mg.id, threadId);
   if (!session) return [];
 
   const messages: HistoryMessage[] = [];
@@ -142,8 +156,12 @@ export function listThreads(platformId: string): ThreadSummary[] {
   const mg = getMessagingGroupByPlatform(CHANNEL_TYPE, platformId);
   if (!mg) return [];
 
+  const agentGroupId = currentAgentGroupId(mg.id);
+  if (!agentGroupId) return [];
+
   const summaries: ThreadSummary[] = [];
   for (const session of getActiveSessionsByMessagingGroup(mg.id)) {
+    if (session.agent_group_id !== agentGroupId) continue; // scope to the current wiring
     if (!session.thread_id) continue; // per-thread sessions only
 
     let title = 'Conversation';
