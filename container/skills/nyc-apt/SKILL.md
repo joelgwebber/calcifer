@@ -25,6 +25,19 @@ native `better-sqlite3` binding live in a per-install **data dir**, resolved fro
 | `$NYC_APT_DIR/listings.db` | SQLite history of every listing + sightings |
 | `$NYC_APT_DIR/node_modules/` | `better-sqlite3` + `streeteasy-api` |
 
+### Family-shared (one DB for everyone)
+
+To share one listings DB across all family agents (and a web "Apartments" view),
+point `$NYC_APT_DIR` at a **shared mount** instead of the per-agent workspace:
+
+- Mount a host dir (e.g. `data/shared/nyc-apt`) into each agent's container at
+  `shared/nyc-apt` (→ `/workspace/extra/shared/nyc-apt`).
+- Run **one** monitor (single writer) with
+  `NYC_APT_DIR=/workspace/extra/shared/nyc-apt`.
+- Set the same `NYC_APT_DIR` for any **manual** edits too — writing to the old
+  default (`/workspace/agent/nyc-apt`) won't be seen by the shared readers/view.
+- The host serves that DB read-only to the web view (`data.scope: "shared"`).
+
 ## Setup (one time)
 
 ```bash
