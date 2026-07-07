@@ -19,4 +19,6 @@ Use this when you genuinely cannot proceed without a decision. For free-text inp
 
 `card` supports: `title`, `description`, `children` (nested text or content blocks), and `actions` (buttons). `fallbackText` is sent as a plain message on platforms without card support.
 
+Each action is `{ label, url }` (a link button). The `url` may be external (`https://…`) or an **in-app view deep-link** of the form `/app/<view>/<record-id>` — e.g. `/app/apartments/se-5095099` — which opens that record inside the web UI's view (browsable, filterable, auth'd) instead of a new tab. Use deep-links when a card summarizes rows that also live in a view, so the card is a jumping-off point into the richer surface.
+
 Use this for presenting information in a cleaner format than prose: summaries, options the user can read (but you're not waiting on), or results with contextual buttons. If you need the user to actually *choose* something and return a value, use `ask_user_question` instead.

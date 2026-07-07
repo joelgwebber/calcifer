@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { fetchManifest, fetchViewData, setAnnotation } from './api';
+import { AskButton } from './AskButton';
 import { Filters } from './Filters';
 import { FieldValue, interpolate, truthyToken } from './primitives';
 import type { ActionSpec, FilterState, QueryResult, Row, ViewManifest } from './types';
@@ -233,5 +234,8 @@ function CardAction({ action, row }: { action: ActionSpec; row: Row }) {
       </a>
     );
   }
-  return null; // other action types (ask, navigate) land in 1d51.6
+  if (action.type === 'ask') {
+    return <AskButton label={action.label} prompt={action.prompt} row={row} />;
+  }
+  return null;
 }

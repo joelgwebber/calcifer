@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { Card } from '../store';
 
 /**
@@ -24,17 +25,21 @@ export function CardMessagePart({ args }: { args: Card }) {
       ))}
       {hasActions && (
         <div className="chat-card-actions">
-          {card.actions!.map((a, i) => (
-            <a
-              key={i}
-              className={`chat-card-action chat-card-action-${a.style ?? 'default'}`}
-              href={a.url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {a.label}
-            </a>
-          ))}
+          {card.actions!.map((a, i) => {
+            const cls = `chat-card-action chat-card-action-${a.style ?? 'default'}`;
+            // Links into an in-app view (/app/<view>/<id>) route via react-router
+            // so a card is a live projection of a view record (calcifer-1d51.6);
+            // everything else opens externally in a new tab.
+            return a.url.startsWith('/') ? (
+              <Link key={i} className={cls} to={a.url}>
+                {a.label}
+              </Link>
+            ) : (
+              <a key={i} className={cls} href={a.url} target="_blank" rel="noopener noreferrer">
+                {a.label}
+              </a>
+            );
+          })}
         </div>
       )}
     </div>

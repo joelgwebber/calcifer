@@ -7,7 +7,7 @@ import {
   type ExternalStoreThreadListAdapter,
 } from '@assistant-ui/react';
 import { useStore, type MyMessage } from './store';
-import { uuid } from './uuid';
+import { sendUserMessage } from './send';
 
 const convertMessage = (m: MyMessage): ThreadMessageLike => {
   // A structured card renders as a generative-UI tool-call part (rendered by
@@ -78,26 +78,9 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
   const titles = useStore((s) => s.titles);
 
   const onNew = async (message: AppendMessage) => {
-    const state = useStore.getState();
-    const threadId = state.currentThreadId;
+    const threadId = useStore.getState().currentThreadId;
     const text = message.content.find((p) => p.type === 'text')?.text ?? '';
-
-    state.appendMessage(threadId, {
-      id: uuid(),
-      role: 'user',
-      text,
-      createdAt: Date.now(),
-    });
-    state.setRunning(threadId, true);
-
-    // Fire-and-forget: the assistant reply arrives asynchronously over SSE,
-    // NOT in this response. nanoclaw is async/push.
-    await fetch('/api/send', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ threadId, text }),
-    });
+    await sendUserMessage(threadId, text);
   };
 
   const threadList: ExternalStoreThreadListAdapter = {

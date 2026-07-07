@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { fetchManifest, fetchRecord, setAnnotation } from './api';
+import { AskButton } from './AskButton';
 import { FieldValue, detailFieldList, interpolate } from './primitives';
 import type { ActionSpec, Row, ViewManifest } from './types';
 
@@ -145,5 +146,8 @@ function DetailAction({ action, row }: { action: ActionSpec; row: Row }) {
       </a>
     );
   }
-  return null; // ask/navigate land in 1d51.6
+  if (action.type === 'ask') {
+    return <AskButton label={action.label} prompt={action.prompt} row={row} />;
+  }
+  return null;
 }
