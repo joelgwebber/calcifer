@@ -4,7 +4,7 @@ title: Declarative skill views — addressable, auth'd UI surfaces for skills
 type: feature
 priority: 2
 created: '2026-07-06T18:18:17Z'
-updated: '2026-07-06T18:18:17Z'
+updated: '2026-07-06T18:26:27Z'
 depends_on:
 - calcifer-7c3a.1
 - calcifer-7c3a.6
