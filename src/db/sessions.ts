@@ -53,9 +53,22 @@ export function findSessionForAgent(
 }
 
 /** Find an active session scoped to an agent group (ignoring messaging group). */
+/**
+ * The agent-shared session for an agent group (resolveSession 'agent-shared').
+ *
+ * MUST exclude per-thread sessions (thread_id IS NOT NULL). When an agent group
+ * is co-wired to both agent-shared messaging groups (e.g. WhatsApp) AND a
+ * per-thread one (e.g. the web UI), the newest session is often a per-thread web
+ * session — an unfiltered lookup would funnel agent-shared traffic (and its
+ * replies) into that web session, so WhatsApp messages would get answered over
+ * the web channel. Agent-shared/shared sessions are created with thread_id NULL
+ * (resolveSession), so that is the correct discriminator.
+ */
 export function findSessionByAgentGroup(agentGroupId: string): Session | undefined {
   return getDb()
-    .prepare("SELECT * FROM sessions WHERE agent_group_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1")
+    .prepare(
+      "SELECT * FROM sessions WHERE agent_group_id = ? AND status = 'active' AND thread_id IS NULL ORDER BY created_at DESC LIMIT 1",
+    )
     .get(agentGroupId) as Session | undefined;
 }
 
