@@ -1018,3 +1018,14 @@ body {
 .chat-record-title:hover { text-decoration: underline; }
 .chat-record-star { cursor: pointer; border: 1px solid rgba(127,127,127,0.3); background: none; }
 .chat-record-star.starred { color: #f59e0b; border-color: #f59e0b; }
+
+/* Document frontmatter header (calcifer-7b34.2) */
+.doc-frontmatter {
+  margin: 0 0 16px; padding: 10px 12px;
+  background: rgba(127, 127, 127, 0.06);
+  border: 1px solid rgba(127, 127, 127, 0.15);
+  border-radius: 8px; font-size: 0.85rem;
+}
+.doc-frontmatter .fm-row { display: flex; gap: 8px; align-items: baseline; margin: 3px 0; }
+.doc-frontmatter .fm-key { min-width: 90px; color: var(--muted, #6b7280); font-weight: 600; text-transform: capitalize; }
+.doc-frontmatter .fm-vals { display: flex; flex-wrap: wrap; gap: 4px; }

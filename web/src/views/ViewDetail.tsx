@@ -41,7 +41,10 @@ export function ViewDetail() {
   const hasNote = manifest.annotations?.includes('note');
   const titleField = manifest.list.card.title;
   const docField = manifest.detail?.document;
-  const docContent = docField ? stripFrontmatter(String(row[docField] ?? '')) : '';
+  const rawDoc = docField ? String(row[docField] ?? '') : '';
+  const hasDoc = !!rawDoc.trim();
+  const { frontmatter, body: docBody } = splitFrontmatter(rawDoc);
+  const docMarkdown = convertWikiLinks(docBody);
 
   // Intra-view navigation for the prose primitive: a relative .md link loads that
   // doc within the same view; anything else falls through to the browser.
@@ -84,7 +87,7 @@ export function ViewDetail() {
           {(manifest.detail?.actions ?? []).map((a, i) => (
             <DetailAction key={i} action={a} row={row} />
           ))}
-          {manifest.data.type === 'fs' && !docContent && row.kind !== 'dir' && (
+          {manifest.data.type === 'fs' && !hasDoc && row.kind !== 'dir' && (
             <>
               <a className="icon-button" href={fileUrl(view, id)} target="_blank" rel="noreferrer noopener">
                 Open ↗
@@ -101,7 +104,12 @@ export function ViewDetail() {
 
       {hasNote && <NoteEditor view={view} id={id} initial={row._ann?.note ?? ''} />}
 
-      {docField && docContent && <Prose markdown={docContent} nav={{ onNavigate, resolveAsset }} />}
+      {hasDoc && (
+        <div className="doc">
+          {frontmatter && <FrontmatterHeader raw={frontmatter} />}
+          <Prose markdown={docMarkdown} nav={{ onNavigate, resolveAsset }} />
+        </div>
+      )}
 
       <table className="detail-fields">
         <tbody>
@@ -164,9 +172,73 @@ function NoteEditor({ view, id, initial }: { view: string; id: string; initial: 
   );
 }
 
-/** Drop a leading YAML frontmatter block (`---` … `---`) so it isn't rendered as prose. */
-function stripFrontmatter(md: string): string {
-  return md.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
+/** Split a leading YAML frontmatter block from the body (either may be empty). */
+function splitFrontmatter(md: string): { frontmatter: string | null; body: string } {
+  const m = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(md);
+  if (!m) return { frontmatter: null, body: md };
+  return { frontmatter: m[1], body: md.slice(m[0].length) };
+}
+
+/**
+ * Convert `[[wikilinks]]` into standard relative markdown links so the existing
+ * link handling (onNavigate) resolves them within the wiki. Supports
+ * `[[target]]` and `[[target|label]]`; appends `.md` when target has no
+ * extension. Targets resolve relative to the current document (see resolveDocPath).
+ */
+function convertWikiLinks(md: string): string {
+  return md.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, target: string, label?: string) => {
+    const t = target.trim();
+    if (!t) return '';
+    const l = (label ?? t).trim();
+    const href = /\.[a-z0-9]+$/i.test(t) ? t : `${t}.md`;
+    return `[${l}](${href})`;
+  });
+}
+
+/** Lightly parse `key: value` frontmatter lines; `[a, b]` values become lists. */
+function parseFrontmatter(raw: string): Array<{ key: string; values: string[] }> {
+  const out: Array<{ key: string; values: string[] }> = [];
+  for (const line of raw.split('\n')) {
+    const m = /^([A-Za-z0-9_ -]+):\s*(.*)$/.exec(line.trim());
+    if (!m) continue;
+    const key = m[1].trim();
+    const rawVal = m[2].trim();
+    let values: string[];
+    if (rawVal.startsWith('[') && rawVal.endsWith(']')) {
+      values = rawVal
+        .slice(1, -1)
+        .split(',')
+        .map((s) => s.trim().replace(/^["']|["']$/g, ''))
+        .filter(Boolean);
+    } else {
+      const v = rawVal.replace(/^["']|["']$/g, '');
+      values = v ? [v] : [];
+    }
+    out.push({ key, values });
+  }
+  return out;
+}
+
+/** Render frontmatter as a small metadata header above the document body. */
+function FrontmatterHeader({ raw }: { raw: string }) {
+  const entries = parseFrontmatter(raw).filter((e) => e.values.length > 0);
+  if (entries.length === 0) return null;
+  return (
+    <dl className="doc-frontmatter">
+      {entries.map((e) => (
+        <div className="fm-row" key={e.key}>
+          <dt className="fm-key">{e.key}</dt>
+          <dd className="fm-vals">
+            {e.values.map((v, i) => (
+              <span className="v-badge" key={i}>
+                {v}
+              </span>
+            ))}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
 }
 
 /** Resolve a relative markdown href against the current document's path. */
