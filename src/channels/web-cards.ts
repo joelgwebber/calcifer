@@ -20,6 +20,20 @@ export interface WebCardAction {
   style?: 'primary' | 'danger' | 'default';
 }
 
+/**
+ * Present when a card is a live projection of a view record (calcifer-2588):
+ * the frontend renders it interactively (star toggle, deep-link) wired to the
+ * same data plane + annotation store as the list/detail projections.
+ */
+export interface WebCardRecord {
+  view: string;
+  id: string;
+  starred: boolean;
+  subtitle?: string;
+  thumbnail?: string;
+  badges?: string[];
+}
+
 export interface WebCard {
   title?: string;
   description?: string;
@@ -28,6 +42,8 @@ export interface WebCard {
   actions?: WebCardAction[];
   /** Text fallback for platforms/renderers without card support. */
   fallbackText?: string;
+  /** Set when this card is a live projection of a view record. */
+  record?: WebCardRecord;
 }
 
 /**

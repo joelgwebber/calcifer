@@ -166,4 +166,55 @@ export const sendCard: McpToolDefinition = {
   },
 };
 
-registerTools([askUserQuestion, sendCard]);
+export const sendRecordCard: McpToolDefinition = {
+  tool: {
+    name: 'send_record_card',
+    description:
+      'Surface a specific record from a skill view (an apartment, wiki page, document, or photo) as an interactive card in the current conversation. The card is a live projection of the record: the user can star it or open it in the full view. Prefer this over send_card when the thing you want to show already exists as a view record.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        view: {
+          type: 'string',
+          description: "The view/library key, e.g. 'apartments', 'family-wiki', 'documents', 'pictures', 'books'.",
+        },
+        id: {
+          type: 'string',
+          description:
+            "The record id. For file-backed libraries (wiki/documents/pictures/books) this is the file path relative to the library root, e.g. 'vehicles/lucid-air.md'.",
+        },
+        fallbackText: {
+          type: 'string',
+          description: 'Text shown on channels without card support (e.g. SMS). Defaults to the view/id.',
+        },
+      },
+      required: ['view', 'id'],
+    },
+  },
+  async handler(args) {
+    const view = args.view as string;
+    const id = args.id as string;
+    if (!view || !id) return err('view and id are required');
+
+    const rid = generateId();
+    const r = routing();
+    writeMessageOut({
+      id: rid,
+      kind: 'chat-sdk',
+      platform_id: r.platform_id,
+      channel_type: r.channel_type,
+      thread_id: r.thread_id,
+      content: JSON.stringify({
+        type: 'record_card',
+        view,
+        id,
+        fallbackText: (args.fallbackText as string) || `${view}: ${id}`,
+      }),
+    });
+
+    log(`send_record_card: ${rid} (${view}/${id})`);
+    return ok(`Record card sent (id: ${rid})`);
+  },
+};
+
+registerTools([askUserQuestion, sendCard, sendRecordCard]);

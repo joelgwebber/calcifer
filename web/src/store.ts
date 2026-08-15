@@ -12,12 +12,23 @@ export type CardAction = {
   style?: 'primary' | 'danger' | 'default';
 };
 
+/** Present when a card is a live projection of a view record (calcifer-2588). */
+export type CardRecord = {
+  view: string;
+  id: string;
+  starred: boolean;
+  subtitle?: string;
+  thumbnail?: string;
+  badges?: string[];
+};
+
 export type Card = {
   title?: string;
   description?: string;
   children?: string[];
   actions?: CardAction[];
   fallbackText?: string;
+  record?: CardRecord;
 };
 
 /**

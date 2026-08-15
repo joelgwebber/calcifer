@@ -24,7 +24,8 @@ import { getMessagingGroupAgents, getMessagingGroupByPlatform } from '../db/mess
 import { findSessionForAgent, getActiveSessionsByMessagingGroup } from '../db/sessions.js';
 import { log } from '../log.js';
 import { inboundDbPath, outboundDbPath } from '../session-manager.js';
-import { normalizeCard, type WebCard } from './web-cards.js';
+import { type WebCard } from './web-cards.js';
+import { cardFromContent } from './web-views.js';
 
 const CHANNEL_TYPE = 'web';
 
@@ -91,7 +92,7 @@ function extractText(contentJson: string): string | null {
 /** Parse a display card (send_card) out of a message row's JSON content blob. */
 function extractCard(contentJson: string): WebCard | null {
   try {
-    return normalizeCard(JSON.parse(contentJson));
+    return cardFromContent(JSON.parse(contentJson));
   } catch {
     return null;
   }

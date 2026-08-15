@@ -22,3 +22,12 @@ Use this when you genuinely cannot proceed without a decision. For free-text inp
 Each action is `{ label, url }` (a link button). The `url` may be external (`https://…`) or an **in-app view deep-link** of the form `/app/<view>/<record-id>` — e.g. `/app/apartments/se-5095099` — which opens that record inside the web UI's view (browsable, filterable, auth'd) instead of a new tab. Use deep-links when a card summarizes rows that also live in a view, so the card is a jumping-off point into the richer surface.
 
 Use this for presenting information in a cleaner format than prose: summaries, options the user can read (but you're not waiting on), or results with contextual buttons. If you need the user to actually *choose* something and return a value, use `ask_user_question` instead.
+
+### Record cards (`send_record_card`)
+
+`mcp__nanoclaw__send_record_card({ view, id, fallbackText? })` surfaces a record that **already exists in a skill view** as an interactive card, rather than hand-authoring one. The card is a live projection of the record — the user can star it or open it in the full view, wired to the same data as the list/detail surfaces.
+
+- `view` is the library key (`apartments`, `family-wiki`, `documents`, `pictures`, `books`).
+- `id` is the record id. For file-backed libraries it's the path relative to the library root, e.g. `vehicles/lucid-air.md` or `pictures/emma-at-work.png`.
+
+Prefer `send_record_card` over `send_card` whenever the thing you want to show is a real view record (an apartment you found, a wiki page, a document, a photo): it stays interactive and consistent with the rest of the UI. Use plain `send_card` only for ad-hoc content that isn't backed by a view. On channels without card support the `fallbackText` is sent instead.

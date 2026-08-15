@@ -58,10 +58,10 @@ import {
 import type { ChannelAdapter, ChannelSetup, OutboundMessage } from './adapter.js';
 import type { NormalizedOption } from './ask-question.js';
 import { registerChannelAdapter } from './channel-registry.js';
-import { normalizeCard } from './web-cards.js';
 import { listThreads, loadThreadHistory } from './web-history.js';
 import {
   annotateForUser,
+  cardFromContent,
   fileForUser,
   getManifestForClient,
   listViews,
@@ -772,7 +772,7 @@ function createAdapter(): ChannelAdapter {
 
       // Structured cards (send_card) render as generative-UI message parts
       // (calcifer-7c3a.4). File attachments are still text-only (calcifer-7c3a.3).
-      const card = normalizeCard(message.content);
+      const card = cardFromContent(message.content);
       if (card) {
         const id = `web-out-${Date.now()}-${rand()}`;
         broadcast(platformId, 'message', {
