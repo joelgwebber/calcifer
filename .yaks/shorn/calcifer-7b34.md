@@ -4,7 +4,7 @@ title: 'skill-views: Wiki view — document/prose primitive + intra-view navigat
 type: feature
 priority: 2
 created: '2026-07-07T22:27:43Z'
-updated: '2026-08-15T15:01:57Z'
+updated: '2026-08-15T15:08:43Z'
 depends_on:
 - calcifer-851f
 labels:

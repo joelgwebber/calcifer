@@ -10,7 +10,15 @@
 import { clearAnnotation, setAnnotation } from '../db/annotations.js';
 import { getAgentGroup } from '../db/agent-groups.js';
 import { getMessagingGroupAgents, getMessagingGroupByPlatform } from '../db/messaging-groups.js';
-import { getViewRecord, queryView, ViewDataError, type QueryParams, type QueryResult } from '../views/data-plane.js';
+import {
+  getViewRecord,
+  queryView,
+  readViewFile,
+  ViewDataError,
+  type QueryParams,
+  type QueryResult,
+  type ViewFile,
+} from '../views/data-plane.js';
 import { getView, listViewSummaries, type ViewManifest, type ViewSummary } from '../views/manifest.js';
 
 export { ViewDataError };
@@ -50,6 +58,15 @@ export function recordForUser(userId: string, viewName: string, id: string): Rec
   const folder = resolveAgentGroupFolder(userId);
   if (!folder) throw new ViewDataError(404, 'no agent group for this user');
   return getViewRecord(manifest, folder, id);
+}
+
+/** Resolve a raw file (bytes) for an fs-backed view, scoped by the same auth. */
+export function fileForUser(userId: string, viewName: string, id: string): ViewFile | null {
+  const manifest = getView(viewName);
+  if (!manifest) throw new ViewDataError(404, `unknown view: ${viewName}`);
+  const folder = resolveAgentGroupFolder(userId);
+  if (!folder) throw new ViewDataError(404, 'no agent group for this user');
+  return readViewFile(manifest, folder, id);
 }
 
 /** Set (value != null) or clear (value == null) a shared annotation for a view entity. */

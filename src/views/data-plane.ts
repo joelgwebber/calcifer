@@ -537,6 +537,66 @@ function recordFs(manifest: ViewManifest, id: string): Record<string, unknown> |
   return record;
 }
 
+const FS_CONTENT_TYPES: Record<string, string> = {
+  md: 'text/markdown; charset=utf-8',
+  txt: 'text/plain; charset=utf-8',
+  csv: 'text/csv; charset=utf-8',
+  json: 'application/json; charset=utf-8',
+  pdf: 'application/pdf',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+};
+
+export interface ViewFile {
+  /** Absolute host path (already containment-checked) — stream, don't expose. */
+  path: string;
+  size: number;
+  contentType: string;
+}
+
+/**
+ * Resolve a raw file under an fs view's root for byte-serving. Unlike records,
+ * this is NOT restricted to the view's `exts` — a markdown page may reference a
+ * sibling .pdf/.png that isn't itself a record. Containment is enforced on the
+ * resolved real path (no `..`, no symlink escape).
+ */
+function readFileFs(manifest: ViewManifest, id: string): ViewFile | null {
+  let rootDir: string;
+  try {
+    rootDir = fsRootDir(manifest);
+  } catch (err) {
+    if (err instanceof ViewDataError && err.status === 501) return null;
+    throw err;
+  }
+  const abs = safeResolve(rootDir, id);
+  let realRoot: string;
+  let real: string;
+  try {
+    realRoot = fs.realpathSync(rootDir);
+    real = fs.realpathSync(abs);
+  } catch {
+    return null;
+  }
+  if (real !== realRoot && !real.startsWith(realRoot + path.sep)) {
+    throw new ViewDataError(400, 'path escapes root');
+  }
+  let st: fs.Stats;
+  try {
+    st = fs.statSync(abs);
+  } catch {
+    return null;
+  }
+  if (!st.isFile()) return null;
+  const ext = path.extname(abs).replace(/^\./, '').toLowerCase();
+  return { path: abs, size: st.size, contentType: FS_CONTENT_TYPES[ext] ?? 'application/octet-stream' };
+}
+
 // ─── public dispatch ─────────────────────────────────────────────
 
 /** Query a view's records, dispatching on the manifest's data-source type. */
@@ -565,4 +625,10 @@ export function getViewRecord(
     default:
       throw new ViewDataError(501, `view "${manifest.view}" data.type not supported: ${manifest.data.type}`);
   }
+}
+
+/** Resolve a raw file for byte-serving (fs sources only). */
+export function readViewFile(manifest: ViewManifest, _agentGroupFolder: string, id: string): ViewFile | null {
+  if (manifest.data.type === 'fs') return readFileFs(manifest, id);
+  throw new ViewDataError(501, `view "${manifest.view}" does not serve files (data.type=${manifest.data.type})`);
 }

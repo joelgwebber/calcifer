@@ -22,6 +22,12 @@ export interface ProseNav {
    * the href normally (e.g. in-page anchors, or links the context doesn't own).
    */
   onNavigate?: (href: string) => boolean;
+  /**
+   * Map a relative asset reference (an <img src> or a non-navigable link href)
+   * to a servable URL, e.g. a byte endpoint. Return null to leave it untouched.
+   * Keeps the primitive source-agnostic: the context owns where bytes come from.
+   */
+  resolveAsset?: (ref: string) => string | null;
 }
 
 function isExternal(href: string): boolean {
@@ -36,24 +42,34 @@ export function Prose({ markdown, nav }: { markdown: string; nav?: ProseNav }): 
         components={{
           a({ href, children, ...rest }) {
             const h = href ?? '';
-            if (h && !isExternal(h) && nav?.onNavigate) {
+            if (!h || h.startsWith('#') || isExternal(h)) {
               return (
-                <a
-                  href={h}
-                  onClick={(e) => {
-                    if (nav.onNavigate!(h)) e.preventDefault();
-                  }}
-                  {...rest}
-                >
+                <a href={h} target={h && !h.startsWith('#') ? '_blank' : undefined} rel="noreferrer noopener" {...rest}>
                   {children}
                 </a>
               );
             }
+            // Relative link: try intra-app navigation first (onClick), and fall
+            // back to a resolved asset URL (byte endpoint) for non-navigable refs.
+            const asset = nav?.resolveAsset?.(h) ?? h;
             return (
-              <a href={h} target="_blank" rel="noreferrer noopener" {...rest}>
+              <a
+                href={asset}
+                target="_blank"
+                rel="noreferrer noopener"
+                onClick={(e) => {
+                  if (nav?.onNavigate?.(h)) e.preventDefault();
+                }}
+                {...rest}
+              >
                 {children}
               </a>
             );
+          },
+          img({ src, ...rest }) {
+            const s = typeof src === 'string' ? src : '';
+            const resolved = s && !isExternal(s) ? (nav?.resolveAsset?.(s) ?? s) : s;
+            return <img src={resolved} {...rest} />;
           },
         }}
       >

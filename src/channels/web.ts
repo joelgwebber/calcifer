@@ -62,6 +62,7 @@ import { normalizeCard } from './web-cards.js';
 import { listThreads, loadThreadHistory } from './web-history.js';
 import {
   annotateForUser,
+  fileForUser,
   getManifestForClient,
   listViews,
   queryViewForUser,
@@ -452,6 +453,44 @@ function createAdapter(): ChannelAdapter {
     }
   }
 
+  /** Stream a raw file from an fs-backed view (inline, or ?download=1 to force save). */
+  function handleViewFile(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    view: string,
+    id: string,
+    url: URL,
+  ): void {
+    const user = resolveUser(req);
+    if (!user) {
+      unauthorized(res);
+      return;
+    }
+    try {
+      const file = fileForUser(user.userId, view, id);
+      if (!file) {
+        sendJson(res, 404, { error: 'file not found' });
+        return;
+      }
+      const download = url.searchParams.get('download') === '1';
+      const filename = path.basename(file.path).replace(/["\\\r\n]/g, '');
+      res.writeHead(200, {
+        'Content-Type': file.contentType,
+        'Content-Length': String(file.size),
+        'Content-Disposition': `${download ? 'attachment' : 'inline'}; filename="${filename}"`,
+        'Cache-Control': 'private, max-age=60',
+      });
+      fs.createReadStream(file.path)
+        .on('error', () => {
+          if (!res.headersSent) sendJson(res, 500, { error: 'read failed' });
+          else res.end();
+        })
+        .pipe(res);
+    } catch (err) {
+      sendViewError(res, err);
+    }
+  }
+
   async function handleAnnotate(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     if (!resolveUser(req)) {
       unauthorized(res);
@@ -637,6 +676,11 @@ function createAdapter(): ChannelAdapter {
     const viewRecordMatch = /^\/api\/views\/([^/]+)\/record\/(.+)$/.exec(url.pathname);
     if (req.method === 'GET' && viewRecordMatch) {
       handleViewRecord(req, res, decodeURIComponent(viewRecordMatch[1]), decodeURIComponent(viewRecordMatch[2]));
+      return;
+    }
+    const viewFileMatch = /^\/api\/views\/([^/]+)\/file\/(.+)$/.exec(url.pathname);
+    if (req.method === 'GET' && viewFileMatch) {
+      handleViewFile(req, res, decodeURIComponent(viewFileMatch[1]), decodeURIComponent(viewFileMatch[2]), url);
       return;
     }
     const viewManifestMatch = /^\/api\/views\/([^/]+)$/.exec(url.pathname);

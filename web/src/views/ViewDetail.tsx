@@ -53,6 +53,15 @@ export function ViewDetail() {
     return true;
   }
 
+  // Map a relative asset ref (image, or a link to a sibling pdf/doc) to the view's
+  // byte endpoint. The source owns the bytes; the primitive stays source-agnostic.
+  function resolveAsset(ref: string): string | null {
+    if (!ref || ref.startsWith('#') || /^[a-z]+:/i.test(ref) || ref.startsWith('//')) return null;
+    const target = resolveDocPath(id, ref);
+    if (!target) return null;
+    return `/api/views/${encodeURIComponent(view)}/file/${encodeURIComponent(target)}`;
+  }
+
   async function toggleStar() {
     if (!row) return;
     const next = !starred;
@@ -82,7 +91,7 @@ export function ViewDetail() {
 
       {hasNote && <NoteEditor view={view} id={id} initial={row._ann?.note ?? ''} />}
 
-      {docField && docContent && <Prose markdown={docContent} nav={{ onNavigate }} />}
+      {docField && docContent && <Prose markdown={docContent} nav={{ onNavigate, resolveAsset }} />}
 
       <table className="detail-fields">
         <tbody>
