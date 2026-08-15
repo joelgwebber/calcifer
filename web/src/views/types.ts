@@ -52,7 +52,8 @@ export interface ViewManifest {
   view: string;
   title: string;
   icon?: string;
-  presentation?: 'list' | 'tree';
+  presentation?: 'list' | 'tree' | 'gallery';
+  group?: string;
   skill: string;
   idField: string;
   data: { type: string; path?: string; table?: string; root?: string; exts?: string[] };
@@ -69,6 +70,7 @@ export interface ViewSummary {
   view: string;
   title: string;
   icon?: string;
+  group?: string;
 }
 
 export type Row = Record<string, unknown> & {

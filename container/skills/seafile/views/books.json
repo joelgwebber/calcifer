@@ -1,12 +1,12 @@
 {
-  "view": "documents",
-  "title": "Documents",
-  "icon": "folder",
-  "group": "Libraries",
-  "skill": "documents",
+  "view": "books",
+  "title": "Books",
+  "icon": "book",
+  "skill": "books",
   "idField": "path",
   "presentation": "tree",
-  "data": { "type": "fs", "root": "documents" },
+  "group": "Libraries",
+  "data": { "type": "fs", "root": "books" },
   "fields": {
     "title": { "type": "text", "label": "Name", "search": true },
     "name": { "type": "text", "label": "File", "search": true },
@@ -14,14 +14,9 @@
     "kind": { "type": "text", "label": "Kind" },
     "ext": { "type": "badge", "label": "Type" },
     "mtime": { "type": "datetime", "label": "Modified" },
-    "size": { "type": "number", "label": "Size" },
-    "content": { "type": "document", "label": "Content" }
+    "size": { "type": "number", "label": "Size" }
   },
   "list": { "card": { "title": "{title}" } },
-  "detail": {
-    "document": "content",
-    "fields": ["path", "kind", "ext", "mtime", "size"],
-    "actions": ["star"]
-  },
+  "detail": { "fields": ["path", "kind", "ext", "mtime", "size"], "actions": ["star"] },
   "annotations": ["star", "note"]
 }

@@ -111,7 +111,9 @@ export interface ViewManifest {
    * render the same fs backend differently. 'list' = cards (default); 'tree' =
    * folder browser (single-level, navigable). Detail presentation is separate.
    */
-  presentation?: 'list' | 'tree';
+  presentation?: 'list' | 'tree' | 'gallery';
+  /** Rail grouping label, e.g. "Libraries". Ungrouped views sit at the top level. */
+  group?: string;
   /** Annotation namespace, e.g. "nyc-apt". Defaults to `view`. */
   skill: string;
   /** Primary key column of the data source. Defaults to "id". */
@@ -156,7 +158,9 @@ function validate(raw: unknown, source: string): ViewManifest | null {
     view: m.view as string,
     title: m.title as string,
     icon: typeof m.icon === 'string' ? m.icon : undefined,
-    presentation: m.presentation === 'tree' ? 'tree' : 'list',
+    presentation:
+      m.presentation === 'tree' || m.presentation === 'gallery' ? (m.presentation as 'tree' | 'gallery') : 'list',
+    group: typeof m.group === 'string' ? m.group : undefined,
     skill: typeof m.skill === 'string' ? (m.skill as string) : (m.view as string),
     idField: typeof m.idField === 'string' ? (m.idField as string) : 'id',
     data: { scope: 'agent', ...(m.data as DataSource) },
@@ -234,8 +238,9 @@ export interface ViewSummary {
   view: string;
   title: string;
   icon?: string;
+  group?: string;
 }
 
 export function listViewSummaries(): ViewSummary[] {
-  return [...getViewRegistry().values()].map((m) => ({ view: m.view, title: m.title, icon: m.icon }));
+  return [...getViewRegistry().values()].map((m) => ({ view: m.view, title: m.title, icon: m.icon, group: m.group }));
 }

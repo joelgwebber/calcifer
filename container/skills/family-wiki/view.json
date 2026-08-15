@@ -2,6 +2,7 @@
   "view": "family-wiki",
   "title": "Family Wiki",
   "icon": "book",
+  "group": "Libraries",
   "skill": "family-wiki",
   "idField": "path",
   "data": { "type": "fs", "root": "family-wiki", "exts": ["md"] },

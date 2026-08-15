@@ -7,7 +7,7 @@ import { Thread } from './ui/Thread';
 import { fetchManifest, fetchViewList } from './views/api';
 import type { ViewManifest, ViewSummary } from './views/types';
 import { ViewList } from './views/ViewList';
-import { ViewTree } from './views/ViewTree';
+import { ViewBrowse } from './views/ViewBrowse';
 import { ViewDetail } from './views/ViewDetail';
 import { Login } from './ui/Login';
 
@@ -60,15 +60,19 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
           <NavLink to="/" end className={({ isActive }) => `rail-link ${isActive ? 'active' : ''}`}>
             Chat
           </NavLink>
-          {views.length > 0 && <div className="rail-section">Apps</div>}
-          {views.map((v) => (
-            <NavLink
-              key={v.view}
-              to={`/app/${v.view}`}
-              className={({ isActive }) => `rail-link ${isActive ? 'active' : ''}`}
-            >
-              {v.title}
-            </NavLink>
+          {groupViews(views).map(({ group, items }) => (
+            <div key={group ?? '__top'}>
+              <div className="rail-section">{group ?? 'Apps'}</div>
+              {items.map((v) => (
+                <NavLink
+                  key={v.view}
+                  to={`/app/${v.view}`}
+                  className={({ isActive }) => `rail-link ${isActive ? 'active' : ''}`}
+                >
+                  {v.title}
+                </NavLink>
+              ))}
+            </div>
           ))}
           <div className="rail-spacer" />
           {me.authRequired && (
@@ -108,7 +112,28 @@ function ViewIndex() {
   }, [view]);
   if (err) return <div className="view-error">Could not load this view.</div>;
   if (!manifest) return <div className="view-loading">Loading…</div>;
-  return manifest.presentation === 'tree' ? <ViewTree manifest={manifest} /> : <ViewList />;
+  return manifest.presentation === 'tree' || manifest.presentation === 'gallery' ? (
+    <ViewBrowse manifest={manifest} />
+  ) : (
+    <ViewList />
+  );
+}
+
+/** Group rail views by their `group` label; ungrouped (top-level) apps come first. */
+function groupViews(views: ViewSummary[]): Array<{ group: string | null; items: ViewSummary[] }> {
+  const order: Array<string | null> = [];
+  const byGroup = new Map<string | null, ViewSummary[]>();
+  for (const v of views) {
+    const g = v.group ?? null;
+    if (!byGroup.has(g)) {
+      byGroup.set(g, []);
+      order.push(g);
+    }
+    byGroup.get(g)!.push(v);
+  }
+  // Ungrouped first, then named groups in first-seen order.
+  order.sort((a, b) => (a === null ? -1 : b === null ? 1 : 0));
+  return order.map((g) => ({ group: g, items: byGroup.get(g)! }));
 }
 
 function ChatPane() {
