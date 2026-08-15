@@ -1,13 +1,15 @@
 /** Record detail: field table + timeline + actions (calcifer-1d51.4). */
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { fetchManifest, fetchRecord, setAnnotation } from './api';
 import { AskButton } from './AskButton';
 import { FieldValue, detailFieldList, interpolate } from './primitives';
+import { Prose } from './Prose';
 import type { ActionSpec, Row, ViewManifest } from './types';
 
 export function ViewDetail() {
   const { view = '', id = '' } = useParams();
+  const navigate = useNavigate();
   const [manifest, setManifest] = useState<ViewManifest | null>(null);
   const [row, setRow] = useState<Row | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -38,6 +40,18 @@ export function ViewDetail() {
   const hasStar = manifest.annotations?.includes('star');
   const hasNote = manifest.annotations?.includes('note');
   const titleField = manifest.list.card.title;
+  const docField = manifest.detail?.document;
+  const docContent = docField ? stripFrontmatter(String(row[docField] ?? '')) : '';
+
+  // Intra-view navigation for the prose primitive: a relative .md link loads that
+  // doc within the same view; anything else falls through to the browser.
+  function onNavigate(href: string): boolean {
+    if (href.startsWith('#')) return false;
+    const target = resolveDocPath(id, href);
+    if (!target || !/\.md$/i.test(target)) return false;
+    navigate(`/app/${view}/${encodeURIComponent(target)}`);
+    return true;
+  }
 
   async function toggleStar() {
     if (!row) return;
@@ -68,11 +82,13 @@ export function ViewDetail() {
 
       {hasNote && <NoteEditor view={view} id={id} initial={row._ann?.note ?? ''} />}
 
+      {docField && docContent && <Prose markdown={docContent} nav={{ onNavigate }} />}
+
       <table className="detail-fields">
         <tbody>
           {detailFieldList(manifest).map((name) => {
             const spec = manifest.fields[name];
-            if (!spec) return null;
+            if (!spec || spec.type === 'document') return null;
             return (
               <tr key={name}>
                 <th>{spec.label ?? name}</th>
@@ -127,6 +143,26 @@ function NoteEditor({ view, id, initial }: { view: string; id: string; initial: 
       <div className="note-status">{saved === 'saving' ? 'Saving…' : saved === 'saved' ? 'Saved' : ''}</div>
     </div>
   );
+}
+
+/** Drop a leading YAML frontmatter block (`---` … `---`) so it isn't rendered as prose. */
+function stripFrontmatter(md: string): string {
+  return md.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
+}
+
+/** Resolve a relative markdown href against the current document's path. */
+function resolveDocPath(currentPath: string, href: string): string {
+  const clean = href.split('#')[0].split('?')[0];
+  if (!clean) return '';
+  const baseDir = currentPath.includes('/') ? currentPath.slice(0, currentPath.lastIndexOf('/')) : '';
+  const start = clean.startsWith('/') ? [] : baseDir ? baseDir.split('/') : [];
+  const stack = [...start];
+  for (const part of clean.replace(/^\//, '').split('/')) {
+    if (part === '' || part === '.') continue;
+    if (part === '..') stack.pop();
+    else stack.push(part);
+  }
+  return stack.join('/');
 }
 
 function formatDate(v: unknown): string {

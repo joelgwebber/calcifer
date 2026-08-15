@@ -6,7 +6,14 @@ import { getContainerImageBase, getDefaultContainerImage, getInstallSlug } from 
 import { isValidTimezone } from './timezone.js';
 
 // Read config values from .env (falls back to process.env).
-const envConfig = readEnvFile(['ASSISTANT_NAME', 'ASSISTANT_HAS_OWN_NUMBER', 'ONECLI_URL', 'ONECLI_API_KEY', 'TZ']);
+const envConfig = readEnvFile([
+  'ASSISTANT_NAME',
+  'ASSISTANT_HAS_OWN_NUMBER',
+  'ONECLI_URL',
+  'ONECLI_API_KEY',
+  'TZ',
+  'SEAFILE_LOCAL_PATH',
+]);
 
 export const ASSISTANT_NAME = process.env.ASSISTANT_NAME || envConfig.ASSISTANT_NAME || 'Andy';
 export const ASSISTANT_HAS_OWN_NUMBER =
@@ -28,6 +35,21 @@ export const DATA_DIR = path.resolve(PROJECT_ROOT, 'data');
 // data plane reads scope=shared sources from here, independent of the viewing
 // user's agent group.
 export const SHARED_DATA_DIR = path.resolve(DATA_DIR, 'shared');
+
+// Base directory for filesystem-backed views (data.type="fs"), e.g. the Seafile
+// daemon's local sync root. A view's data.root is resolved UNDER this base with
+// strict path containment (see src/views/data-plane.ts). Empty ⇒ fs views are
+// disabled. Host-side only; never mounted into containers by the view plane.
+// Defensive parse: readEnvFile keeps a trailing inline comment (and quotes) on a
+// `.env` value like `KEY="/path"  # note`, so unwrap a leading quoted span or
+// strip a ` #`-style comment before use.
+function resolveFsViewRoot(): string {
+  const raw = (process.env.SEAFILE_LOCAL_PATH || envConfig.SEAFILE_LOCAL_PATH || '').trim();
+  const quoted = raw.match(/^"([^"]*)"|^'([^']*)'/);
+  if (quoted) return (quoted[1] ?? quoted[2] ?? '').trim();
+  return raw.split(/\s+#/)[0].trim();
+}
+export const FS_VIEW_ROOT = resolveFsViewRoot();
 
 // Per-checkout image tag so two installs on the same host don't share
 // `nanoclaw-agent:latest` and clobber each other on rebuild.

@@ -1,0 +1,35 @@
+{
+  "view": "family-wiki",
+  "title": "Family Wiki",
+  "icon": "book",
+  "skill": "family-wiki",
+  "idField": "path",
+  "data": { "type": "fs", "root": "family-wiki", "exts": ["md"] },
+  "defaultSort": "-mtime",
+  "fields": {
+    "title": { "type": "text", "label": "Title", "search": true, "sort": true },
+    "name": { "type": "text", "label": "File", "search": true },
+    "path": { "type": "text", "label": "Path", "search": true },
+    "dir": { "type": "badge", "label": "Folder", "filter": "multiselect", "sort": true },
+    "mtime": { "type": "datetime", "label": "Modified", "sort": true },
+    "size": { "type": "number", "label": "Size" },
+    "content": { "type": "document", "label": "Content" }
+  },
+  "list": {
+    "card": {
+      "title": "{title}",
+      "subtitle": "{dir}",
+      "badges": [{ "label": "{dir}", "when": "{dir}" }],
+      "actions": ["star"]
+    }
+  },
+  "detail": {
+    "document": "content",
+    "fields": ["path", "dir", "mtime", "size"],
+    "actions": [
+      "star",
+      { "type": "ask", "label": "Summarize", "prompt": "Summarize the family wiki page at {path}." }
+    ]
+  },
+  "annotations": ["star", "note"]
+}

@@ -16,7 +16,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 
 import { getAnnotationsFor, getEntityIdsWithAnnotation } from '../db/annotations.js';
-import { GROUPS_DIR, SHARED_DATA_DIR } from '../config.js';
+import { FS_VIEW_ROOT, GROUPS_DIR, SHARED_DATA_DIR } from '../config.js';
 import { log } from '../log.js';
 import type { FilterValue, ViewManifest } from './manifest.js';
 
@@ -198,7 +198,14 @@ function parseSort(sort: string): { col: string; dir: 'ASC' | 'DESC' } {
   return { col: sort, dir: 'ASC' };
 }
 
-export function queryView(manifest: ViewManifest, agentGroupFolder: string, params: QueryParams): QueryResult {
+/** Merge shared annotations into a set of records, keyed on the manifest idField. */
+function mergeAnnotations(skill: string, rows: Array<Record<string, unknown>>, idField: string): void {
+  const ids = rows.map((r) => String(r[idField]));
+  const ann = getAnnotationsFor(skill, ids);
+  for (const r of rows) r._ann = ann.get(String(r[idField])) ?? {};
+}
+
+function querySqlite(manifest: ViewManifest, agentGroupFolder: string, params: QueryParams): QueryResult {
   const page = Math.max(1, params.page ?? 1);
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, params.pageSize ?? DEFAULT_PAGE_SIZE));
   const empty: QueryResult = { items: [], total: 0, page, pageSize };
@@ -284,11 +291,7 @@ export function queryView(manifest: ViewManifest, agentGroupFolder: string, para
   }
 }
 
-export function getViewRecord(
-  manifest: ViewManifest,
-  agentGroupFolder: string,
-  id: string,
-): Record<string, unknown> | null {
+function recordSqlite(manifest: ViewManifest, agentGroupFolder: string, id: string): Record<string, unknown> | null {
   const db = openReadonly(dbPath(manifest, agentGroupFolder));
   if (!db) return null;
   try {
@@ -320,5 +323,246 @@ export function getViewRecord(
     return row;
   } finally {
     db.close();
+  }
+}
+
+// ─── filesystem source (calcifer-851f) ────────────────────────────────────
+//
+// Serves a directory tree under FS_VIEW_ROOT as records (one per file), read-only.
+// Every path is resolved with hard containment (no `..`, no symlink escape) so a
+// manifest or client id can never reach outside the view's declared root. Records
+// carry a stable `path` (relative to the root) usable as the annotation entity id,
+// so stars/notes/cards work identically to the sqlite source.
+
+const FS_MAX_ENTRIES = 5000;
+const FS_MAX_DOC_BYTES = 2_000_000;
+
+/** Resolve `rel` under `baseDir` with hard containment. Throws on escape. */
+function safeResolve(baseDir: string, rel: string): string {
+  const base = path.resolve(baseDir);
+  const abs = path.resolve(base, rel);
+  if (abs !== base && !abs.startsWith(base + path.sep)) {
+    throw new ViewDataError(400, `path escapes root: ${rel}`);
+  }
+  return abs;
+}
+
+/** The contained root dir for an fs view. Throws 501 when fs views are unconfigured. */
+function fsRootDir(manifest: ViewManifest): string {
+  if (!FS_VIEW_ROOT) throw new ViewDataError(501, 'fs views not configured (SEAFILE_LOCAL_PATH unset)');
+  return safeResolve(FS_VIEW_ROOT, manifest.data.root ?? '');
+}
+
+function fsFields(rootDir: string, abs: string, size: number, mtime: Date): Record<string, unknown> {
+  const rel = path.relative(rootDir, abs);
+  const name = path.basename(rel);
+  const parent = path.dirname(rel);
+  return {
+    path: rel,
+    name,
+    title: name.replace(/\.[^.]+$/, ''),
+    dir: parent === '.' ? '' : parent,
+    ext: path.extname(name).replace(/^\./, '').toLowerCase(),
+    size,
+    mtime: mtime.toISOString(),
+  };
+}
+
+/** Recursively list files under `rootDir` (capped), skipping dot entries. */
+function walkFiles(rootDir: string, exts: Set<string> | null): Array<Record<string, unknown>> {
+  const out: Array<Record<string, unknown>> = [];
+  const stack: string[] = [rootDir];
+  while (stack.length && out.length < FS_MAX_ENTRIES) {
+    const cur = stack.pop()!;
+    let dirents: fs.Dirent[];
+    try {
+      dirents = fs.readdirSync(cur, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const d of dirents) {
+      if (d.name.startsWith('.')) continue;
+      const abs = path.join(cur, d.name);
+      if (d.isDirectory()) {
+        stack.push(abs);
+      } else if (d.isFile()) {
+        const ext = path.extname(d.name).replace(/^\./, '').toLowerCase();
+        if (exts && !exts.has(ext)) continue;
+        try {
+          const st = fs.statSync(abs);
+          out.push(fsFields(rootDir, abs, st.size, st.mtime));
+        } catch {
+          // unreadable entry — skip
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function queryFs(manifest: ViewManifest, params: QueryParams): QueryResult {
+  const page = Math.max(1, params.page ?? 1);
+  const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, params.pageSize ?? DEFAULT_PAGE_SIZE));
+  const empty: QueryResult = { items: [], total: 0, page, pageSize };
+
+  let rootDir: string;
+  try {
+    rootDir = fsRootDir(manifest);
+  } catch (err) {
+    if (err instanceof ViewDataError && err.status === 501) return empty; // unconfigured → empty, not error
+    throw err;
+  }
+  if (!fs.existsSync(rootDir)) return empty;
+
+  const exts = manifest.data.exts?.length ? new Set(manifest.data.exts.map((e) => e.toLowerCase())) : null;
+  let items = walkFiles(rootDir, exts);
+
+  // free-text search across search:true fields
+  if (params.q?.trim()) {
+    const needle = params.q.trim().toLowerCase();
+    const searchable = Object.entries(manifest.fields)
+      .filter(([, s]) => s.search)
+      .map(([n]) => n);
+    if (searchable.length) {
+      items = items.filter((r) =>
+        searchable.some((f) =>
+          String(r[f] ?? '')
+            .toLowerCase()
+            .includes(needle),
+        ),
+      );
+    }
+  }
+
+  // client filters, gated by declared filter kind (multiselect/search apply to fs fields)
+  for (const [field, value] of Object.entries(params.filters ?? {})) {
+    const spec = manifest.fields[field];
+    if (!spec?.filter) continue;
+    if (spec.filter === 'multiselect') {
+      const arr = (Array.isArray(value) ? value : [value]).filter((x) => x !== undefined && x !== null && x !== '');
+      if (arr.length) items = items.filter((r) => (arr as unknown[]).includes(r[field]));
+    } else if (spec.filter === 'search' && typeof value === 'string' && value.trim()) {
+      const n = value.trim().toLowerCase();
+      items = items.filter((r) =>
+        String(r[field] ?? '')
+          .toLowerCase()
+          .includes(n),
+      );
+    }
+  }
+
+  const total = items.length;
+
+  // sort (client > manifest default), whitelisted to sort:true for client sorts
+  const sortSpec = params.sort ?? manifest.defaultSort;
+  if (sortSpec) {
+    const { col, dir } = parseSort(sortSpec);
+    const clientSort = params.sort !== undefined;
+    if (manifest.fields[col] && (!clientSort || manifest.fields[col]?.sort === true)) {
+      items.sort((a, b) => {
+        const av = a[col];
+        const bv = b[col];
+        const cmp =
+          typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av ?? '').localeCompare(String(bv ?? ''));
+        return dir === 'DESC' ? -cmp : cmp;
+      });
+    }
+  }
+
+  const paged = items.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
+  mergeAnnotations(manifest.skill, paged, manifest.idField);
+
+  // facets: distinct values for multiselect fields (e.g. ext, top-level dir)
+  const facets: Record<string, Array<string | number>> = {};
+  for (const [name, spec] of Object.entries(manifest.fields)) {
+    if (spec.filter === 'multiselect') {
+      const vals = new Set<string | number>();
+      for (const r of items) {
+        const v = r[name];
+        if (v !== undefined && v !== null && v !== '') vals.add(v as string | number);
+      }
+      facets[name] = [...vals].sort();
+    }
+  }
+
+  return { items: paged, total, page, pageSize, facets };
+}
+
+function recordFs(manifest: ViewManifest, id: string): Record<string, unknown> | null {
+  let rootDir: string;
+  try {
+    rootDir = fsRootDir(manifest);
+  } catch (err) {
+    if (err instanceof ViewDataError && err.status === 501) return null;
+    throw err;
+  }
+  const abs = safeResolve(rootDir, id);
+
+  // Guard against symlink escape (containment on the *resolved* real path).
+  let realRoot: string;
+  let real: string;
+  try {
+    realRoot = fs.realpathSync(rootDir);
+    real = fs.realpathSync(abs);
+  } catch {
+    return null;
+  }
+  if (real !== realRoot && !real.startsWith(realRoot + path.sep)) {
+    throw new ViewDataError(400, 'path escapes root');
+  }
+
+  let st: fs.Stats;
+  try {
+    st = fs.statSync(abs);
+  } catch {
+    return null;
+  }
+  if (!st.isFile()) return null;
+
+  const record = fsFields(rootDir, abs, st.size, st.mtime);
+  const documentField = manifest.detail?.document;
+  if (documentField) {
+    let content = '';
+    if (st.size <= FS_MAX_DOC_BYTES) {
+      try {
+        content = fs.readFileSync(abs, 'utf8');
+      } catch {
+        content = '';
+      }
+    }
+    record[documentField] = content;
+  }
+  const rel = String(record[manifest.idField] ?? record.path);
+  record._ann = getAnnotationsFor(manifest.skill, [rel]).get(rel) ?? {};
+  return record;
+}
+
+// ─── public dispatch ─────────────────────────────────────────────
+
+/** Query a view's records, dispatching on the manifest's data-source type. */
+export function queryView(manifest: ViewManifest, agentGroupFolder: string, params: QueryParams): QueryResult {
+  switch (manifest.data.type) {
+    case 'sqlite':
+      return querySqlite(manifest, agentGroupFolder, params);
+    case 'fs':
+      return queryFs(manifest, params);
+    default:
+      throw new ViewDataError(501, `view "${manifest.view}" data.type not supported: ${manifest.data.type}`);
+  }
+}
+
+/** Fetch a single record by id, dispatching on the manifest's data-source type. */
+export function getViewRecord(
+  manifest: ViewManifest,
+  agentGroupFolder: string,
+  id: string,
+): Record<string, unknown> | null {
+  switch (manifest.data.type) {
+    case 'sqlite':
+      return recordSqlite(manifest, agentGroupFolder, id);
+    case 'fs':
+      return recordFs(manifest, id);
+    default:
+      throw new ViewDataError(501, `view "${manifest.view}" data.type not supported: ${manifest.data.type}`);
   }
 }

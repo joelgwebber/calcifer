@@ -1,6 +1,16 @@
 /** Client-side mirror of the host view manifest + data-plane shapes (calcifer-1d51.4). */
 
-export type FieldType = 'text' | 'money' | 'datetime' | 'number' | 'bool' | 'badge' | 'image' | 'link' | 'keyvalue';
+export type FieldType =
+  | 'text'
+  | 'money'
+  | 'datetime'
+  | 'number'
+  | 'bool'
+  | 'badge'
+  | 'image'
+  | 'link'
+  | 'keyvalue'
+  | 'document';
 export type FilterKind = 'range' | 'multiselect' | 'toggle' | 'daterange' | 'search';
 
 export interface FieldSpec {
@@ -25,6 +35,8 @@ export interface CardSpec {
 export interface DetailSpec {
   gallery?: string;
   fields?: string[];
+  /** Field holding markdown/prose to render with the document primitive. */
+  document?: string;
   timeline?: { source: string; foreignKey: string; date: string; label: string };
   actions?: ActionSpec[];
 }
@@ -42,7 +54,7 @@ export interface ViewManifest {
   icon?: string;
   skill: string;
   idField: string;
-  data: { type: string; path?: string; table?: string };
+  data: { type: string; path?: string; table?: string; root?: string; exts?: string[] };
   fields: Record<string, FieldSpec>;
   baseFilter?: Record<string, unknown>;
   collections?: Record<string, CollectionSpec>;

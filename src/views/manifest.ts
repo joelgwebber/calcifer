@@ -16,7 +16,17 @@ import path from 'path';
 
 import { log } from '../log.js';
 
-export type FieldType = 'text' | 'money' | 'datetime' | 'number' | 'bool' | 'badge' | 'image' | 'link' | 'keyvalue';
+export type FieldType =
+  | 'text'
+  | 'money'
+  | 'datetime'
+  | 'number'
+  | 'bool'
+  | 'badge'
+  | 'image'
+  | 'link'
+  | 'keyvalue'
+  | 'document';
 
 export type FilterKind = 'range' | 'multiselect' | 'toggle' | 'daterange' | 'search';
 
@@ -63,6 +73,9 @@ export interface CardSpec {
 export interface DetailSpec {
   gallery?: string;
   fields?: string[];
+  /** Field holding markdown/prose to render with the document primitive (e.g. a
+   *  wiki page body). Source-agnostic: any record with a markdown field works. */
+  document?: string;
   /** A related-rows timeline, e.g. price sightings. `foreignKey` joins the
    *  source table back to this view's idField value. */
   timeline?: { source: string; foreignKey: string; date: string; label: string };
@@ -70,16 +83,21 @@ export interface DetailSpec {
 }
 
 export interface DataSource {
-  type: 'sqlite' | 'http' | 'agent';
+  type: 'sqlite' | 'fs' | 'http' | 'agent';
   /**
    * Where a sqlite `path` is resolved:
    *   'agent'  (default) — the viewing user's agent-group workspace (per-user data)
    *   'shared'          — the cross-agent shared data root (one family-wide DB)
+   * Ignored by fs sources (they resolve under FS_VIEW_ROOT).
    */
   scope?: 'agent' | 'shared';
   /** For sqlite: path relative to the resolved root (agent workspace or shared root). */
   path?: string;
   table?: string;
+  /** For fs: directory (relative to FS_VIEW_ROOT) whose files become records. */
+  root?: string;
+  /** For fs: restrict records to files with these extensions, e.g. ["md"]. Omit = all files. */
+  exts?: string[];
 }
 
 export interface ViewManifest {
