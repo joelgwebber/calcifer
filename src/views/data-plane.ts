@@ -30,6 +30,10 @@ export interface QueryParams {
   sort?: string;
   page?: number;
   pageSize?: number;
+  /** fs browse mode: list the immediate children (subdirs + files) of `path`. */
+  browse?: boolean;
+  /** fs browse mode: the folder (relative to the view root) to list. */
+  path?: string;
 }
 
 export interface QueryResult {
@@ -336,6 +340,8 @@ function recordSqlite(manifest: ViewManifest, agentGroupFolder: string, id: stri
 
 const FS_MAX_ENTRIES = 5000;
 const FS_MAX_DOC_BYTES = 2_000_000;
+/** Extensions whose bytes are safe to surface as prose in the document primitive. */
+const FS_TEXT_EXTS = new Set(['md', 'markdown', 'txt', 'text']);
 
 /** Resolve `rel` under `baseDir` with hard containment. Throws on escape. */
 function safeResolve(baseDir: string, rel: string): string {
@@ -353,19 +359,63 @@ function fsRootDir(manifest: ViewManifest): string {
   return safeResolve(FS_VIEW_ROOT, manifest.data.root ?? '');
 }
 
-function fsFields(rootDir: string, abs: string, size: number, mtime: Date): Record<string, unknown> {
+function fsFields(
+  rootDir: string,
+  abs: string,
+  size: number,
+  mtime: Date,
+  kind: 'file' | 'dir' = 'file',
+): Record<string, unknown> {
   const rel = path.relative(rootDir, abs);
   const name = path.basename(rel);
   const parent = path.dirname(rel);
   return {
     path: rel,
     name,
-    title: name.replace(/\.[^.]+$/, ''),
+    title: kind === 'dir' ? name : name.replace(/\.[^.]+$/, ''),
     dir: parent === '.' ? '' : parent,
-    ext: path.extname(name).replace(/^\./, '').toLowerCase(),
+    kind,
+    ext: kind === 'dir' ? '' : path.extname(name).replace(/^\./, '').toLowerCase(),
     size,
     mtime: mtime.toISOString(),
   };
+}
+
+/** Browse mode: list immediate children (subdirs + files) of one folder. */
+function browseFs(rootDir: string, relDir: string, exts: Set<string> | null): Array<Record<string, unknown>> {
+  const dirAbs = safeResolve(rootDir, relDir);
+  let real: string;
+  let realRoot: string;
+  try {
+    realRoot = fs.realpathSync(rootDir);
+    real = fs.realpathSync(dirAbs);
+  } catch {
+    return [];
+  }
+  if (real !== realRoot && !real.startsWith(realRoot + path.sep)) throw new ViewDataError(400, 'path escapes root');
+  let dirents: fs.Dirent[];
+  try {
+    dirents = fs.readdirSync(dirAbs, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const out: Array<Record<string, unknown>> = [];
+  for (const d of dirents) {
+    if (d.name.startsWith('.')) continue;
+    const abs = path.join(dirAbs, d.name);
+    try {
+      const st = fs.statSync(abs);
+      if (d.isDirectory()) {
+        out.push(fsFields(rootDir, abs, 0, st.mtime, 'dir'));
+      } else if (d.isFile()) {
+        if (exts && !exts.has(path.extname(d.name).replace(/^\./, '').toLowerCase())) continue;
+        out.push(fsFields(rootDir, abs, st.size, st.mtime, 'file'));
+      }
+    } catch {
+      // unreadable entry — skip
+    }
+  }
+  return out;
 }
 
 /** Recursively list files under `rootDir` (capped), skipping dot entries. */
@@ -415,6 +465,29 @@ function queryFs(manifest: ViewManifest, params: QueryParams): QueryResult {
   if (!fs.existsSync(rootDir)) return empty;
 
   const exts = manifest.data.exts?.length ? new Set(manifest.data.exts.map((e) => e.toLowerCase())) : null;
+
+  // Browse mode (tree presentation): one folder level, dirs first. Search still
+  // filters the current folder; folder navigation is driven by the `path` param.
+  if (params.browse) {
+    let items = browseFs(rootDir, params.path ?? '', exts);
+    if (params.q?.trim()) {
+      const needle = params.q.trim().toLowerCase();
+      items = items.filter((r) =>
+        String(r.name ?? '')
+          .toLowerCase()
+          .includes(needle),
+      );
+    }
+    const total = items.length;
+    items.sort((a, b) => {
+      if (a.kind !== b.kind) return a.kind === 'dir' ? -1 : 1;
+      return String(a.name ?? '').localeCompare(String(b.name ?? ''));
+    });
+    const paged = items.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
+    mergeAnnotations(manifest.skill, paged, manifest.idField);
+    return { items: paged, total, page, pageSize };
+  }
+
   let items = walkFiles(rootDir, exts);
 
   // free-text search across search:true fields
@@ -523,7 +596,8 @@ function recordFs(manifest: ViewManifest, id: string): Record<string, unknown> |
   const documentField = manifest.detail?.document;
   if (documentField) {
     let content = '';
-    if (st.size <= FS_MAX_DOC_BYTES) {
+    // Only read text-like files as prose; a PDF/image read as utf8 is garbage.
+    if (FS_TEXT_EXTS.has(String(record.ext ?? '')) && st.size <= FS_MAX_DOC_BYTES) {
       try {
         content = fs.readFileSync(abs, 'utf8');
       } catch {

@@ -428,6 +428,8 @@ function createAdapter(): ChannelAdapter {
         sort: url.searchParams.get('sort') ?? undefined,
         page: Number.isFinite(pageRaw) ? pageRaw : undefined,
         pageSize: Number.isFinite(pageSizeRaw) ? pageSizeRaw : undefined,
+        browse: url.searchParams.get('browse') === '1',
+        path: url.searchParams.get('path') ?? undefined,
       });
       sendJson(res, 200, result);
     } catch (err) {

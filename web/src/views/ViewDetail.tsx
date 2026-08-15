@@ -1,7 +1,7 @@
 /** Record detail: field table + timeline + actions (calcifer-1d51.4). */
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { fetchManifest, fetchRecord, setAnnotation } from './api';
+import { fetchManifest, fetchRecord, fileUrl, setAnnotation } from './api';
 import { AskButton } from './AskButton';
 import { FieldValue, detailFieldList, interpolate } from './primitives';
 import { Prose } from './Prose';
@@ -84,6 +84,16 @@ export function ViewDetail() {
           {(manifest.detail?.actions ?? []).map((a, i) => (
             <DetailAction key={i} action={a} row={row} />
           ))}
+          {manifest.data.type === 'fs' && !docContent && row.kind !== 'dir' && (
+            <>
+              <a className="icon-button" href={fileUrl(view, id)} target="_blank" rel="noreferrer noopener">
+                Open ↗
+              </a>
+              <a className="icon-button" href={fileUrl(view, id, true)}>
+                Download
+              </a>
+            </>
+          )}
         </div>
       </div>
 

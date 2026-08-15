@@ -24,6 +24,9 @@ export interface DataParams {
   sort?: string;
   page?: number;
   pageSize?: number;
+  /** fs tree presentation: list one folder level. */
+  browse?: boolean;
+  path?: string;
 }
 
 export async function fetchViewData(view: string, params: DataParams): Promise<QueryResult> {
@@ -34,6 +37,8 @@ export async function fetchViewData(view: string, params: DataParams): Promise<Q
   if (params.sort) sp.set('sort', params.sort);
   if (params.page) sp.set('page', String(params.page));
   if (params.pageSize) sp.set('pageSize', String(params.pageSize));
+  if (params.browse) sp.set('browse', '1');
+  if (params.path) sp.set('path', params.path);
   const res = await fetch(`/api/views/${encodeURIComponent(view)}/data?${sp.toString()}`, opts);
   if (!res.ok) throw new Error(`data ${res.status}`);
   return (await res.json()) as QueryResult;
@@ -45,6 +50,11 @@ export async function fetchRecord(view: string, id: string): Promise<Row | null>
   if (!res.ok) throw new Error(`record ${res.status}`);
   const data = (await res.json()) as { record: Row };
   return data.record;
+}
+
+/** URL for the fs byte endpoint (inline, or download=true to force save). */
+export function fileUrl(view: string, filePath: string, download = false): string {
+  return `/api/views/${encodeURIComponent(view)}/file/${encodeURIComponent(filePath)}${download ? '?download=1' : ''}`;
 }
 
 /** Set (value != null) or clear (value == null) a shared annotation. */

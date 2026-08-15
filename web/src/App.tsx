@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, NavLink, Route, Routes, useParams } from 'react-router-dom';
 import { fetchMe, logout, type Me } from './api';
 import { RuntimeProvider } from './runtime';
 import { ThreadList } from './ui/ThreadList';
 import { Thread } from './ui/Thread';
-import { fetchViewList } from './views/api';
-import type { ViewSummary } from './views/types';
+import { fetchManifest, fetchViewList } from './views/api';
+import type { ViewManifest, ViewSummary } from './views/types';
 import { ViewList } from './views/ViewList';
+import { ViewTree } from './views/ViewTree';
 import { ViewDetail } from './views/ViewDetail';
 import { Login } from './ui/Login';
 
@@ -80,13 +81,34 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
         <main className="shell-main">
           <Routes>
             <Route path="/" element={<ChatPane />} />
-            <Route path="/app/:view" element={<ViewList />} />
+            <Route path="/app/:view" element={<ViewIndex />} />
             <Route path="/app/:view/:id" element={<ViewDetail />} />
           </Routes>
         </main>
       </div>
     </RuntimeProvider>
   );
+}
+
+/** Dispatch the list-level presentation from the manifest (cards vs folder tree). */
+function ViewIndex() {
+  const { view = '' } = useParams();
+  const [manifest, setManifest] = useState<ViewManifest | null>(null);
+  const [err, setErr] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    setManifest(null);
+    setErr(false);
+    fetchManifest(view)
+      .then((m) => !cancelled && setManifest(m))
+      .catch(() => !cancelled && setErr(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [view]);
+  if (err) return <div className="view-error">Could not load this view.</div>;
+  if (!manifest) return <div className="view-loading">Loading…</div>;
+  return manifest.presentation === 'tree' ? <ViewTree manifest={manifest} /> : <ViewList />;
 }
 
 function ChatPane() {

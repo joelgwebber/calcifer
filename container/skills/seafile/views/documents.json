@@ -1,0 +1,26 @@
+{
+  "view": "documents",
+  "title": "Documents",
+  "icon": "folder",
+  "skill": "documents",
+  "idField": "path",
+  "presentation": "tree",
+  "data": { "type": "fs", "root": "documents" },
+  "fields": {
+    "title": { "type": "text", "label": "Name", "search": true },
+    "name": { "type": "text", "label": "File", "search": true },
+    "path": { "type": "text", "label": "Path" },
+    "kind": { "type": "text", "label": "Kind" },
+    "ext": { "type": "badge", "label": "Type" },
+    "mtime": { "type": "datetime", "label": "Modified" },
+    "size": { "type": "number", "label": "Size" },
+    "content": { "type": "document", "label": "Content" }
+  },
+  "list": { "card": { "title": "{title}" } },
+  "detail": {
+    "document": "content",
+    "fields": ["path", "kind", "ext", "mtime", "size"],
+    "actions": ["star"]
+  },
+  "annotations": ["star", "note"]
+}

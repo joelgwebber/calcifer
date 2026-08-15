@@ -105,6 +105,13 @@ export interface ViewManifest {
   view: string;
   title: string;
   icon?: string;
+  /**
+   * List-level presentation (the primitive used to project records when browsing
+   * the whole view). Decoupled from the data source, so different libraries can
+   * render the same fs backend differently. 'list' = cards (default); 'tree' =
+   * folder browser (single-level, navigable). Detail presentation is separate.
+   */
+  presentation?: 'list' | 'tree';
   /** Annotation namespace, e.g. "nyc-apt". Defaults to `view`. */
   skill: string;
   /** Primary key column of the data source. Defaults to "id". */
@@ -149,6 +156,7 @@ function validate(raw: unknown, source: string): ViewManifest | null {
     view: m.view as string,
     title: m.title as string,
     icon: typeof m.icon === 'string' ? m.icon : undefined,
+    presentation: m.presentation === 'tree' ? 'tree' : 'list',
     skill: typeof m.skill === 'string' ? (m.skill as string) : (m.view as string),
     idField: typeof m.idField === 'string' ? (m.idField as string) : 'id',
     data: { scope: 'agent', ...(m.data as DataSource) },
@@ -164,7 +172,26 @@ function validate(raw: unknown, source: string): ViewManifest | null {
 
 let registry: Map<string, ViewManifest> | null = null;
 
-/** Scan every skill dir for a `view.json` and build the registry. */
+/** Parse+validate one manifest file into the registry (last writer wins on view key). */
+function loadOne(reg: Map<string, ViewManifest>, filePath: string): void {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown;
+    const manifest = validate(parsed, filePath);
+    if (manifest) {
+      reg.set(manifest.view, manifest);
+      log.info('Loaded view manifest', { view: manifest.view, skill: manifest.skill });
+    }
+  } catch (err) {
+    log.warn('Failed to parse view manifest', { path: filePath, err });
+  }
+}
+
+/**
+ * Build the registry from every skill dir. A skill may declare views two ways:
+ *   <skill>/view.json         — a single view (legacy / one-off)
+ *   <skill>/views/*.json       — many views (e.g. one per Seafile library)
+ * so a single skill (like `seafile`) can expose a whole family of libraries.
+ */
 export function loadViewManifests(): Map<string, ViewManifest> {
   const reg = new Map<string, ViewManifest>();
   const dir = skillsDir();
@@ -177,17 +204,18 @@ export function loadViewManifests(): Map<string, ViewManifest> {
     return reg;
   }
   for (const name of entries) {
-    const p = path.join(dir, name, 'view.json');
-    if (!fs.existsSync(p)) continue;
+    const single = path.join(dir, name, 'view.json');
+    if (fs.existsSync(single)) loadOne(reg, single);
+
+    const viewsDir = path.join(dir, name, 'views');
+    let viewFiles: string[] = [];
     try {
-      const parsed = JSON.parse(fs.readFileSync(p, 'utf8')) as unknown;
-      const manifest = validate(parsed, p);
-      if (manifest) {
-        reg.set(manifest.view, manifest);
-        log.info('Loaded view manifest', { view: manifest.view, skill: manifest.skill });
-      }
-    } catch (err) {
-      log.warn('Failed to parse view manifest', { path: p, err });
+      viewFiles = fs.readdirSync(viewsDir);
+    } catch {
+      viewFiles = [];
+    }
+    for (const f of viewFiles) {
+      if (f.endsWith('.json')) loadOne(reg, path.join(viewsDir, f));
     }
   }
   registry = reg;

@@ -951,3 +951,33 @@ body {
 .prose th,
 .prose td { border: 1px solid rgba(127, 127, 127, 0.3); padding: 4px 8px; }
 .prose img { max-width: 100%; height: auto; }
+
+/* Tree / folder browser presentation (calcifer-d720.3) */
+.tree-crumbs { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; margin: 4px 0 10px; }
+.tree-crumbs .crumb {
+  background: none; border: none; padding: 2px 4px; cursor: pointer;
+  color: var(--accent, #3b82f6); font-size: 0.95rem; border-radius: 4px;
+}
+.tree-crumbs .crumb:disabled { color: var(--fg, inherit); cursor: default; font-weight: 600; }
+.tree-crumbs .crumb-sep { color: var(--muted, #9ca3af); }
+.tree-list { list-style: none; margin: 0; padding: 0; }
+.tree-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 8px; border-bottom: 1px solid rgba(127, 127, 127, 0.15);
+}
+.tree-row:hover { background: rgba(127, 127, 127, 0.06); }
+.tree-star {
+  background: none; border: none; cursor: pointer; font-size: 1rem;
+  color: var(--muted, #9ca3af); width: 22px; flex: none;
+}
+.tree-star.starred { color: #f59e0b; }
+.tree-name {
+  display: flex; align-items: center; gap: 8px; flex: 1 1 auto;
+  background: none; border: none; text-align: left; cursor: pointer;
+  color: var(--fg, inherit); text-decoration: none; font-size: 0.95rem; overflow: hidden;
+}
+.tree-name:hover { text-decoration: underline; }
+.tree-icon { flex: none; }
+.tree-meta { flex: none; color: var(--muted, #9ca3af); font-size: 0.85rem; min-width: 60px; text-align: right; }
+.tree-dl { flex: none; text-decoration: none; font-size: 1rem; padding: 0 6px; color: var(--accent, #3b82f6); }
+.tree-empty { padding: 16px 8px; color: var(--muted, #9ca3af); }

@@ -52,6 +52,7 @@ export interface ViewManifest {
   view: string;
   title: string;
   icon?: string;
+  presentation?: 'list' | 'tree';
   skill: string;
   idField: string;
   data: { type: string; path?: string; table?: string; root?: string; exts?: string[] };
