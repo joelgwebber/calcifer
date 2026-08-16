@@ -4,7 +4,7 @@ title: 'Web UI: real-time agent activity feedback during turns'
 type: feature
 priority: 2
 created: '2026-06-13T12:00:00Z'
-updated: '2026-08-16T15:24:11Z'
+updated: '2026-08-16T15:33:34Z'
 ---
 
 PARENT YAK: calcifer-7c3a

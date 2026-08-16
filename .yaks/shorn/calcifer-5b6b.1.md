@@ -4,7 +4,8 @@ title: 'Backend: surface mid-turn activity (tool calls / thinking) from Claude S
 type: task
 priority: 2
 created: '2026-08-16T15:24:40Z'
-updated: '2026-08-16T15:24:40Z'
+updated: '2026-08-16T16:35:58Z'
+parent: calcifer-5b6b
 ---
 
 Container-side (Bun; needs ./container/build.sh rebuild).
@@ -17,3 +18,7 @@ Approach:
 - Don't leak secrets / full tool inputs into labels (paths/queries ok, but be conservative).
 
 Out of scope: delivering these as transcript messages. They are ephemeral status only (see transport child).
+
+---
+▸ 2026-08-16T16:35:58Z
+Done. Added describeAssistantActivity() + describeToolUse() label helpers to container/agent-runner/src/providers/claude.ts, and a new 'assistant' branch in translateEvents() that yields {type:'progress', message: label} per model turn (tool_use -> verb+object, thinking -> 'Thinking…', text -> 'Responding…'). Reused the existing 'progress' ProviderEvent (no union change). Conservative: never echoes Bash commands or full tool inputs; surfaces basenames/hosts/queries only. Unit test claude.activity.test.ts (8 cases) passes; provider suite green; container typecheck clean for this file (pre-existing mailparser errors untouched). NOTE: emitted progress events are logged-only in poll-loop until the transport child (5b6b.2) wires them to the status side-channel; container image rebuild deferred to land with 5b6b.2.

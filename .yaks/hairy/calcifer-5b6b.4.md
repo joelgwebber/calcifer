@@ -8,6 +8,7 @@ created: '2026-08-16T15:24:40Z'
 updated: '2026-08-16T15:24:55Z'
 depends_on:
 - calcifer-5b6b.2
+parent: calcifer-5b6b
 ---
 
 The ORIGINAL 7c3a.8 concern. Today isRunning is a heuristic: true on 'typing', false on first 'message'. nanoclaw is turn-fuzzy (0/1/N messages per turn; unprompted pushes), so it clears after the first of several messages, or never sets for a purely pushed message.

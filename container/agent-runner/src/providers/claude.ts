@@ -328,6 +328,107 @@ const CLAUDE_CODE_AUTO_COMPACT_WINDOW = process.env.CLAUDE_CODE_AUTO_COMPACT_WIN
  */
 const STALE_SESSION_RE = /no conversation found|ENOENT.*\.jsonl|session.*not found/i;
 
+// ── Mid-turn activity labels (calcifer-5b6b.1) ──
+//
+// The SDK yields an `assistant` message for each model turn, whose content is
+// an array of blocks (tool_use / thinking / text). We distill a short,
+// human-facing label from it so downstream layers can show WHAT the agent is
+// doing rather than a bare "working" dot. These are ephemeral status only —
+// never delivered into the transcript (see poll-loop status side-channel).
+//
+// Conservative by design: file paths, search queries, and hostnames are fine
+// to surface, but never echo raw Bash commands or full tool inputs — they can
+// carry secrets.
+
+function activityBasename(p: unknown): string {
+  if (typeof p !== 'string' || !p) return '';
+  const parts = p.split('/').filter(Boolean);
+  return parts[parts.length - 1] ?? p;
+}
+
+function activityHost(url: unknown): string {
+  if (typeof url !== 'string' || !url) return '';
+  try {
+    return new URL(url).host;
+  } catch {
+    return '';
+  }
+}
+
+function activityTruncate(s: string, max: number): string {
+  const t = s.trim();
+  return t.length <= max ? t : t.slice(0, max).trimEnd() + '…';
+}
+
+/** camelCase / snake_case / kebab tool name → lowercase words. */
+function humanizeToolName(name: string): string {
+  return name
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .trim()
+    .toLowerCase();
+}
+
+/** Map a single tool_use block to a concise activity label. */
+function describeToolUse(name: string, input: Record<string, unknown> | undefined): string {
+  const inp = input ?? {};
+  // MCP tools arrive as mcp__<server>__<tool>.
+  if (name.startsWith('mcp__')) {
+    const parts = name.split('__');
+    const tool = parts.slice(2).join(' ') || parts[1] || name;
+    return `Running ${humanizeToolName(tool)}`;
+  }
+  switch (name) {
+    case 'Read':
+      return `Reading ${activityBasename(inp.file_path) || 'a file'}`;
+    case 'Write':
+      return `Writing ${activityBasename(inp.file_path) || 'a file'}`;
+    case 'Edit':
+    case 'NotebookEdit':
+      return `Editing ${activityBasename(inp.file_path) || 'a file'}`;
+    case 'Bash':
+      // Never echo the command — it may contain secrets.
+      return 'Running a command';
+    case 'Glob':
+      return 'Searching files';
+    case 'Grep':
+      return 'Searching code';
+    case 'WebSearch': {
+      const q = typeof inp.query === 'string' ? inp.query : '';
+      return q ? `Searching the web: "${activityTruncate(q, 60)}"` : 'Searching the web';
+    }
+    case 'WebFetch': {
+      const host = activityHost(inp.url);
+      return host ? `Fetching ${host}` : 'Fetching a page';
+    }
+    case 'Task':
+      return 'Delegating a subtask';
+    case 'TodoWrite':
+      return 'Updating its plan';
+    case 'Skill':
+      return 'Loading a skill';
+    default:
+      return `Running ${humanizeToolName(name)}`;
+  }
+}
+
+type ActivityBlock = { type?: string; text?: string; name?: string; input?: Record<string, unknown> };
+
+/**
+ * Distill a human-facing activity label from an SDK `assistant` message's
+ * content array. Preference order: tool_use (most informative) → thinking →
+ * text. Returns null when there's nothing worth showing.
+ */
+export function describeAssistantActivity(content: unknown): string | null {
+  if (!Array.isArray(content)) return null;
+  const blocks = content as ActivityBlock[];
+  const tool = blocks.find((b) => b.type === 'tool_use');
+  if (tool && typeof tool.name === 'string') return describeToolUse(tool.name, tool.input);
+  if (blocks.some((b) => b.type === 'thinking' || b.type === 'redacted_thinking')) return 'Thinking…';
+  if (blocks.some((b) => b.type === 'text' && typeof b.text === 'string' && b.text.trim())) return 'Responding…';
+  return null;
+}
+
 export class ClaudeProvider implements AgentProvider {
   readonly supportsNativeSlashCommands = true;
 
@@ -439,6 +540,11 @@ export class ClaudeProvider implements AgentProvider {
 
         if (message.type === 'system' && message.subtype === 'init') {
           yield { type: 'init', continuation: message.session_id };
+        } else if (message.type === 'assistant') {
+          // Mid-turn model output: surface a live activity label (tool call,
+          // thinking, or composing a reply) as ephemeral progress.
+          const label = describeAssistantActivity((message as { message?: { content?: unknown } }).message?.content);
+          if (label) yield { type: 'progress', message: label };
         } else if (message.type === 'result') {
           const text = 'result' in message ? (message as { result?: string }).result ?? null : null;
           yield { type: 'result', text };

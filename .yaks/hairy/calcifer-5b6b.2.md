@@ -7,6 +7,7 @@ created: '2026-08-16T15:24:40Z'
 updated: '2026-08-16T15:24:55Z'
 depends_on:
 - calcifer-5b6b.1
+parent: calcifer-5b6b
 ---
 
 Host + container plumbing for ephemeral status. NO transcript pollution.
