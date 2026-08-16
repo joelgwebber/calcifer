@@ -213,6 +213,19 @@ export async function runPollLoop(config: PollLoopConfig): Promise<void> {
 
     log(`Processing ${keep.length} message(s), kinds: ${[...new Set(keep.map((m) => m.kind))].join(',')}`);
 
+    // Open the activity-status envelope for this turn (calcifer-5b6b.4). A
+    // generic label is written up front so the status side-channel is a
+    // reliable "turn active" flag from the very start — real labels overwrite
+    // it as the model works, and processQuery's finally clears it at turn end
+    // (even on error). This lets the web client clear its running indicator
+    // precisely at the true turn boundary rather than guessing from the first
+    // delivered message (which breaks multi-message and no-reply turns).
+    try {
+      setActivityStatus('Working…');
+    } catch {
+      /* status is best-effort */
+    }
+
     const query = config.provider.query({
       prompt,
       continuation,

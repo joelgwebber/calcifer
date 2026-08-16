@@ -4,7 +4,7 @@ title: 'Web UI: real-time agent activity feedback during turns'
 type: feature
 priority: 2
 created: '2026-06-13T12:00:00Z'
-updated: '2026-08-16T15:33:34Z'
+updated: '2026-08-16T18:36:43Z'
 ---
 
 PARENT YAK: calcifer-7c3a
@@ -47,3 +47,7 @@ THE GAP: only a binary typing signal reaches the browser. All 'what is it doing'
 TRANSPORT NOTES: host reads outbound.db read-only in delivery.ts (messages_out, 1s active poll) and host-sweep.ts (processing_ack + container_state). outbound has a session_state KV table (key/value/updated_at) already used for the chat-sdk continuation. That KV, piggybacked on the existing 1s delivery poll, is the natural ephemeral surface for a status side-channel (avoids polluting messages_out/transcript). ~1s granularity is fine for human 'working' feedback.
 
 Original 7c3a.8 scope (precise idle/turn-complete so isRunning is accurate for multi-message + pushed turns) folds in as a child.
+
+---
+▸ 2026-08-16T18:36:43Z
+Herd complete. Real-time agent activity feedback shipped end-to-end: backend label extraction (.1), ephemeral session_state->SSE status side-channel (.2), frontend activity indicator (.3), precise turn-boundary envelope (.4). Web chat now shows a live 'what the agent is doing' line (Thinking… / tool verbs / Searching the web: …) that clears exactly at turn end. Verified via SSE probe + owner visual test on .1-.3. Possible future polish parked as ideas: friendlier label for the SDK ToolSearch step; sub-1s status latency; expand single-line status into a scrolling activity log.

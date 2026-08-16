@@ -177,7 +177,12 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         card: payload.message.card,
         question: payload.message.question,
       });
-      state.setRunning(threadId, false);
+      // The turn-active envelope (the `status` side-channel) is the precise
+      // turn-boundary signal (calcifer-5b6b.4): the agent may send 0/1/N
+      // messages per turn, so a delivered message no longer clears running by
+      // itself. Only clear here as a safety net when there's no active
+      // status label (e.g. a host-direct push that never opened an envelope).
+      if (!useStore.getState().status[threadId]) state.setRunning(threadId, false);
     };
 
     const onTyping = (event: MessageEvent) => {
@@ -196,8 +201,14 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       const state = useStore.getState();
       const threadId = payload.threadId ?? state.currentThreadId;
       state.ensureThread(threadId);
-      if (payload.label) state.setRunning(threadId, true);
-      state.setStatus(threadId, payload.label ?? null);
+      if (payload.label) {
+        state.setRunning(threadId, true);
+        state.setStatus(threadId, payload.label);
+      } else {
+        // A null label closes the envelope: the turn is done. This is the
+        // authoritative turn-end signal — clear running precisely here.
+        state.setRunning(threadId, false);
+      }
     };
 
     const onAnswered = (event: MessageEvent) => {
