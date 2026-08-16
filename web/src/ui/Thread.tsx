@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ThreadPrimitive, MessagePrimitive, ComposerPrimitive } from '@assistant-ui/react';
 import type { TextMessagePartProps } from '@assistant-ui/react';
 import { CardMessagePart } from './Card';
 import { QuestionMessagePart } from './Question';
-import { Prose } from '../views/Prose';
+import { Prose, type ProseNav } from '../views/Prose';
 import { useStore } from '../store';
 
 /**
@@ -13,7 +15,23 @@ import { useStore } from '../store';
  * (Prose has no rehype-raw), so agent- or user-authored text can't inject markup.
  */
 function MarkdownText({ text }: TextMessagePartProps) {
-  return <Prose markdown={text} />;
+  const navigate = useNavigate();
+  // Internal app links (/app/<view>/<id>, and any in-app path) route in the
+  // same window via the SPA — matching how record cards open (calcifer-1276).
+  // External links fall through to Prose's new-tab branch.
+  const nav = useMemo<ProseNav>(
+    () => ({
+      onNavigate: (href) => {
+        if (href.startsWith('/')) {
+          navigate(href);
+          return true;
+        }
+        return false;
+      },
+    }),
+    [navigate],
+  );
+  return <Prose markdown={text} nav={nav} />;
 }
 
 export function Thread() {
