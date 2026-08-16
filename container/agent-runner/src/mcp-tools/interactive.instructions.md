@@ -31,3 +31,11 @@ Use this for presenting information in a cleaner format than prose: summaries, o
 - `id` is the record id. For file-backed libraries it's the path relative to the library root, e.g. `vehicles/lucid-air.md` or `pictures/emma-at-work.png`.
 
 Prefer `send_record_card` over `send_card` whenever the thing you want to show is a real view record (an apartment you found, a wiki page, a document, a photo): it stays interactive and consistent with the rest of the UI. Use plain `send_card` only for ad-hoc content that isn't backed by a view. On channels without card support the `fallbackText` is sent instead.
+
+### Linking to a record (`app_link`)
+
+`mcp__nanoclaw__app_link({ view, id })` returns an in-app deep link (`/app/<view>/<id>`) that opens a record inside the web UI. Use it when you want to **point the user at a record in prose** rather than embed a whole card — e.g. "here's the doc: [Consent form](/app/family-wiki/...)". Same `view`/`id` addressing as `send_record_card`; the tool URL-encodes the id for you (paths with slashes become `%2F`), so always call it instead of hand-writing the link.
+
+**Default posture:** when the user asks you to point them at, share, or link something that exists as a view record, reach for `app_link` (or `send_record_card` if a richer embed fits) — *not* a raw backend/storage URL. Reserve raw endpoints (e.g. a Seafile `?dl=1` download link) for when the user explicitly asks for a direct download or the object isn't a view record.
+
+Rule of thumb: **link** (`app_link`) for a passing reference or a list of pointers; **card** (`send_record_card`) when the record is the subject of the turn and the user will likely act on it (star/open). A card is essentially an "unfurled" link.

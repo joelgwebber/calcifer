@@ -217,4 +217,39 @@ export const sendRecordCard: McpToolDefinition = {
   },
 };
 
-registerTools([askUserQuestion, sendCard, sendRecordCard]);
+export const appLink: McpToolDefinition = {
+  tool: {
+    name: 'app_link',
+    description:
+      'Build an in-app deep link to a record that already exists in a skill view (apartment, wiki page, document, photo, book). Returns a URL of the form /app/<view>/<id> that opens the record inside the web UI — browsable, interactive, and auth-scoped. Prefer this over a raw backend/download URL whenever you want to point the user at something that exists as a view record; reserve raw endpoints for explicit direct-download requests. Embed the returned link in your reply (typically as a markdown link). Pairs with send_record_card: app_link gives an inline link, send_record_card gives a full interactive card.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        view: {
+          type: 'string',
+          description: "The view/library key, e.g. 'apartments', 'family-wiki', 'documents', 'pictures', 'books'.",
+        },
+        id: {
+          type: 'string',
+          description:
+            "The record id. For file-backed libraries this is the path relative to the library root, e.g. 'vehicles/lucid-air.md'. Pass the raw id — slashes and other characters are URL-encoded for you.",
+        },
+      },
+      required: ['view', 'id'],
+    },
+  },
+  async handler(args) {
+    const view = args.view as string;
+    const id = args.id as string;
+    if (!view || !id) return err('view and id are required');
+    // Relative link: the browser resolves it to an absolute, shareable URL the
+    // moment a human clicks or copies it. Encode the id (paths contain slashes
+    // that must become %2F) but leave the view segment as-is, matching the
+    // card Open button (web/src/ui/Card.tsx).
+    const link = `/app/${view}/${encodeURIComponent(id)}`;
+    log(`app_link: ${view}/${id} -> ${link}`);
+    return ok(link);
+  },
+};
+
+registerTools([askUserQuestion, sendCard, sendRecordCard, appLink]);

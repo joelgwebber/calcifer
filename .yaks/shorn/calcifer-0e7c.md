@@ -4,7 +4,7 @@ title: Agent-produced deep links into the app UI (app_link for view records)
 type: feature
 priority: 2
 created: '2026-08-16T19:00:06Z'
-updated: '2026-08-16T19:00:06Z'
+updated: '2026-08-16T19:12:13Z'
 parent: calcifer-7c3a
 labels:
 - skill-views
@@ -29,3 +29,11 @@ OPEN QUESTIONS / ISSUES:
 3. Auth on shared links: a deep link opened without the cookie hits the funnel login gate -> must land back on the deep-linked object (confirm login preserves redirect target; ties into 7c3a.6).
 4. In-chat smoothness (minor): for a relative /app/... markdown link to route within the SPA instead of full-reload, chat Prose needs an onNavigate wired to react-router (chat Prose currently has none, calcifer-d1f8). Full-nav still works.
 5. Generalize across all views (apartments/wiki/documents/pictures/books), same (view,id) scheme.
+
+---
+▸ 2026-08-16T19:12:13Z
+Shipped v0. Decisions confirmed with owner: (1) RELATIVE links — browsers absolutize on click/copy in the web-chat flow family will use, so no WEB_UI_PUBLIC_URL config needed; (2) a TOOL, not hand-assembled instruction links (encoding is the trap); (3) app links are the 99% default, raw backend/download URLs reserved for explicit direct-download asks.
+
+Implemented app_link({view,id}) MCP tool (container/agent-runner/src/mcp-tools/interactive.ts): returns /app/<view>/<encodeURIComponent(id)>, mirroring the card Open button. Pure/no DB. Instruction nudge added to interactive.instructions.md (new 'Linking to a record' subsection + default-posture guidance + link-vs-card rule of thumb). Unit test (3 cases incl. the exact wiki path from the report) + container typecheck green. Live on next container spawn (source is RO-mounted).
+
+Deferred (spun out as ideas): cross-channel ABSOLUTE links (WhatsApp/SMS need a configured public base URL) — regrow if it ever matters; shared-link login-redirect; cards-vs-links / client-side unfurling.
