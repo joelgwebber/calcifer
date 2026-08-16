@@ -74,6 +74,12 @@ type State = {
   titles: Record<string, string>;
   /** Per-thread running flag (agent is working). */
   running: Record<string, boolean>;
+  /**
+   * Per-thread live activity label ("Thinking…", "Reading listings.db", …)
+   * pushed over the SSE `status` event (calcifer-5b6b). null/absent = no
+   * specific label; the indicator falls back to animated dots while running.
+   */
+  status: Record<string, string | null>;
   /** Threads whose transcript has been loaded from the host (7c3a.2). */
   hydrated: Record<string, boolean>;
   /**
@@ -92,6 +98,8 @@ type Actions = {
   renameThread: (threadId: string, title: string) => void;
   deleteThread: (threadId: string) => void;
   setRunning: (threadId: string, running: boolean) => void;
+  /** Set (or clear, with null) the live activity label for a thread. */
+  setStatus: (threadId: string, label: string | null) => void;
   /** Ensure a thread entry exists (for out-of-band/pushed messages). */
   ensureThread: (threadId: string) => void;
   /** Replace the thread list with the host's known conversations (on connect). */
@@ -116,6 +124,7 @@ export const useStore = create<State & Actions>((set, get) => {
     messages: { [initialThreadId]: [] },
     titles: { [initialThreadId]: DEFAULT_TITLE },
     running: { [initialThreadId]: false },
+    status: {},
     hydrated: {},
     currentThreadId: initialThreadId,
 
@@ -223,7 +232,15 @@ export const useStore = create<State & Actions>((set, get) => {
         return { threadIds, messages, titles, running, currentThreadId };
       }),
 
-    setRunning: (threadId, running) => set((s) => ({ running: { ...s.running, [threadId]: running } })),
+    setRunning: (threadId, running) =>
+      set((s) => ({
+        running: { ...s.running, [threadId]: running },
+        // A finished turn has no activity — drop any lingering label so the
+        // indicator doesn't freeze on the last thing the agent was doing.
+        status: running ? s.status : { ...s.status, [threadId]: null },
+      })),
+
+    setStatus: (threadId, label) => set((s) => ({ status: { ...s.status, [threadId]: label } })),
 
     answerQuestion: (questionId, value) =>
       set((s) => {

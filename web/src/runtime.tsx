@@ -60,6 +60,11 @@ type TypingEventPayload = {
   threadId: string | null;
 };
 
+type StatusEventPayload = {
+  threadId: string | null;
+  label: string | null;
+};
+
 /**
  * Load a thread's transcript from the host and hydrate it into the store,
  * once per thread. Called on connect (for the selected thread) and on switch.
@@ -183,6 +188,18 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       state.setRunning(threadId, true);
     };
 
+    const onStatus = (event: MessageEvent) => {
+      // Ephemeral mid-turn activity label (calcifer-5b6b). A non-null label
+      // means the agent is actively working — surface it and hold the running
+      // indicator open; a null label just clears the text.
+      const payload = JSON.parse(event.data) as StatusEventPayload;
+      const state = useStore.getState();
+      const threadId = payload.threadId ?? state.currentThreadId;
+      state.ensureThread(threadId);
+      if (payload.label) state.setRunning(threadId, true);
+      state.setStatus(threadId, payload.label ?? null);
+    };
+
     const onAnswered = (event: MessageEvent) => {
       const payload = JSON.parse(event.data) as AnsweredEventPayload;
       useStore.getState().answerQuestion(payload.questionId, payload.value);
@@ -190,12 +207,14 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
 
     source.addEventListener('message', onMessage);
     source.addEventListener('typing', onTyping);
+    source.addEventListener('status', onStatus);
     source.addEventListener('answered', onAnswered);
     // "ready" is informational; no handler needed beyond the open connection.
 
     return () => {
       source.removeEventListener('message', onMessage);
       source.removeEventListener('typing', onTyping);
+      source.removeEventListener('status', onStatus);
       source.removeEventListener('answered', onAnswered);
       source.close();
     };
