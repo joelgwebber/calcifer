@@ -4,7 +4,7 @@ title: 'Web UI: public exposure via Tailscale Funnel + ops persistence'
 type: task
 priority: 2
 created: '2026-07-28T20:22:03Z'
-updated: '2026-08-16T20:36:41Z'
+updated: '2026-08-16T23:07:10Z'
 labels:
 - web-ui
 - ops
@@ -71,3 +71,15 @@ CAVEATS: (a) home IP may be dynamic -> needs DDNS or low-TTL updater, else the A
 PUBLIC PATH DOES NOT USE THE TAILNET (either option): browser -> public IP -> router forward -> Caddy -> 127.0.0.1:8787. Tailnet stays for internal/admin + /sms webhook only.
 
 FUNNEL: retire the public funnel :8443 AFTER the custom domain is verified (SSE + shared-deeplink login test). Keep tailnet-only :443 (internal web + /sms).
+
+---
+▸ 2026-08-16T23:07:10Z
+CONSTRAINT UPDATE (owner): public IP is DYNAMIC (AT&T Fiber) and the network is DOUBLE-NAT (AT&T gateway/modem -> Ubiquiti DMP -> hearth). This flips the recommendation BACK toward Cloudflare Tunnel, which eliminates all three self-hosting headaches at once: (a) dynamic IP (tunnel is outbound-only, IP-change-immune, no dyndns), (b) double-NAT port-forwarding (zero router config needed), (c) inbound exposure (no open ports). The 'visible CF URL' worry does NOT apply to a tunnel — calcifer.j15r.com resolves directly via a hidden cfargotunnel.com CNAME; address bar always shows the custom domain.
+
+TUNNEL COST: j15r.com DNS must live on Cloudflare (free; move nameservers, CF imports existing records) OR delegate just a subdomain to CF (fiddlier). CF terminates TLS at its edge (sees plaintext) — acceptable for a family app. Needs a free CF account + cloudflared on hearth (token-based, headless) + one systemd service.
+
+SELF-HOSTED DYNDNS (if owner prefers to stay off CF, Path B): easiest is the UDM/DreamMachine's built-in Dynamic DNS — BUT it only pushes the correct IP if AT&T IP Passthrough is enabled (so the UDM WAN holds the real public IP, not the AT&T-gateway private IP). Then UDM DDNS updates the record on IP change, set-and-forget, IF the DNS provider is supported. Otherwise ddclient/cron on hearth (query public IP echo -> registrar API) or DuckDNS + CNAME. Path B STILL requires solving the double-NAT port-forward (IP Passthrough to UDM, then UDM forwards 443 -> hearth) + accepts an open inbound port.
+
+THIRD OPTION (no CF, static, no home port): cheap VPS w/ static IP running Caddy, proxying over Tailscale to hearth. No dyndns, no home port-forward, self-hosted TLS; costs ~$5/mo + more setup.
+
+RECOMMENDATION given dynamic+double-NAT: Cloudflare Tunnel (Path A). Pending owner choice.
