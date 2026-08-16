@@ -134,6 +134,15 @@ export interface ChannelAdapter {
 
   // Optional
   setTyping?(platformId: string, threadId: string | null): Promise<void>;
+
+  /**
+   * Push an ephemeral, human-facing activity label for a live agent turn
+   * ("Thinking…", "Reading listings.db", …), or `null` to clear it at turn
+   * end. Richer than `setTyping`'s binary signal; only channels with a live
+   * push transport (the web UI over SSE) implement it — coarse platforms
+   * (WhatsApp/SMS/Discord) omit it and fall back to the typing indicator.
+   */
+  setStatus?(platformId: string, threadId: string | null, label: string | null): Promise<void>;
   syncConversations?(): Promise<ConversationInfo[]>;
   resolveChannelName?(platformId: string): Promise<string | null>;
 

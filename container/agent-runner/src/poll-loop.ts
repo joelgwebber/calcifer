@@ -2,7 +2,13 @@ import { findByName, getAllDestinations, type DestinationEntry } from './destina
 import { getPendingMessages, markProcessing, markCompleted, type MessageInRow } from './db/messages-in.js';
 import { writeMessageOut } from './db/messages-out.js';
 import { getInboundDb, touchHeartbeat, clearStaleProcessingAcks } from './db/connection.js';
-import { clearContinuation, migrateLegacyContinuation, setContinuation } from './db/session-state.js';
+import {
+  clearContinuation,
+  migrateLegacyContinuation,
+  setContinuation,
+  setActivityStatus,
+  clearActivityStatus,
+} from './db/session-state.js';
 import { clearCurrentInReplyTo, setCurrentInReplyTo } from './current-batch.js';
 import {
   formatMessages,
@@ -102,6 +108,9 @@ export async function runPollLoop(config: PollLoopConfig): Promise<void> {
   // Clear leftover 'processing' acks from a previous crashed container.
   // This lets the new container re-process those messages.
   clearStaleProcessingAcks();
+  // Clear any stale activity status a crashed container left behind so the
+  // web client doesn't show a phantom "working" label on the next turn.
+  clearActivityStatus();
 
   let pollCount = 0;
   let isFirstPoll = true;
@@ -423,6 +432,17 @@ async function processQuery(
       handleEvent(event, routing);
       touchHeartbeat();
 
+      if (event.type === 'progress') {
+        // Ephemeral mid-turn activity label -> outbound status side-channel
+        // for the web client (calcifer-5b6b.2). Best-effort; never let a
+        // status write disturb the turn.
+        try {
+          setActivityStatus(event.message);
+        } catch {
+          /* status is best-effort */
+        }
+      }
+
       if (event.type === 'init') {
         queryContinuation = event.continuation;
         // Persist immediately so a mid-turn container crash still lets the
@@ -433,6 +453,13 @@ async function processQuery(
         // Claude session with no prior context.
         setContinuation(providerName, event.continuation);
       } else if (event.type === 'result') {
+        // Turn done: clear the ephemeral activity status so the web client
+        // stops showing a working label.
+        try {
+          clearActivityStatus();
+        } catch {
+          /* status is best-effort */
+        }
         // A result — with or without text — means the turn is done. Mark
         // the initial batch completed now so the host sweep doesn't see
         // stale 'processing' claims while the query stays open for
@@ -459,6 +486,13 @@ async function processQuery(
   } finally {
     done = true;
     clearInterval(pollHandle);
+    // Belt-and-suspenders: if the stream ended without a 'result' (error,
+    // abort), don't leave a stale activity label behind.
+    try {
+      clearActivityStatus();
+    } catch {
+      /* status is best-effort */
+    }
   }
 
   return { continuation: queryContinuation };

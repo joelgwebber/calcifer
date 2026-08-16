@@ -162,6 +162,15 @@ async function main(): Promise<void> {
       const adapter = getChannelAdapter(channelType);
       await adapter?.setTyping?.(platformId, threadId);
     },
+    async setStatus(
+      channelType: string,
+      platformId: string,
+      threadId: string | null,
+      label: string | null,
+    ): Promise<void> {
+      const adapter = getChannelAdapter(channelType);
+      await adapter?.setStatus?.(platformId, threadId, label);
+    },
   };
   setDeliveryAdapter(deliveryAdapter);
 

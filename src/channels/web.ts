@@ -18,6 +18,7 @@
  *       event: ready    data: {}
  *       event: message  data: { threadId, message: { id, role:"assistant", text, createdAt } }
  *       event: typing   data: { threadId }
+ *       event: status   data: { threadId, label }   // ephemeral mid-turn activity; label=null clears
  *
  * Design notes (see yak calcifer-7c3a):
  *   - supportsThreads = true. Each assistant-ui thread carries its own
@@ -844,6 +845,12 @@ function createAdapter(): ChannelAdapter {
 
     async setTyping(platformId, threadId): Promise<void> {
       broadcast(platformId, 'typing', { threadId: threadId ?? null });
+    },
+
+    async setStatus(platformId, threadId, label): Promise<void> {
+      // Ephemeral mid-turn activity label (5b6b.2). `label === null` clears it
+      // (turn end). The client shows this in place of the bare typing dot.
+      broadcast(platformId, 'status', { threadId: threadId ?? null, label: label ?? null });
     },
   };
 

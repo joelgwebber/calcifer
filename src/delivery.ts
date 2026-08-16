@@ -12,7 +12,7 @@ import type Database from 'better-sqlite3';
 import { getRunningSessions, getActiveSessions, createPendingQuestion } from './db/sessions.js';
 import { getAgentGroup } from './db/agent-groups.js';
 import { getDb, hasTable } from './db/connection.js';
-import { getMessagingGroupByPlatform } from './db/messaging-groups.js';
+import { getMessagingGroupByPlatform, getMessagingGroup } from './db/messaging-groups.js';
 import {
   getDueOutboundMessages,
   getDeliveredIds,
@@ -49,6 +49,16 @@ const deliveryAttempts = new Map<string, number>();
  */
 const inflightDeliveries = new Set<string>();
 
+/**
+ * Last activity-status label emitted per session (5b6b.2). The container
+ * writes its current label to the outbound `session_state.activity_status`
+ * row; each active-poll tick reads it and pushes a `status` update only when
+ * it changed (including a change to cleared/null at turn end). Keyed by
+ * session id; `null` means "currently cleared". Bounded by the number of live
+ * sessions.
+ */
+const lastStatusBySession = new Map<string, string | null>();
+
 export interface ChannelDeliveryAdapter {
   deliver(
     channelType: string,
@@ -59,6 +69,7 @@ export interface ChannelDeliveryAdapter {
     files?: OutboundFile[],
   ): Promise<string | undefined>;
   setTyping?(channelType: string, platformId: string, threadId: string | null): Promise<void>;
+  setStatus?(channelType: string, platformId: string, threadId: string | null, label: string | null): Promise<void>;
 }
 
 let deliveryAdapter: ChannelDeliveryAdapter | null = null;
@@ -161,6 +172,35 @@ export async function deliverSessionMessages(session: Session): Promise<void> {
   }
 }
 
+/**
+ * Read the session's current activity label from the outbound status
+ * side-channel and, when it changed since the last tick, push it to the
+ * session's channel (5b6b.2). No-op for channels that don't implement
+ * `setStatus` (everything but the web UI). Best-effort throughout.
+ */
+function emitSessionStatus(session: Session, outDb: Database.Database): void {
+  let label: string | null = null;
+  try {
+    const row = outDb.prepare("SELECT value FROM session_state WHERE key = 'activity_status'").get() as
+      | { value: string }
+      | undefined;
+    label = row?.value ?? null;
+  } catch {
+    return; // session_state missing on a very old session — nothing to do
+  }
+
+  const last = lastStatusBySession.get(session.id) ?? null;
+  if (label === last) return;
+  lastStatusBySession.set(session.id, label);
+
+  if (!deliveryAdapter?.setStatus || !session.messaging_group_id) return;
+  const mg = getMessagingGroup(session.messaging_group_id);
+  if (!mg) return;
+  deliveryAdapter
+    .setStatus(mg.channel_type, mg.platform_id, session.thread_id, label)
+    .catch((err) => log.error('setStatus failed', { sessionId: session.id, err }));
+}
+
 async function drainSession(session: Session): Promise<void> {
   const agentGroup = getAgentGroup(session.agent_group_id);
   if (!agentGroup) return;
@@ -173,6 +213,11 @@ async function drainSession(session: Session): Promise<void> {
   } catch {
     return; // DBs might not exist yet
   }
+
+  // Ephemeral mid-turn activity status (5b6b.2). Read before the
+  // no-messages early-return so a working turn that hasn't produced a
+  // deliverable message yet still streams its label to the web client.
+  emitSessionStatus(session, outDb);
 
   try {
     // Read all due messages from outbound.db (read-only)

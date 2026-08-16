@@ -77,3 +77,24 @@ export function setContinuation(providerName: string, id: string): void {
 export function clearContinuation(providerName: string): void {
   deleteValue(continuationKey(providerName));
 }
+
+// ── Ephemeral mid-turn activity status (calcifer-5b6b.2) ──
+//
+// A single overwritable row carrying the agent's current human-facing
+// activity label ("Thinking…", "Reading listings.db", …). The host delivery
+// poll reads it read-only and pushes it to the web client over SSE. It is
+// deliberately ephemeral: overwritten on each mid-turn event and deleted at
+// turn end, so it never lands in the transcript. NOT keyed per provider — only
+// one turn runs at a time.
+
+const ACTIVITY_STATUS_KEY = 'activity_status';
+
+/** Set the current activity label (host reads this over the outbound DB). */
+export function setActivityStatus(label: string): void {
+  setValue(ACTIVITY_STATUS_KEY, label);
+}
+
+/** Clear the activity label at turn end (or on startup / abort). */
+export function clearActivityStatus(): void {
+  deleteValue(ACTIVITY_STATUS_KEY);
+}
