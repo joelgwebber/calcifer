@@ -57,6 +57,11 @@ export function fileUrl(view: string, filePath: string, download = false): strin
   return `/api/views/${encodeURIComponent(view)}/file/${encodeURIComponent(filePath)}${download ? '?download=1' : ''}`;
 }
 
+/** URL for a cached, server-resized webp thumbnail of an fs image (gallery tiles). */
+export function thumbUrl(view: string, filePath: string, w = 400): string {
+  return `/api/views/${encodeURIComponent(view)}/thumb/${encodeURIComponent(filePath)}?w=${w}`;
+}
+
 /** Set (value != null) or clear (value == null) a shared annotation. */
 export async function setAnnotation(view: string, entityId: string, key: string, value: string | null): Promise<void> {
   await fetch('/api/annotations', {

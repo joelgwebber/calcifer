@@ -59,6 +59,7 @@ import type { ChannelAdapter, ChannelSetup, OutboundMessage } from './adapter.js
 import type { NormalizedOption } from './ask-question.js';
 import { registerChannelAdapter } from './channel-registry.js';
 import { listThreads, loadThreadHistory } from './web-history.js';
+import { getThumbnail, isThumbnailable } from './web-thumbs.js';
 import {
   annotateForUser,
   cardFromContent,
@@ -493,6 +494,44 @@ function createAdapter(): ChannelAdapter {
     }
   }
 
+  /** Serve a cached, resized webp thumbnail of an fs image (?w=<px>, default 320). */
+  async function handleViewThumb(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    view: string,
+    id: string,
+    url: URL,
+  ): Promise<void> {
+    const user = resolveUser(req);
+    if (!user) {
+      unauthorized(res);
+      return;
+    }
+    try {
+      const file = fileForUser(user.userId, view, id);
+      if (!file) {
+        sendJson(res, 404, { error: 'file not found' });
+        return;
+      }
+      if (!isThumbnailable(file.contentType)) {
+        sendJson(res, 415, { error: 'not a thumbnailable image' });
+        return;
+      }
+      const wRaw = parseInt(url.searchParams.get('w') ?? '320', 10);
+      const w = Math.min(1024, Math.max(64, Number.isFinite(wRaw) ? wRaw : 320));
+      const st = fs.statSync(file.path);
+      const buf = await getThumbnail(file.path, st.mtimeMs, w);
+      res.writeHead(200, {
+        'Content-Type': 'image/webp',
+        'Content-Length': String(buf.length),
+        'Cache-Control': 'private, max-age=86400',
+      });
+      res.end(buf);
+    } catch (err) {
+      sendViewError(res, err);
+    }
+  }
+
   async function handleAnnotate(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     if (!resolveUser(req)) {
       unauthorized(res);
@@ -683,6 +722,17 @@ function createAdapter(): ChannelAdapter {
     const viewFileMatch = /^\/api\/views\/([^/]+)\/file\/(.+)$/.exec(url.pathname);
     if (req.method === 'GET' && viewFileMatch) {
       handleViewFile(req, res, decodeURIComponent(viewFileMatch[1]), decodeURIComponent(viewFileMatch[2]), url);
+      return;
+    }
+    const viewThumbMatch = /^\/api\/views\/([^/]+)\/thumb\/(.+)$/.exec(url.pathname);
+    if (req.method === 'GET' && viewThumbMatch) {
+      void handleViewThumb(
+        req,
+        res,
+        decodeURIComponent(viewThumbMatch[1]),
+        decodeURIComponent(viewThumbMatch[2]),
+        url,
+      ).catch(fail);
       return;
     }
     const viewManifestMatch = /^\/api\/views\/([^/]+)$/.exec(url.pathname);

@@ -108,7 +108,7 @@ export function resolveRecordCard(viewName: string, id: string): WebCard | null 
   let thumbnail: string | undefined;
   const ext = String(record.ext ?? '').toLowerCase();
   if (manifest.data.type === 'fs' && CARD_IMAGE_EXTS.has(ext)) {
-    thumbnail = `/api/views/${encodeURIComponent(viewName)}/file/${encodeURIComponent(id)}`;
+    thumbnail = `/api/views/${encodeURIComponent(viewName)}/thumb/${encodeURIComponent(id)}?w=200`;
   } else if (card?.thumbnail) {
     thumbnail = interpolate(card.thumbnail, record).trim() || undefined;
   }

@@ -12,7 +12,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { fetchViewData, fileUrl, setAnnotation } from './api';
+import { fetchViewData, fileUrl, setAnnotation, thumbUrl } from './api';
 import type { QueryResult, Row, ViewManifest } from './types';
 
 const TEXT_EXTS = new Set(['md', 'markdown', 'txt', 'text']);
@@ -206,7 +206,7 @@ function GalleryTile({ view, row, onDescend, onStar }: { view: string; row: Row;
         </button>
       ) : isImage ? (
         <a className="gtile-thumb" href={fileUrl(view, rowPath)} target="_blank" rel="noreferrer noopener">
-          <img src={fileUrl(view, rowPath)} alt={name} loading="lazy" />
+          <img src={thumbUrl(view, rowPath, 400)} alt={name} loading="lazy" />
         </a>
       ) : (
         <a className="gtile-thumb gtile-file" href={fileUrl(view, rowPath)} target="_blank" rel="noreferrer noopener">
