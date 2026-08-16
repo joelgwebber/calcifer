@@ -422,7 +422,10 @@ type ActivityBlock = { type?: string; text?: string; name?: string; input?: Reco
 export function describeAssistantActivity(content: unknown): string | null {
   if (!Array.isArray(content)) return null;
   const blocks = content as ActivityBlock[];
-  const tool = blocks.find((b) => b.type === 'tool_use');
+  // Ignore ToolSearch — it's the SDK's internal tool-discovery step, not
+  // user-meaningful work. Skipping it lets the label fall through to a real
+  // tool / thinking / text block, or stay on the current envelope label.
+  const tool = blocks.find((b) => b.type === 'tool_use' && b.name !== 'ToolSearch');
   if (tool && typeof tool.name === 'string') return describeToolUse(tool.name, tool.input);
   if (blocks.some((b) => b.type === 'thinking' || b.type === 'redacted_thinking')) return 'Thinking…';
   if (blocks.some((b) => b.type === 'text' && typeof b.text === 'string' && b.text.trim())) return 'Responding…';

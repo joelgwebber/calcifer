@@ -54,6 +54,25 @@ describe('describeAssistantActivity', () => {
     ).toBe('Running list files');
   });
 
+  it('ignores the internal ToolSearch step, falling through to real work', () => {
+    // ToolSearch alone -> nothing user-meaningful; keep the current envelope.
+    expect(describeAssistantActivity([{ type: 'tool_use', name: 'ToolSearch', input: {} }])).toBeNull();
+    // ToolSearch alongside a real tool -> describe the real tool.
+    expect(
+      describeAssistantActivity([
+        { type: 'tool_use', name: 'ToolSearch', input: {} },
+        { type: 'tool_use', name: 'WebSearch', input: { query: 'tokyo time' } },
+      ]),
+    ).toBe('Searching the web: "tokyo time"');
+    // ToolSearch + thinking -> fall through to thinking.
+    expect(
+      describeAssistantActivity([
+        { type: 'tool_use', name: 'ToolSearch', input: {} },
+        { type: 'thinking', thinking: 'hmm' },
+      ]),
+    ).toBe('Thinking…');
+  });
+
   it('prefers a tool_use over thinking/text in the same message', () => {
     expect(
       describeAssistantActivity([
