@@ -1008,6 +1008,29 @@ body {
 .prose td { border: 1px solid rgba(127, 127, 127, 0.3); padding: 4px 8px; }
 .prose img { max-width: 100%; height: auto; }
 
+/* Markdown inside chat bubbles (calcifer-d1f8): reuse .prose but shed the
+   outer doc margins so the bubble hugs the content, and undo the bubble's
+   pre-wrap so paragraph structure (not raw source newlines) drives layout. */
+.message-bubble .prose {
+  margin: 0;
+  line-height: 1.45;
+  white-space: normal;
+}
+.message-bubble .prose > :first-child { margin-top: 0; }
+.message-bubble .prose > :last-child { margin-bottom: 0; }
+
+/* The user bubble is white text on the accent color; make its markdown
+   inherit that so links, code, quotes, and tables stay legible. */
+.message-user .prose a { color: inherit; text-decoration: underline; }
+.message-user .prose code { background: rgba(255, 255, 255, 0.22); }
+.message-user .prose pre { background: rgba(255, 255, 255, 0.18); }
+.message-user .prose blockquote {
+  color: rgba(255, 255, 255, 0.85);
+  border-left-color: rgba(255, 255, 255, 0.5);
+}
+.message-user .prose th,
+.message-user .prose td { border-color: rgba(255, 255, 255, 0.4); }
+
 /* Tree / folder browser presentation (calcifer-d720.3) */
 .tree-crumbs { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; margin: 4px 0 10px; }
 .tree-crumbs .crumb {

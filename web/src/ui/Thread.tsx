@@ -1,7 +1,20 @@
 import { ThreadPrimitive, MessagePrimitive, ComposerPrimitive } from '@assistant-ui/react';
+import type { TextMessagePartProps } from '@assistant-ui/react';
 import { CardMessagePart } from './Card';
 import { QuestionMessagePart } from './Question';
+import { Prose } from '../views/Prose';
 import { useStore } from '../store';
+
+/**
+ * Render a text message part as markdown (calcifer-d1f8). Reuses the
+ * source-agnostic Prose primitive (react-markdown + remark-gfm) so chat
+ * bubbles get headings, lists, tables, code blocks, and links instead of raw
+ * text — the same renderer the wiki/doc views use. Raw HTML stays inert
+ * (Prose has no rehype-raw), so agent- or user-authored text can't inject markup.
+ */
+function MarkdownText({ text }: TextMessagePartProps) {
+  return <Prose markdown={text} />;
+}
 
 export function Thread() {
   return (
@@ -54,7 +67,7 @@ function UserMessage() {
   return (
     <MessagePrimitive.Root className="message message-user">
       <div className="message-bubble">
-        <MessagePrimitive.Parts />
+        <MessagePrimitive.Parts components={{ Text: MarkdownText }} />
       </div>
     </MessagePrimitive.Root>
   );
@@ -65,7 +78,7 @@ function AssistantMessage() {
     <MessagePrimitive.Root className="message message-assistant">
       <div className="message-bubble">
         <MessagePrimitive.Parts
-          components={{ tools: { by_name: { card: CardMessagePart, question: QuestionMessagePart } } }}
+          components={{ Text: MarkdownText, tools: { by_name: { card: CardMessagePart, question: QuestionMessagePart } } }}
         />
       </div>
     </MessagePrimitive.Root>
