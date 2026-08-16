@@ -5,6 +5,7 @@ type: feature
 priority: 2
 created: '2026-04-27T02:56:30Z'
 updated: '2026-04-27T02:56:30Z'
+parent: calcifer-2e0a
 ---
 
 It would be really useful to get status updates from long-running builder runs, perhaps every 5m?

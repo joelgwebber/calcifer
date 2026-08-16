@@ -5,6 +5,7 @@ type: task
 priority: 3
 created: '2026-04-25T18:15:09Z'
 updated: '2026-04-25T21:18:54Z'
+parent: calcifer-d199
 ---
 
 Move per-service credentials out of .env and into OneCLI Agent Vault so containers never see raw keys. Current candidates (all passed to MCP stdio servers via env vars):

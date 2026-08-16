@@ -11,6 +11,7 @@ depends_on:
 labels:
 - skill-views
 - web-ui
+parent: calcifer-1d51
 ---
 
 Post-v0. Make inline chat cards (7c3a.4) projections of view records: a card carries an Open affordance deep-linking to /app/<view>/<record_id>. Add the ask action to views: POST /api/send a templated message to the agent (e.g. draft an inquiry for {address}), bridging the direct data plane back to conversational smarts. Acceptance: show-me-today-apartments yields a card that links into the view; an ask action from a listing starts an agent turn in chat.

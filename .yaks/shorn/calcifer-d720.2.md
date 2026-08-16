@@ -7,6 +7,7 @@ created: '2026-08-15T15:26:09Z'
 updated: '2026-08-15T15:32:58Z'
 labels:
 - skill-views
+parent: calcifer-d720
 ---
 
 ---

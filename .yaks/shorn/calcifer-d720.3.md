@@ -9,6 +9,7 @@ labels:
 - skill-views
 - seafile
 - web-ui
+parent: calcifer-d720
 ---
 
 ---

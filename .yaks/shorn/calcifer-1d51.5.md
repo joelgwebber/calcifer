@@ -13,6 +13,7 @@ depends_on:
 labels:
 - skill-views
 - nyc-apt
+parent: calcifer-1d51
 ---
 
 V0 MILESTONE. Ship the nyc-apt view manifest end-to-end. Switch listings.db to journal_mode=DELETE for host cross-mount reads. Manifest: fields (address/price/beds/neighborhood/source/no_fee/first_seen_at/photo/url); collections New-today + Starred; filters (price range, beds, source multiselect, no-fee toggle, date range); card (address/price/beds/badges/star+open); detail (gallery + price-history timeline from the sightings table + open listing). Acceptance: at /app/apartments browse today's finds, filter, star/unstar (persists, shared), open the listing, deep-link a record — all without waking the agent. First consumer that validates the general mechanism.

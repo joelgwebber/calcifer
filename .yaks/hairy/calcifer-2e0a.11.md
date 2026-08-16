@@ -5,6 +5,7 @@ type: feature
 priority: 2
 created: '2026-04-25T03:39:06Z'
 updated: '2026-05-04T02:12:02Z'
+parent: calcifer-2e0a
 ---
 
 Add IPC + MCP tools so the main agent can manage projects without host-side intervention.

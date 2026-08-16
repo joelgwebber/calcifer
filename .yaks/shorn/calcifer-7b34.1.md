@@ -8,6 +8,7 @@ updated: '2026-08-15T15:12:26Z'
 labels:
 - skill-views
 - web-ui
+parent: calcifer-7b34
 ---
 
 ---

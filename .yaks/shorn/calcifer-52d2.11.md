@@ -1,10 +1,12 @@
 ---
 id: calcifer-52d2.11
-title: Promote nyc-apt workspace prototype into a version-controlled, generalized skill
+title: Promote nyc-apt workspace prototype into a version-controlled, generalized
+  skill
 type: task
 priority: 2
 created: '2026-06-24T15:55:00Z'
 updated: '2026-06-24T15:55:00Z'
+parent: calcifer-52d2
 ---
 
 Calcifer built the working nyc-apt monitor entirely inside its gitignored agent

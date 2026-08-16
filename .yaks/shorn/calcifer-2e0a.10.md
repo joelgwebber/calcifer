@@ -5,6 +5,7 @@ type: feature
 priority: 2
 created: '2026-04-24T17:12:31Z'
 updated: '2026-04-24T17:18:38Z'
+parent: calcifer-2e0a
 ---
 
 Each start_project currently creates a new timestamped directory (data/projects/{name}-{timestamp}/), giving every run an isolated clone. This makes iterative follow-up work impossible — the agent starts fresh each time with no knowledge of what the previous run built.

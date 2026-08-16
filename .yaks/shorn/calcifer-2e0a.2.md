@@ -5,6 +5,7 @@ type: feature
 priority: 2
 created: '2026-04-23T18:43:21Z'
 updated: '2026-04-23T23:58:15Z'
+parent: calcifer-2e0a
 ---
 
 projects/ directory structure for defining background project agents.

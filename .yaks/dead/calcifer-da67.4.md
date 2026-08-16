@@ -9,6 +9,7 @@ status: dead
 superseded_by: calcifer-da67.1.1
 depends_on:
 - calcifer-da67.3
+parent: calcifer-da67
 ---
 
 container-runner.ts hardcodes 10 specific env var names (SEAFILE_TOKEN, WORKFLOWY_API_KEY, etc.) — entirely our addition, not upstream. Replace with: read all vars from the applicable .env file (group-specific first, global fallback), pass all of them to the container. Benefits: adding a new tool never requires touching container-runner again; per-group credential isolation works automatically via groups/{folder}/.env; aligns closer to what upstream feature skill branches do. Blocked by da67.3 (if OneCLI handles everything, this block is removed entirely).

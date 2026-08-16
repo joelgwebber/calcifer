@@ -6,6 +6,7 @@ priority: 2
 created: '2026-03-09T02:14:45Z'
 updated: '2026-04-19T03:25:11Z'
 commit: 9d10252
+parent: calcifer-da67
 ---
 
 The default approach is to manually edit every member's CLAUDE.md to ensure that it only

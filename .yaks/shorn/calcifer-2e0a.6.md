@@ -5,6 +5,7 @@ type: feature
 priority: 2
 created: '2026-04-24T04:24:49Z'
 updated: '2026-04-24T15:28:50Z'
+parent: calcifer-2e0a
 ---
 
 Allow project agents to serve HTTP traffic from their container so results can be previewed in a browser.

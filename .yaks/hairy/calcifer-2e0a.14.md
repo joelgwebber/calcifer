@@ -5,6 +5,7 @@ type: feature
 priority: 2
 created: '2026-05-04T02:12:33Z'
 updated: '2026-05-04T02:12:33Z'
+parent: calcifer-2e0a
 ---
 
 Adds interactive multi-turn behavior to project containers. Depends on 2e0a.13 (per-yak worktrees + container-per-yak refactor).

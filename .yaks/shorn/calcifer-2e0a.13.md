@@ -5,6 +5,7 @@ type: feature
 priority: 2
 created: '2026-05-04T02:12:17Z'
 updated: '2026-05-04T02:19:12Z'
+parent: calcifer-2e0a
 ---
 
 Foundational structural change: replace the single shared workspace with a git worktree per active yak, and key containers by (project, yakId) instead of timestamp.

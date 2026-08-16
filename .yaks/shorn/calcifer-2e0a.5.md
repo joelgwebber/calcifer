@@ -5,6 +5,7 @@ type: feature
 priority: 3
 created: '2026-04-23T18:43:22Z'
 updated: '2026-04-25T01:02:48Z'
+parent: calcifer-2e0a
 ---
 
 Project agents can open GitHub PRs on completion via gh CLI.

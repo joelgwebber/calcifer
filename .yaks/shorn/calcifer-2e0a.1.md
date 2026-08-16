@@ -5,6 +5,7 @@ type: feature
 priority: 1
 created: '2026-04-23T18:42:55Z'
 updated: '2026-04-23T19:09:57Z'
+parent: calcifer-2e0a
 ---
 
 Add ask_human tool to ipc-mcp-stdio.ts using the existing yak-response pattern.

@@ -9,6 +9,7 @@ depends_on:
 - calcifer-da67.1.1
 - calcifer-da67.4
 commit: 9d10252
+parent: calcifer-da67
 ---
 
 web:joel and web:alicia are registered in the DB but groups/joel-web/ and groups/alicia-web/ don't exist on disk. Run add-family-member for each. Populate groups/{folder}/.env with member-specific credentials once per-group loading is implemented. Verify each member gets isolated context, correct tools, and their own credentials. Register multi-channel JIDs (SMS, Telegram, Discord) all pointing to the same folder per person.

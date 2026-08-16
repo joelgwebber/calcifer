@@ -8,6 +8,7 @@ updated: '2026-08-15T15:32:58Z'
 labels:
 - skill-views
 - seafile
+parent: calcifer-d720
 ---
 
 ---

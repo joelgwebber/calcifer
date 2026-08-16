@@ -6,6 +6,7 @@ priority: 2
 created: '2026-03-08T21:01:29Z'
 updated: '2026-03-08T21:46:20Z'
 commit: 1481b83
+parent: calcifer-da67.1
 ---
 
 Create scripts/add-family-member.ts to automate group creation, .env setup, and user mapping registration

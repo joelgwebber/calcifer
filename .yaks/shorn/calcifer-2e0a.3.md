@@ -5,6 +5,7 @@ type: feature
 priority: 2
 created: '2026-04-23T18:43:21Z'
 updated: '2026-04-24T00:10:25Z'
+parent: calcifer-2e0a
 ---
 
 New container mount profile and image matrix for background project agents.

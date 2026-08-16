@@ -8,6 +8,7 @@ updated: '2026-04-19T00:17:16Z'
 depends_on:
 - calcifer-da67.3
 commit: 9d10252
+parent: calcifer-da67.1
 ---
 
 Mount a per-group `credentials.env` file into each container instead of injecting

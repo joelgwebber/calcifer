@@ -10,6 +10,7 @@ depends_on:
 - calcifer-1d51.2
 labels:
 - skill-views
+parent: calcifer-1d51
 ---
 
 GET /api/views/<view>/data?collection=&filters=&sort=&page= and .../record/<id> (auth-gated). v0 data.type=sqlite: open the skill workspace DB READ-ONLY (groups/<folder>/<path>); build PARAMETERIZED queries from manifest-declared filter/sort/search fields + collection presets (no raw SQL from skills); merge shared annotations (.1) by entity_id; return {items,total,page}. Acceptance: apartments recent/starred/filtered/sorted/paginated queries return correct merged rows; unauth 401.
