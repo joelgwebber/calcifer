@@ -4,7 +4,7 @@ title: 'Web UI: public exposure via Tailscale Funnel + ops persistence'
 type: task
 priority: 2
 created: '2026-07-28T20:22:03Z'
-updated: '2026-08-16T19:26:15Z'
+updated: '2026-08-16T20:36:41Z'
 labels:
 - web-ui
 - ops
@@ -56,3 +56,18 @@ DECISIONS NEEDED FROM OWNER:
 5. SSE passthrough to be verified through the chosen proxy after setup.
 
 IMPLICATION for 678d: none blocking — deep links are relative + login is client-side, so shared links are domain-portable and already survive login (see 678d note).
+
+---
+▸ 2026-08-16T20:36:41Z
+NETWORK FINDING (2026): hearth = 192.168.0.207 (wired enP7s7, primary) behind home router 192.168.0.1; public egress IP 66.138.181.153 — a NORMAL public IP, NOT CGNAT (100.64/10). => port-forwarding 443 to hearth is feasible; a plain A-record works. This flips the recommendation away from Cloudflare Tunnel.
+
+REVISED PLAN OF RECORD — Path 1: Caddy on hearth + A-record + port-forward. Best matches owner prefs (own domain, no CF account, no CF URL, no DNS migration, self-hosted TLS) and the network supports it:
+- DNS: calcifer.j15r.com  A  66.138.181.153 (confirm this egress IP == router WAN, i.e. no double-NAT).
+- Router: forward TCP 443 -> 192.168.0.207 (Caddy); TCP 80 -> 192.168.0.207 for ACME HTTP-01 (or use DNS-01 to avoid opening 80).
+- Caddy reverse_proxy 127.0.0.1:8787, auto Let's Encrypt, SSE-safe (flush_interval -1). Persist as a service.
+- Give hearth a DHCP reservation/static LAN IP so the forward target is stable.
+CAVEATS: (a) home IP may be dynamic -> needs DDNS or low-TTL updater, else the A-record breaks on IP change (this is the main downside vs CF Tunnel, which is IP-change-immune); (b) some ISPs block inbound 80/443; (c) exposes an inbound port on the home router (CF Tunnel would keep zero inbound ports). If dynamic-IP/ISP-block bites, fall back to CF Tunnel (needs j15r.com DNS on Cloudflare + tunnel token; NOTE a tunnel shows NO visible CF URL — the domain resolves via a hidden cfargotunnel.com CNAME).
+
+PUBLIC PATH DOES NOT USE THE TAILNET (either option): browser -> public IP -> router forward -> Caddy -> 127.0.0.1:8787. Tailnet stays for internal/admin + /sms webhook only.
+
+FUNNEL: retire the public funnel :8443 AFTER the custom domain is verified (SSE + shared-deeplink login test). Keep tailnet-only :443 (internal web + /sms).
