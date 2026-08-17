@@ -4,7 +4,7 @@ title: 'Web UI: public exposure via Tailscale Funnel + ops persistence'
 type: task
 priority: 2
 created: '2026-07-28T20:22:03Z'
-updated: '2026-08-16T23:07:10Z'
+updated: '2026-08-17T15:17:30Z'
 labels:
 - web-ui
 - ops
@@ -83,3 +83,7 @@ SELF-HOSTED DYNDNS (if owner prefers to stay off CF, Path B): easiest is the UDM
 THIRD OPTION (no CF, static, no home port): cheap VPS w/ static IP running Caddy, proxying over Tailscale to hearth. No dyndns, no home port-forward, self-hosted TLS; costs ~$5/mo + more setup.
 
 RECOMMENDATION given dynamic+double-NAT: Cloudflare Tunnel (Path A). Pending owner choice.
+
+---
+▸ 2026-08-17T15:17:30Z
+CUSTOM DOMAIN LIVE (Cloudflare Tunnel). Root cause of the earlier 'works then goes stale': the route was created as a PRIVATE hostname (WARP-only, no public DNS) instead of a PUBLIC hostname. Recreated as a Public hostname (calcifer.j15r.com -> http://localhost:8787) + proxied CNAME -> bc0a2870-...cfargotunnel.com. cloudflared runs as a --user systemd service (EnvironmentFile=/home/joel/src/calcifer/.env.cloudflared, gitignored, backed up with nc dir; token NOT in main .env so no agent leak; enabled, boots on start via linger). Verified end-to-end from hearth (curl --resolve, since hearth's own resolver still holds a stale NXDOMAIN): https://calcifer.j15r.com/ 200; /api/me 401 unauth / 200 authed; valid TLS; SSE streams LIVE through CF (timestamped Working…->null->message, not buffered). Public path does NOT use tailnet. REMAINING: (1) retire public funnel :8443 (keep tailnet-only :443 for internal + /sms) — pending owner go; (2) provision family web accounts (scripts/web-user.ts).
