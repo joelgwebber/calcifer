@@ -4,10 +4,10 @@ title: 'Cards vs links vs unfurling: presentation model for referencing view rec
 type: idea
 priority: 3
 created: '2026-08-16T19:12:27Z'
-updated: '2026-08-16T19:12:27Z'
-parent: calcifer-7c3a
+updated: '2026-08-17T18:43:47Z'
 labels:
 - skill-views
+- web-ui
 ---
 
 When should the chat reference a view record as an inline LINK (app_link) vs an embedded CARD (send_record_card)? Working rule of thumb (now in interactive.instructions.md): link for a passing reference or a list of pointers; card when the record is the subject and the user will likely act (star/open). A card is essentially an unfurled link.

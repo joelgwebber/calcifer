@@ -4,7 +4,7 @@ title: Web/mobile UI for nanoclaw via assistant-ui
 type: feature
 priority: 2
 created: '2026-06-13T12:00:00Z'
-updated: '2026-08-16T18:46:26Z'
+updated: '2026-08-17T18:43:47Z'
 ---
 
 A structured web (and later mobile) UI for nanoclaw: multiple concurrent

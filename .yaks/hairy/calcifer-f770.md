@@ -5,8 +5,7 @@ title: Fold web-UI exposure topology into setup skill (Cloudflare Tunnel + tailn
 type: task
 priority: 4
 created: '2026-08-17T18:31:40Z'
-updated: '2026-08-17T18:31:40Z'
-parent: calcifer-7c3a
+updated: '2026-08-17T18:43:23Z'
 labels:
 - web-ui
 ---

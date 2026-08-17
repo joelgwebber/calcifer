@@ -4,8 +4,9 @@ title: 'Web UI: attachments / media (inbound upload + outbound files)'
 type: task
 priority: 2
 created: '2026-06-13T12:00:00Z'
-updated: '2026-07-07T22:25:11Z'
-parent: calcifer-7c3a
+updated: '2026-08-17T18:43:47Z'
+labels:
+- web-ui
 ---
 
 PARENT YAK: calcifer-7c3a
