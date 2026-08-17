@@ -4,7 +4,7 @@ title: 'Web UI: public exposure via Tailscale Funnel + ops persistence'
 type: task
 priority: 2
 created: '2026-07-28T20:22:03Z'
-updated: '2026-08-17T15:17:30Z'
+updated: '2026-08-17T18:31:40Z'
 labels:
 - web-ui
 - ops
@@ -87,3 +87,7 @@ RECOMMENDATION given dynamic+double-NAT: Cloudflare Tunnel (Path A). Pending own
 ---
 ▸ 2026-08-17T15:17:30Z
 CUSTOM DOMAIN LIVE (Cloudflare Tunnel). Root cause of the earlier 'works then goes stale': the route was created as a PRIVATE hostname (WARP-only, no public DNS) instead of a PUBLIC hostname. Recreated as a Public hostname (calcifer.j15r.com -> http://localhost:8787) + proxied CNAME -> bc0a2870-...cfargotunnel.com. cloudflared runs as a --user systemd service (EnvironmentFile=/home/joel/src/calcifer/.env.cloudflared, gitignored, backed up with nc dir; token NOT in main .env so no agent leak; enabled, boots on start via linger). Verified end-to-end from hearth (curl --resolve, since hearth's own resolver still holds a stale NXDOMAIN): https://calcifer.j15r.com/ 200; /api/me 401 unauth / 200 authed; valid TLS; SSE streams LIVE through CF (timestamped Working…->null->message, not buffered). Public path does NOT use tailnet. REMAINING: (1) retire public funnel :8443 (keep tailnet-only :443 for internal + /sms) — pending owner go; (2) provision family web accounts (scripts/web-user.ts).
+
+---
+▸ 2026-08-17T18:31:39Z
+DONE. Public funnel retired: removed the tailscale funnel :8443 ExecStartPost, replaced the drop-in with tailscale-serve.conf (tailnet-only :443 / + /sms preserved), and tore down the running :8443 funnel. Public access is now solely the Cloudflare Tunnel at https://calcifer.j15r.com (verified E2E incl. live SSE). cloudflared boot-persistence confirmed: enabled + WantedBy=default.target (symlink present) + Linger=yes + Restart=on-failure(5s) + After=calcifer.service (ordered after, but independent of calcifer restarts so the tunnel never flaps). Web accounts exist: web:joel (Joel), web:alicia (Alicia). KNOWN MINOR: hearth's own resolver can't resolve calcifer.j15r.com (Tailscale MagicDNS quirk, the long-standing DNS health warning) — cosmetic, hearth-local only, doesn't affect users/tunnel. Follow-up filed for setup-skill reproducibility of the exposure topology.
