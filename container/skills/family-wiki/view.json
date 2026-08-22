@@ -4,6 +4,7 @@
   "icon": "book",
   "group": "Libraries",
   "skill": "family-wiki",
+  "presentation": "tree",
   "idField": "path",
   "data": { "type": "fs", "root": "family-wiki", "exts": ["md"] },
   "defaultSort": "-mtime",
