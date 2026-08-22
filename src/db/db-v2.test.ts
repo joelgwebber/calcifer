@@ -401,18 +401,18 @@ describe('sessions', () => {
   // When an agent group is co-wired to agent-shared (WhatsApp) AND per-thread
   // (web) messaging groups, the newest session is often a per-thread web one;
   // findSessionByAgentGroup must skip it or WhatsApp replies leak to the web.
-  it('findSessionByAgentGroup ignores per-thread sessions', () => {
-    createSession({ ...sess(), id: 'sess-shared', thread_id: null, created_at: '2026-01-01T00:00:00.000Z' });
+  it('findSessionByAgentGroup ignores per-thread sessions', async () => {
+    await createSession({ ...sess(), id: 'sess-shared', thread_id: null, created_at: '2026-01-01T00:00:00.000Z' });
     // Newer, but per-thread (e.g. a web thread) — must NOT be returned.
-    createSession({ ...sess(), id: 'sess-web', thread_id: 'web-thread', created_at: '2026-02-01T00:00:00.000Z' });
-    const result = findSessionByAgentGroup('ag-1');
+    await createSession({ ...sess(), id: 'sess-web', thread_id: 'web-thread', created_at: '2026-02-01T00:00:00.000Z' });
+    const result = await findSessionByAgentGroup('ag-1');
     expect(result).toBeDefined();
     expect(result!.id).toBe('sess-shared');
   });
 
-  it('findSessionByAgentGroup returns undefined when only per-thread sessions exist', () => {
-    createSession({ ...sess(), id: 'sess-web', thread_id: 'web-thread' });
-    expect(findSessionByAgentGroup('ag-1')).toBeUndefined();
+  it('findSessionByAgentGroup returns undefined when only per-thread sessions exist', async () => {
+    await createSession({ ...sess(), id: 'sess-web', thread_id: 'web-thread' });
+    expect(await findSessionByAgentGroup('ag-1')).toBeUndefined();
   });
 });
 

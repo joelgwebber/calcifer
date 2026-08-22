@@ -9,11 +9,11 @@ importers:
   .:
     dependencies:
       '@chat-adapter/discord':
-        specifier: ^4.26.0
-        version: 4.38.1
+        specifier: 4.29.0
+        version: 4.29.0
       '@chat-adapter/telegram':
-        specifier: 4.26.0
-        version: 4.26.0
+        specifier: 4.29.0
+        version: 4.29.0
       '@clack/core':
         specifier: ^1.2.0
         version: 1.2.0
@@ -106,19 +106,17 @@ packages:
   '@cacheable/utils@2.5.0':
     resolution: {integrity: sha512-buipgOVDkkPXNR5+xBpDw7Zk2n1EvU7qBJCNUcL7rhQ//kfpOXPAvQ511Os0vpLYJ1pZnvudNytkQt2hst3wqA==}
 
-  '@chat-adapter/discord@4.38.1':
-    resolution: {integrity: sha512-bSNs4wVS1sx4ZyKCD+nrTyO2xiHGMfuDiBPhmqtpyk86jZ3BjqfKrEuf9t/6VWtvSMQ1rZOt3wMmbUzmMyi1QA==}
+  '@chat-adapter/discord@4.29.0':
+    resolution: {integrity: sha512-C6pDVKn7s0PhvgeqldYxoShWXJzthwtlo+sCesqenh56M03eHsioinqxeJttmtK8y1ZD8/qiP2lAZufDwuEQhA==}
     engines: {node: '>=20'}
 
-  '@chat-adapter/shared@4.26.0':
-    resolution: {integrity: sha512-YD0MGktFXrArUqTBsyPfL5vkdD1WBS58PAWO0oVrMQAMmPxpAXfWGjBtZCkf3y8R8Svb0uVuVXiMZSForaEnMQ==}
-
-  '@chat-adapter/shared@4.38.1':
-    resolution: {integrity: sha512-zJiMl43fiS3a2RjLFdCyTUTqcDY2xss1Acbzc9yfsw8YAkS0LZRdrNmp9/RjLhZB0+FzLarNAayvdKqF2GwnQg==}
+  '@chat-adapter/shared@4.29.0':
+    resolution: {integrity: sha512-ARqTDoHJHKN9rpytbFPJbNmqqx3fOg5xwsTZdlingQPAssOSeHDBdqrFJkgDhyCRGbmDtG09cuS0FkVzeoh2qg==}
     engines: {node: '>=20'}
 
-  '@chat-adapter/telegram@4.26.0':
-    resolution: {integrity: sha512-PE2HoCQ4648VNKZTuHFanQNoYzM/niNoSbDyYlPq6VOoB5qsoo1ctR8TERyl1EfPBNexWZpSWYrrnQPr15LUfA==}
+  '@chat-adapter/telegram@4.29.0':
+    resolution: {integrity: sha512-015tU3HEjFQWw7DgebXWkDeQA6lTdTVEO4btAV3f6U1kEnOfjLVJq98latcsM1WkEvv+3LIFKpsz9pG53aamBw==}
+    engines: {node: '>=20'}
 
   '@clack/core@1.2.0':
     resolution: {integrity: sha512-qfxof/3T3t9DPU/Rj3OmcFyZInceqj/NVtO9rwIuJqCUgh32gwPjpFQQp/ben07qKlhpwq7GzfWpST4qdJ5Drg==}
@@ -938,9 +936,6 @@ packages:
   character-entities@2.0.2:
     resolution: {integrity: sha512-shx7oQ0Awen/BRIdkjkvz54PnEEI/EjwXDSIZp86/KKdbafHh1Df/RYGBhn4hbe2+uKC9FnT5UCEdyPz3ai9hQ==}
 
-  chat@4.26.0:
-    resolution: {integrity: sha512-QToDnIEGpyb8yQA6YLMHOSRK30YVk4RtsyFyuWFYyB2c4jQlyIrSWtwVK7qyvmvqzQp9uDwCdJRAhS8GtCHAGQ==}
-
   chat@4.29.0:
     resolution: {integrity: sha512-KdPfzaie5ivYytyRICTERg5xT+LeCbYefokvNAqTHe92eqkFaoTMXXkSitikxJVWhZIb2YoXF1b9UZHyzSzKzw==}
     engines: {node: '>=20'}
@@ -949,21 +944,6 @@ packages:
       zod: ^3.0.0 || ^4.0.0
     peerDependenciesMeta:
       ai:
-        optional: true
-      zod:
-        optional: true
-
-  chat@4.38.1:
-    resolution: {integrity: sha512-FD6vNLT8clXHKhN3I1m+3Bn2nz0rsB6/bmNPsJeh6Cr7kwWLg0MYl2uor9YaKBp38F77sBRVKdYKVA6ihUby3w==}
-    engines: {node: '>=20'}
-    peerDependencies:
-      ai: ^6.0.182 || ^7.0.0
-      workflow: ^5.0.0-beta.35
-      zod: ^3.0.0 || ^4.0.0
-    peerDependenciesMeta:
-      ai:
-        optional: true
-      workflow:
         optional: true
       zod:
         optional: true
@@ -2023,10 +2003,10 @@ snapshots:
       hashery: 1.5.1
       keyv: 5.6.0
 
-  '@chat-adapter/discord@4.38.1':
+  '@chat-adapter/discord@4.29.0':
     dependencies:
-      '@chat-adapter/shared': 4.38.1
-      chat: 4.38.1
+      '@chat-adapter/shared': 4.29.0
+      chat: 4.29.0
       discord-api-types: 0.37.120
       discord-interactions: 4.4.0
       discord.js: 14.27.0
@@ -2035,30 +2015,24 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
-      - workflow
       - zod
 
-  '@chat-adapter/shared@4.26.0':
+  '@chat-adapter/shared@4.29.0':
     dependencies:
-      chat: 4.26.0
-    transitivePeerDependencies:
-      - supports-color
-
-  '@chat-adapter/shared@4.38.1':
-    dependencies:
-      chat: 4.38.1
+      chat: 4.29.0
     transitivePeerDependencies:
       - ai
       - supports-color
-      - workflow
       - zod
 
-  '@chat-adapter/telegram@4.26.0':
+  '@chat-adapter/telegram@4.29.0':
     dependencies:
-      '@chat-adapter/shared': 4.26.0
-      chat: 4.26.0
+      '@chat-adapter/shared': 4.29.0
+      chat: 4.29.0
     transitivePeerDependencies:
+      - ai
       - supports-color
+      - zod
 
   '@clack/core@1.2.0':
     dependencies:
@@ -2757,31 +2731,7 @@ snapshots:
 
   character-entities@2.0.2: {}
 
-  chat@4.26.0:
-    dependencies:
-      '@workflow/serde': 4.1.0-beta.2
-      mdast-util-to-string: 4.0.0
-      remark-gfm: 4.0.1
-      remark-parse: 11.0.0
-      remark-stringify: 11.0.0
-      remend: 1.3.0
-      unified: 11.0.5
-    transitivePeerDependencies:
-      - supports-color
-
   chat@4.29.0:
-    dependencies:
-      '@workflow/serde': 4.1.0-beta.2
-      mdast-util-to-string: 4.0.0
-      remark-gfm: 4.0.1
-      remark-parse: 11.0.0
-      remark-stringify: 11.0.0
-      remend: 1.3.0
-      unified: 11.0.5
-    transitivePeerDependencies:
-      - supports-color
-
-  chat@4.38.1:
     dependencies:
       '@workflow/serde': 4.1.0-beta.2
       mdast-util-to-string: 4.0.0

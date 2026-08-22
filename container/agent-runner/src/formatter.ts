@@ -204,8 +204,16 @@ function formatChatMessages(messages: MessageInRow[]): string {
   // requested."`) instead of calling the API — see #2555 for the full trace.
   // The fix is simply to drop the wrapper; the single-message path (which
   // already worked) is now just the N=1 case of the same code.
-  const contextMsgs = messages.filter((m) => m.trigger === 0);
-  const activeMsgs = messages.filter((m) => m.trigger !== 0);
+  //
+  // Session-echo rows (channel_type='session-echo') are ALSO trigger=0, but
+  // they are cross-session context, not ambient group chatter: upstream renders
+  // them inline as <cross-session-context> in chronological position (see
+  // cross-session-echo.test.ts). So they are exempted from the #2436
+  // group_context front-load and flow through the chronological activeMsgs path
+  // (formatSingleChat routes them to formatEchoMessage). Only genuine ambient
+  // group messages (trigger=0, non-echo) get pulled into <group_context>.
+  const contextMsgs = messages.filter((m) => m.trigger === 0 && !isSessionEcho(m));
+  const activeMsgs = messages.filter((m) => m.trigger !== 0 || isSessionEcho(m));
 
   const parts: string[] = [];
 

@@ -112,7 +112,7 @@ function extractText(message: OutboundMessage): string | null {
  * (SSE scope, inbound sender, history/thread lookups) keys off `userId` and a
  * client can never spoof another user's namespace.
  */
-function resolveUser(req: http.IncomingMessage): AuthedUser | null {
+async function resolveUser(req: http.IncomingMessage): Promise<AuthedUser | null> {
   if (!requireAuth()) {
     return { userId: DEFAULT_PLATFORM_ID, displayName: null, handle: 'local' };
   }
@@ -180,8 +180,8 @@ function createAdapter(): ChannelAdapter {
     }
   }
 
-  function handleStream(req: http.IncomingMessage, res: http.ServerResponse): void {
-    const user = resolveUser(req);
+  async function handleStream(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    const user = await resolveUser(req);
     if (!user) {
       unauthorized(res);
       return;
@@ -216,7 +216,7 @@ function createAdapter(): ChannelAdapter {
   }
 
   async function handleSend(req: http.IncomingMessage, res: http.ServerResponse, config: ChannelSetup): Promise<void> {
-    const user = resolveUser(req);
+    const user = await resolveUser(req);
     if (!user) {
       unauthorized(res);
       return;
@@ -274,8 +274,8 @@ function createAdapter(): ChannelAdapter {
     sendJson(res, 200, { ok: true, id });
   }
 
-  function handleHistory(req: http.IncomingMessage, res: http.ServerResponse, url: URL): void {
-    const user = resolveUser(req);
+  async function handleHistory(req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
+    const user = await resolveUser(req);
     if (!user) {
       unauthorized(res);
       return;
@@ -287,7 +287,7 @@ function createAdapter(): ChannelAdapter {
     }
     try {
       // Scoped to the authenticated user's own messaging group.
-      const messages = loadThreadHistory(user.userId, threadId);
+      const messages = await loadThreadHistory(user.userId, threadId);
       sendJson(res, 200, { messages });
     } catch (err) {
       log.error('web history load failed', { err });
@@ -295,14 +295,14 @@ function createAdapter(): ChannelAdapter {
     }
   }
 
-  function handleThreads(req: http.IncomingMessage, res: http.ServerResponse): void {
-    const user = resolveUser(req);
+  async function handleThreads(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    const user = await resolveUser(req);
     if (!user) {
       unauthorized(res);
       return;
     }
     try {
-      const threads = listThreads(user.userId);
+      const threads = await listThreads(user.userId);
       sendJson(res, 200, { threads });
     } catch (err) {
       log.error('web thread list failed', { err });
@@ -338,7 +338,7 @@ function createAdapter(): ChannelAdapter {
       return;
     }
 
-    const cred = getCredential(userId);
+    const cred = await getCredential(userId);
     // Always run verify (even with no row) to keep timing uniform, then decide.
     const ok = cred ? verifyPassword(password, cred.pw_hash) : false;
     if (!ok) {
@@ -354,7 +354,7 @@ function createAdapter(): ChannelAdapter {
       'Content-Type': 'application/json',
       'Set-Cookie': sessionCookieHeader(token),
     });
-    const user = authenticateRequest(`${SESSION_COOKIE}=${token}`);
+    const user = await authenticateRequest(`${SESSION_COOKIE}=${token}`);
     res.end(JSON.stringify({ handle, displayName: user?.displayName ?? null }));
   }
 
@@ -366,8 +366,8 @@ function createAdapter(): ChannelAdapter {
     res.end('{"ok":true}');
   }
 
-  function handleMe(req: http.IncomingMessage, res: http.ServerResponse): void {
-    const user = resolveUser(req);
+  async function handleMe(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    const user = await resolveUser(req);
     if (!user) {
       unauthorized(res);
       return;
@@ -384,16 +384,16 @@ function createAdapter(): ChannelAdapter {
     sendJson(res, 500, { error: 'internal error' });
   }
 
-  function handleViewsList(req: http.IncomingMessage, res: http.ServerResponse): void {
-    if (!resolveUser(req)) {
+  async function handleViewsList(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    if (!(await resolveUser(req))) {
       unauthorized(res);
       return;
     }
     sendJson(res, 200, { views: listViews() });
   }
 
-  function handleViewManifest(req: http.IncomingMessage, res: http.ServerResponse, view: string): void {
-    if (!resolveUser(req)) {
+  async function handleViewManifest(req: http.IncomingMessage, res: http.ServerResponse, view: string): Promise<void> {
+    if (!(await resolveUser(req))) {
       unauthorized(res);
       return;
     }
@@ -404,8 +404,13 @@ function createAdapter(): ChannelAdapter {
     }
   }
 
-  function handleViewData(req: http.IncomingMessage, res: http.ServerResponse, view: string, url: URL): void {
-    const user = resolveUser(req);
+  async function handleViewData(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    view: string,
+    url: URL,
+  ): Promise<void> {
+    const user = await resolveUser(req);
     if (!user) {
       unauthorized(res);
       return;
@@ -423,7 +428,7 @@ function createAdapter(): ChannelAdapter {
     const pageRaw = parseInt(url.searchParams.get('page') ?? '', 10);
     const pageSizeRaw = parseInt(url.searchParams.get('pageSize') ?? '', 10);
     try {
-      const result = queryViewForUser(user.userId, view, {
+      const result = await queryViewForUser(user.userId, view, {
         collection: url.searchParams.get('collection') ?? undefined,
         filters,
         q: url.searchParams.get('q') ?? undefined,
@@ -439,14 +444,19 @@ function createAdapter(): ChannelAdapter {
     }
   }
 
-  function handleViewRecord(req: http.IncomingMessage, res: http.ServerResponse, view: string, id: string): void {
-    const user = resolveUser(req);
+  async function handleViewRecord(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    view: string,
+    id: string,
+  ): Promise<void> {
+    const user = await resolveUser(req);
     if (!user) {
       unauthorized(res);
       return;
     }
     try {
-      const record = recordForUser(user.userId, view, id);
+      const record = await recordForUser(user.userId, view, id);
       if (!record) {
         sendJson(res, 404, { error: 'record not found' });
         return;
@@ -458,20 +468,20 @@ function createAdapter(): ChannelAdapter {
   }
 
   /** Stream a raw file from an fs-backed view (inline, or ?download=1 to force save). */
-  function handleViewFile(
+  async function handleViewFile(
     req: http.IncomingMessage,
     res: http.ServerResponse,
     view: string,
     id: string,
     url: URL,
-  ): void {
-    const user = resolveUser(req);
+  ): Promise<void> {
+    const user = await resolveUser(req);
     if (!user) {
       unauthorized(res);
       return;
     }
     try {
-      const file = fileForUser(user.userId, view, id);
+      const file = await fileForUser(user.userId, view, id);
       if (!file) {
         sendJson(res, 404, { error: 'file not found' });
         return;
@@ -503,13 +513,13 @@ function createAdapter(): ChannelAdapter {
     id: string,
     url: URL,
   ): Promise<void> {
-    const user = resolveUser(req);
+    const user = await resolveUser(req);
     if (!user) {
       unauthorized(res);
       return;
     }
     try {
-      const file = fileForUser(user.userId, view, id);
+      const file = await fileForUser(user.userId, view, id);
       if (!file) {
         sendJson(res, 404, { error: 'file not found' });
         return;
@@ -534,7 +544,7 @@ function createAdapter(): ChannelAdapter {
   }
 
   async function handleAnnotate(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-    if (!resolveUser(req)) {
+    if (!(await resolveUser(req))) {
       unauthorized(res);
       return;
     }
@@ -558,7 +568,7 @@ function createAdapter(): ChannelAdapter {
     const value =
       typeof payload.value === 'string' ? payload.value : payload.value == null ? null : String(payload.value);
     try {
-      annotateForUser(view, entityId, key, value);
+      await annotateForUser(view, entityId, key, value);
       sendJson(res, 200, { ok: true });
     } catch (err) {
       sendViewError(res, err);
@@ -604,7 +614,7 @@ function createAdapter(): ChannelAdapter {
     res: http.ServerResponse,
     config: ChannelSetup,
   ): Promise<void> {
-    const user = resolveUser(req);
+    const user = await resolveUser(req);
     if (!user) {
       unauthorized(res);
       return;
@@ -675,13 +685,13 @@ function createAdapter(): ChannelAdapter {
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/me') {
-      handleMe(req, res);
+      void handleMe(req, res).catch(fail);
       return;
     }
 
     // Data endpoints (auth-gated inside each handler via resolveUser).
     if (req.method === 'GET' && url.pathname === '/api/stream') {
-      handleStream(req, res);
+      void handleStream(req, res).catch(fail);
       return;
     }
     if (req.method === 'POST' && url.pathname === '/api/send') {
@@ -693,17 +703,17 @@ function createAdapter(): ChannelAdapter {
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/history') {
-      handleHistory(req, res, url);
+      void handleHistory(req, res, url).catch(fail);
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/threads') {
-      handleThreads(req, res);
+      void handleThreads(req, res).catch(fail);
       return;
     }
 
     // Skill views (calcifer-1d51).
     if (req.method === 'GET' && url.pathname === '/api/views') {
-      handleViewsList(req, res);
+      void handleViewsList(req, res).catch(fail);
       return;
     }
     if (req.method === 'POST' && url.pathname === '/api/annotations') {
@@ -712,17 +722,28 @@ function createAdapter(): ChannelAdapter {
     }
     const viewDataMatch = /^\/api\/views\/([^/]+)\/data$/.exec(url.pathname);
     if (req.method === 'GET' && viewDataMatch) {
-      handleViewData(req, res, decodeURIComponent(viewDataMatch[1]), url);
+      void handleViewData(req, res, decodeURIComponent(viewDataMatch[1]), url).catch(fail);
       return;
     }
     const viewRecordMatch = /^\/api\/views\/([^/]+)\/record\/(.+)$/.exec(url.pathname);
     if (req.method === 'GET' && viewRecordMatch) {
-      handleViewRecord(req, res, decodeURIComponent(viewRecordMatch[1]), decodeURIComponent(viewRecordMatch[2]));
+      void handleViewRecord(
+        req,
+        res,
+        decodeURIComponent(viewRecordMatch[1]),
+        decodeURIComponent(viewRecordMatch[2]),
+      ).catch(fail);
       return;
     }
     const viewFileMatch = /^\/api\/views\/([^/]+)\/file\/(.+)$/.exec(url.pathname);
     if (req.method === 'GET' && viewFileMatch) {
-      handleViewFile(req, res, decodeURIComponent(viewFileMatch[1]), decodeURIComponent(viewFileMatch[2]), url);
+      void handleViewFile(
+        req,
+        res,
+        decodeURIComponent(viewFileMatch[1]),
+        decodeURIComponent(viewFileMatch[2]),
+        url,
+      ).catch(fail);
       return;
     }
     const viewThumbMatch = /^\/api\/views\/([^/]+)\/thumb\/(.+)$/.exec(url.pathname);
@@ -738,7 +759,7 @@ function createAdapter(): ChannelAdapter {
     }
     const viewManifestMatch = /^\/api\/views\/([^/]+)$/.exec(url.pathname);
     if (req.method === 'GET' && viewManifestMatch) {
-      handleViewManifest(req, res, decodeURIComponent(viewManifestMatch[1]));
+      void handleViewManifest(req, res, decodeURIComponent(viewManifestMatch[1])).catch(fail);
       return;
     }
 
@@ -823,7 +844,7 @@ function createAdapter(): ChannelAdapter {
 
       // Structured cards (send_card) render as generative-UI message parts
       // (calcifer-7c3a.4). File attachments are still text-only (calcifer-7c3a.3).
-      const card = cardFromContent(message.content);
+      const card = await cardFromContent(message.content);
       if (card) {
         const id = `web-out-${Date.now()}-${rand()}`;
         broadcast(platformId, 'message', {

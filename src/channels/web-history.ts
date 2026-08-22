@@ -23,7 +23,7 @@ import Database from 'better-sqlite3';
 import { getMessagingGroupAgents, getMessagingGroupByPlatform } from '../db/messaging-groups.js';
 import { findSessionForAgent, getActiveSessionsByMessagingGroup } from '../db/sessions.js';
 import { log } from '../log.js';
-import { inboundDbPath, outboundDbPath } from '../session-manager.js';
+import { inboundDbPath, outboundDbPath } from '../mailbox/sqlite/index.js';
 import { type WebCard } from './web-cards.js';
 import { cardFromContent } from './web-views.js';
 
@@ -90,9 +90,9 @@ function extractText(contentJson: string): string | null {
 }
 
 /** Parse a display card (send_card) out of a message row's JSON content blob. */
-function extractCard(contentJson: string): WebCard | null {
+async function extractCard(contentJson: string): Promise<WebCard | null> {
   try {
-    return cardFromContent(JSON.parse(contentJson));
+    return await cardFromContent(JSON.parse(contentJson));
   } catch {
     return null;
   }
@@ -134,8 +134,8 @@ function truncate(text: string, max = 40): string {
  * wiring), and without scoping those stale sessions surface as duplicate
  * threads (same threadId) and shadow the live session's history.
  */
-function currentAgentGroupId(mgId: string): string | null {
-  const agents = getMessagingGroupAgents(mgId);
+async function currentAgentGroupId(mgId: string): Promise<string | null> {
+  const agents = await getMessagingGroupAgents(mgId);
   return agents.length > 0 ? agents[0].agent_group_id : null;
 }
 
@@ -144,12 +144,12 @@ function currentAgentGroupId(mgId: string): string | null {
  * thread has never been opened (no session yet) or the messaging group is
  * unknown — the client treats that as "start fresh".
  */
-export function loadThreadHistory(platformId: string, threadId: string): HistoryMessage[] {
-  const mg = getMessagingGroupByPlatform(CHANNEL_TYPE, platformId);
+export async function loadThreadHistory(platformId: string, threadId: string): Promise<HistoryMessage[]> {
+  const mg = await getMessagingGroupByPlatform(CHANNEL_TYPE, platformId);
   if (!mg) return [];
-  const agentGroupId = currentAgentGroupId(mg.id);
+  const agentGroupId = await currentAgentGroupId(mg.id);
   if (!agentGroupId) return [];
-  const session = findSessionForAgent(agentGroupId, mg.id, threadId);
+  const session = await findSessionForAgent(agentGroupId, mg.id, threadId);
   if (!session) return [];
 
   const messages: HistoryMessage[] = [];
@@ -177,7 +177,7 @@ export function loadThreadHistory(platformId: string, threadId: string): History
         .prepare("SELECT id, timestamp, content FROM messages_out WHERE kind IN ('chat', 'chat-sdk') ORDER BY seq ASC")
         .all() as Array<{ id: string; timestamp: string; content: string }>;
       for (const r of rows) {
-        const card = extractCard(r.content);
+        const card = await extractCard(r.content);
         if (card) {
           messages.push({
             id: r.id,
@@ -211,15 +211,15 @@ export function loadThreadHistory(platformId: string, threadId: string): History
  * The web thread list: one entry per active per-thread session on the web
  * messaging group, newest first, titled from its first user message.
  */
-export function listThreads(platformId: string): ThreadSummary[] {
-  const mg = getMessagingGroupByPlatform(CHANNEL_TYPE, platformId);
+export async function listThreads(platformId: string): Promise<ThreadSummary[]> {
+  const mg = await getMessagingGroupByPlatform(CHANNEL_TYPE, platformId);
   if (!mg) return [];
 
-  const agentGroupId = currentAgentGroupId(mg.id);
+  const agentGroupId = await currentAgentGroupId(mg.id);
   if (!agentGroupId) return [];
 
   const summaries: ThreadSummary[] = [];
-  for (const session of getActiveSessionsByMessagingGroup(mg.id)) {
+  for (const session of await getActiveSessionsByMessagingGroup(mg.id)) {
     if (session.agent_group_id !== agentGroupId) continue; // scope to the current wiring
     if (!session.thread_id) continue; // per-thread sessions only
 

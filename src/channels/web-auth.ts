@@ -164,25 +164,25 @@ interface CredentialRow {
   pw_hash: string;
 }
 
-export function getCredential(userId: string): CredentialRow | undefined {
-  return getDb().prepare('SELECT user_id, pw_hash FROM web_credentials WHERE user_id = ?').get(userId) as
-    | CredentialRow
-    | undefined;
+export async function getCredential(userId: string): Promise<CredentialRow | undefined> {
+  return getDb().get<CredentialRow>('SELECT user_id, pw_hash FROM web_credentials WHERE user_id = ?', userId);
 }
 
-export function upsertCredential(userId: string, pwHash: string): void {
+export async function upsertCredential(userId: string, pwHash: string): Promise<void> {
   const now = new Date().toISOString();
-  getDb()
-    .prepare(
-      `INSERT INTO web_credentials (user_id, pw_hash, created_at, updated_at)
+  await getDb().run(
+    `INSERT INTO web_credentials (user_id, pw_hash, created_at, updated_at)
        VALUES (?, ?, ?, ?)
        ON CONFLICT(user_id) DO UPDATE SET pw_hash = excluded.pw_hash, updated_at = excluded.updated_at`,
-    )
-    .run(userId, pwHash, now, now);
+    userId,
+    pwHash,
+    now,
+    now,
+  );
 }
 
-export function deleteCredential(userId: string): void {
-  getDb().prepare('DELETE FROM web_credentials WHERE user_id = ?').run(userId);
+export async function deleteCredential(userId: string): Promise<void> {
+  await getDb().run('DELETE FROM web_credentials WHERE user_id = ?', userId);
 }
 
 // ─── login rate limiting (in-memory, per handle) ────────────────────────────
@@ -229,11 +229,11 @@ export interface AuthedUser {
  * user's id doubles as its per-user messaging-group platform_id, so callers
  * route/scope everything off `userId`.
  */
-export function authenticateRequest(cookieHeader: string | undefined): AuthedUser | null {
+export async function authenticateRequest(cookieHeader: string | undefined): Promise<AuthedUser | null> {
   const cookies = parseCookies(cookieHeader);
   const userId = verifySession(cookies[SESSION_COOKIE]);
   if (!userId) return null;
-  const user = getUser(userId);
+  const user = await getUser(userId);
   if (!user) return null; // deleted/revoked since the token was issued
   return {
     userId,

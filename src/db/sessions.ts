@@ -61,23 +61,30 @@ export async function findSessionForAgent(
 
 /** Find an active session scoped to an agent group (ignoring messaging group). */
 /**
- * The agent-shared session for an agent group (resolveSession 'agent-shared').
+ * The agent-shared session for an agent group (resolveSession 'agent-shared',
+ * and the a2a return-path fallback).
  *
- * MUST exclude per-thread sessions (thread_id IS NOT NULL). When an agent group
- * is co-wired to both agent-shared messaging groups (e.g. WhatsApp) AND a
- * per-thread one (e.g. the web UI), the newest session is often a per-thread web
- * session — an unfiltered lookup would funnel agent-shared traffic (and its
- * replies) into that web session, so WhatsApp messages would get answered over
- * the web channel. Agent-shared/shared sessions are created with thread_id NULL
- * (resolveSession), so that is the correct discriminator. This also excludes
- * system/task sessions, whose thread_id ('system:…') is non-null.
+ * Two exclusions, both load-bearing:
+ *  1. (calcifer) Per-thread CHANNEL sessions — `messaging_group_id IS NOT NULL
+ *     AND thread_id IS NOT NULL`. When an agent group is co-wired to an
+ *     agent-shared messaging group (e.g. WhatsApp) AND a per-thread one (e.g.
+ *     the web UI), the newest session is often a per-thread web session; an
+ *     unfiltered lookup would funnel agent-shared traffic (and its replies)
+ *     into that web session, so WhatsApp messages would get answered over the
+ *     web channel. Agent-shared sessions are created with thread_id NULL, and
+ *     agent-internal sessions (a2a) carry messaging_group_id NULL, so this
+ *     clause excludes ONLY real per-channel threads.
+ *  2. (upstream) System/task sessions — `messaging_group_id IS NULL AND
+ *     thread_id LIKE 'system:%'` — which must never be picked up as the
+ *     agent-shared/a2a session.
  */
 export async function findSessionByAgentGroup(agentGroupId: string): Promise<Session | undefined> {
   return getDb().get<Session>(
     `SELECT * FROM sessions
        WHERE agent_group_id = ?
          AND status = 'active'
-         AND thread_id IS NULL
+         AND NOT (messaging_group_id IS NOT NULL AND thread_id IS NOT NULL)
+         AND NOT (messaging_group_id IS NULL AND thread_id IS NOT NULL AND thread_id LIKE 'system:%')
        ORDER BY created_at DESC
        LIMIT 1`,
     agentGroupId,
@@ -95,10 +102,6 @@ export async function getActiveSessionsByMessagingGroup(messagingGroupId: string
     "SELECT * FROM sessions WHERE messaging_group_id = ? AND status = 'active' ORDER BY COALESCE(last_active, created_at) DESC",
     messagingGroupId,
   );
-}
-
-export async function getActiveSessions(): Promise<Session[]> {
-  return getDb().all<Session>("SELECT * FROM sessions WHERE status = 'active'");
 }
 
 export async function findSystemSession(agentGroupId: string, threadId: string): Promise<Session | undefined> {

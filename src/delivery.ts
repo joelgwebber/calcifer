@@ -190,13 +190,13 @@ export async function deliverSessionMessages(session: Session): Promise<void> {
  * session's channel (5b6b.2). No-op for channels that don't implement
  * `setStatus` (everything but the web UI). Best-effort throughout.
  */
-function emitSessionStatus(session: Session, label: string | null): void {
+async function emitSessionStatus(session: Session, label: string | null): Promise<void> {
   const last = lastStatusBySession.get(session.id) ?? null;
   if (label === last) return;
   lastStatusBySession.set(session.id, label);
 
   if (!deliveryAdapter?.setStatus || !session.messaging_group_id) return;
-  const mg = getMessagingGroup(session.messaging_group_id);
+  const mg = await getMessagingGroup(session.messaging_group_id);
   if (!mg) return;
   deliveryAdapter
     .setStatus(mg.channel_type, mg.platform_id, session.thread_id, label)
@@ -239,7 +239,7 @@ async function drainSession(session: Session): Promise<void> {
   // Ephemeral mid-turn activity status (calcifer-5b6b.2). Pushed before the
   // pending-empty path so a working turn that hasn't produced a deliverable
   // message yet still streams its label to the web client over SSE.
-  emitSessionStatus(session, activityStatus);
+  await emitSessionStatus(session, activityStatus);
 
   for (const hook of batchPreviewHooks) {
     try {

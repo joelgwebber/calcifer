@@ -203,13 +203,17 @@ function parseSort(sort: string): { col: string; dir: 'ASC' | 'DESC' } {
 }
 
 /** Merge shared annotations into a set of records, keyed on the manifest idField. */
-function mergeAnnotations(skill: string, rows: Array<Record<string, unknown>>, idField: string): void {
+async function mergeAnnotations(skill: string, rows: Array<Record<string, unknown>>, idField: string): Promise<void> {
   const ids = rows.map((r) => String(r[idField]));
-  const ann = getAnnotationsFor(skill, ids);
+  const ann = await getAnnotationsFor(skill, ids);
   for (const r of rows) r._ann = ann.get(String(r[idField])) ?? {};
 }
 
-function querySqlite(manifest: ViewManifest, agentGroupFolder: string, params: QueryParams): QueryResult {
+async function querySqlite(
+  manifest: ViewManifest,
+  agentGroupFolder: string,
+  params: QueryParams,
+): Promise<QueryResult> {
   const page = Math.max(1, params.page ?? 1);
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, params.pageSize ?? DEFAULT_PAGE_SIZE));
   const empty: QueryResult = { items: [], total: 0, page, pageSize };
@@ -236,7 +240,7 @@ function querySqlite(manifest: ViewManifest, agentGroupFolder: string, params: Q
         if (cols.has(field)) applyManifestFilter(field, value, where);
       }
       for (const key of Object.keys(collection.annotation ?? {})) {
-        const ids = getEntityIdsWithAnnotation(manifest.skill, key);
+        const ids = await getEntityIdsWithAnnotation(manifest.skill, key);
         if (ids.length === 0) {
           where.clauses.push('0=1');
         } else {
@@ -273,7 +277,7 @@ function querySqlite(manifest: ViewManifest, agentGroupFolder: string, params: Q
 
     // 5. merge shared annotations
     const ids = rows.map((r) => String(r[manifest.idField]));
-    const ann = getAnnotationsFor(manifest.skill, ids);
+    const ann = await getAnnotationsFor(manifest.skill, ids);
     for (const r of rows) r._ann = ann.get(String(r[manifest.idField])) ?? {};
 
     // 6. facets: distinct values for multiselect fields (options for the UI)
@@ -295,7 +299,11 @@ function querySqlite(manifest: ViewManifest, agentGroupFolder: string, params: Q
   }
 }
 
-function recordSqlite(manifest: ViewManifest, agentGroupFolder: string, id: string): Record<string, unknown> | null {
+async function recordSqlite(
+  manifest: ViewManifest,
+  agentGroupFolder: string,
+  id: string,
+): Promise<Record<string, unknown> | null> {
   const db = openReadonly(dbPath(manifest, agentGroupFolder));
   if (!db) return null;
   try {
@@ -308,7 +316,7 @@ function recordSqlite(manifest: ViewManifest, agentGroupFolder: string, id: stri
       | undefined;
     if (!row) return null;
 
-    row._ann = getAnnotationsFor(manifest.skill, [id]).get(id) ?? {};
+    row._ann = (await getAnnotationsFor(manifest.skill, [id])).get(id) ?? {};
 
     // Related-rows timeline (e.g. price sightings).
     const tl = manifest.detail?.timeline;
@@ -450,7 +458,7 @@ function walkFiles(rootDir: string, exts: Set<string> | null): Array<Record<stri
   return out;
 }
 
-function queryFs(manifest: ViewManifest, params: QueryParams): QueryResult {
+async function queryFs(manifest: ViewManifest, params: QueryParams): Promise<QueryResult> {
   const page = Math.max(1, params.page ?? 1);
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, params.pageSize ?? DEFAULT_PAGE_SIZE));
   const empty: QueryResult = { items: [], total: 0, page, pageSize };
@@ -484,7 +492,7 @@ function queryFs(manifest: ViewManifest, params: QueryParams): QueryResult {
       return String(a.name ?? '').localeCompare(String(b.name ?? ''));
     });
     const paged = items.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
-    mergeAnnotations(manifest.skill, paged, manifest.idField);
+    await mergeAnnotations(manifest.skill, paged, manifest.idField);
     return { items: paged, total, page, pageSize };
   }
 
@@ -543,7 +551,7 @@ function queryFs(manifest: ViewManifest, params: QueryParams): QueryResult {
   }
 
   const paged = items.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
-  mergeAnnotations(manifest.skill, paged, manifest.idField);
+  await mergeAnnotations(manifest.skill, paged, manifest.idField);
 
   // facets: distinct values for multiselect fields (e.g. ext, top-level dir)
   const facets: Record<string, Array<string | number>> = {};
@@ -561,7 +569,7 @@ function queryFs(manifest: ViewManifest, params: QueryParams): QueryResult {
   return { items: paged, total, page, pageSize, facets };
 }
 
-function recordFs(manifest: ViewManifest, id: string): Record<string, unknown> | null {
+async function recordFs(manifest: ViewManifest, id: string): Promise<Record<string, unknown> | null> {
   let rootDir: string;
   try {
     rootDir = fsRootDir(manifest);
@@ -607,7 +615,7 @@ function recordFs(manifest: ViewManifest, id: string): Record<string, unknown> |
     record[documentField] = content;
   }
   const rel = String(record[manifest.idField] ?? record.path);
-  record._ann = getAnnotationsFor(manifest.skill, [rel]).get(rel) ?? {};
+  record._ann = (await getAnnotationsFor(manifest.skill, [rel])).get(rel) ?? {};
   return record;
 }
 
@@ -674,7 +682,11 @@ function readFileFs(manifest: ViewManifest, id: string): ViewFile | null {
 // ─── public dispatch ─────────────────────────────────────────────
 
 /** Query a view's records, dispatching on the manifest's data-source type. */
-export function queryView(manifest: ViewManifest, agentGroupFolder: string, params: QueryParams): QueryResult {
+export async function queryView(
+  manifest: ViewManifest,
+  agentGroupFolder: string,
+  params: QueryParams,
+): Promise<QueryResult> {
   switch (manifest.data.type) {
     case 'sqlite':
       return querySqlite(manifest, agentGroupFolder, params);
@@ -686,11 +698,11 @@ export function queryView(manifest: ViewManifest, agentGroupFolder: string, para
 }
 
 /** Fetch a single record by id, dispatching on the manifest's data-source type. */
-export function getViewRecord(
+export async function getViewRecord(
   manifest: ViewManifest,
   agentGroupFolder: string,
   id: string,
-): Record<string, unknown> | null {
+): Promise<Record<string, unknown> | null> {
   switch (manifest.data.type) {
     case 'sqlite':
       return recordSqlite(manifest, agentGroupFolder, id);
