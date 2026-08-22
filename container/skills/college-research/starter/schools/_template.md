@@ -46,16 +46,6 @@ fields:
       retrieved: "2026-01-01"
       confidence: estimated
       notes: "100 - (study_abroad 45% x 1 term / 8) ≈ 94; rounded down for satellite rotation. Store the arithmetic, not just the number."
-
-references:
-  - id: paper-2025-10-14
-    url: https://example.edu/paper/opinion/...
-    title: "Opinion: ..."
-    publisher: The Example Daily
-    published: "2025-10-14"
-    retrieved: "2026-01-01"
-    tier: 1
-    provenance: op-ed
 ---
 
 # Example University
@@ -78,3 +68,12 @@ references:
 ## Notable artifacts
 - <!-- 3-5 specific, dated, named examples: a student-founded org + founding year, a
        recurring event, a student-taught course. -->
+
+## References
+
+<!-- References live here in the body (not frontmatter): they read naturally as prose
+     and keep the structured header light. Cite them inline above by id, e.g.
+     [paper-2025-10-14]. Tier 1-3 per the evidence model; for student media, note the
+     provenance (news / op-ed / letter). -->
+
+- **paper-2025-10-14** — [Opinion: ...](https://example.edu/paper/opinion/...) · The Example Daily, 2025-10-14 · Tier 1 · op-ed

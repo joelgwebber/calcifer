@@ -43,7 +43,7 @@ export function ViewDetail() {
   const docField = manifest.detail?.document;
   const rawDoc = docField ? String(row[docField] ?? '') : '';
   const hasDoc = !!rawDoc.trim();
-  const { frontmatter, body: docBody } = splitFrontmatter(rawDoc);
+  const { body: docBody } = splitFrontmatter(rawDoc);
   const docMarkdown = convertWikiLinks(docBody);
 
   // Intra-view navigation for the prose primitive: a relative .md link loads that
@@ -106,7 +106,7 @@ export function ViewDetail() {
 
       {hasDoc && (
         <div className="doc">
-          {frontmatter && <FrontmatterHeader raw={frontmatter} />}
+          {row._frontmatter ? <FrontmatterPanel data={row._frontmatter} /> : null}
           <Prose markdown={docMarkdown} nav={{ onNavigate, resolveAsset }} />
         </div>
       )}
@@ -195,49 +195,62 @@ function convertWikiLinks(md: string): string {
   });
 }
 
-/** Lightly parse `key: value` frontmatter lines; `[a, b]` values become lists. */
-function parseFrontmatter(raw: string): Array<{ key: string; values: string[] }> {
-  const out: Array<{ key: string; values: string[] }> = [];
-  for (const line of raw.split('\n')) {
-    const m = /^([A-Za-z0-9_ -]+):\s*(.*)$/.exec(line.trim());
-    if (!m) continue;
-    const key = m[1].trim();
-    const rawVal = m[2].trim();
-    let values: string[];
-    if (rawVal.startsWith('[') && rawVal.endsWith(']')) {
-      values = rawVal
-        .slice(1, -1)
-        .split(',')
-        .map((s) => s.trim().replace(/^["']|["']$/g, ''))
-        .filter(Boolean);
-    } else {
-      const v = rawVal.replace(/^["']|["']$/g, '');
-      values = v ? [v] : [];
-    }
-    out.push({ key, values });
-  }
-  return out;
+/** Count scalar leaves in a parsed-frontmatter value (for the collapse heuristic). */
+function countLeaves(v: unknown): number {
+  if (Array.isArray(v)) return v.reduce<number>((n, x) => n + countLeaves(x), 0);
+  if (v && typeof v === 'object') return Object.values(v).reduce<number>((n, x) => n + countLeaves(x), 0);
+  return 1;
 }
 
-/** Render frontmatter as a small metadata header above the document body. */
-function FrontmatterHeader({ raw }: { raw: string }) {
-  const entries = parseFrontmatter(raw).filter((e) => e.values.length > 0);
-  if (entries.length === 0) return null;
+/** Recursively render a parsed-frontmatter value as a labeled, indented tree. */
+function FmNode({ data }: { data: unknown }) {
+  if (data === null || data === undefined || data === '') return <span className="fm-scalar fm-empty">—</span>;
+  if (Array.isArray(data)) {
+    return (
+      <ul className="fm-list">
+        {data.map((item, i) => (
+          <li key={i}>
+            <FmNode data={item} />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (typeof data === 'object') {
+    return (
+      <dl className="fm-tree">
+        {Object.entries(data as Record<string, unknown>).map(([k, v]) => {
+          const nested = !!v && typeof v === 'object';
+          return (
+            <div className={`fm-entry ${nested ? 'fm-nested' : 'fm-leaf'}`} key={k}>
+              <dt className="fm-key">{k}</dt>
+              <dd className="fm-val">
+                <FmNode data={v} />
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    );
+  }
+  return <span className="fm-scalar">{String(data)}</span>;
+}
+
+/**
+ * Structured-frontmatter panel: prose leads, so heavy frontmatter (e.g. a college
+ * record's fielded header) collapses by default; light frontmatter stays open.
+ */
+function FrontmatterPanel({ data }: { data: unknown }) {
+  if (!data || typeof data !== 'object') return null;
+  const leaves = countLeaves(data);
+  const heavy = leaves > 8;
   return (
-    <dl className="doc-frontmatter">
-      {entries.map((e) => (
-        <div className="fm-row" key={e.key}>
-          <dt className="fm-key">{e.key}</dt>
-          <dd className="fm-vals">
-            {e.values.map((v, i) => (
-              <span className="v-badge" key={i}>
-                {v}
-              </span>
-            ))}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <details className="doc-frontmatter" open={!heavy}>
+      <summary className="fm-summary">Structured fields{heavy ? ` · ${leaves}` : ''}</summary>
+      <div className="fm-body">
+        <FmNode data={data} />
+      </div>
+    </details>
   );
 }
 

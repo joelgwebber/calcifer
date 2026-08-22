@@ -15,6 +15,8 @@ import path from 'path';
 
 import Database from 'better-sqlite3';
 
+import { parse as parseYaml } from 'yaml';
+
 import { getAnnotationsFor, getEntityIdsWithAnnotation } from '../db/annotations.js';
 import { FS_VIEW_ROOT, GROUPS_DIR, SHARED_DATA_DIR } from '../config.js';
 import { log } from '../log.js';
@@ -569,6 +571,23 @@ async function queryFs(manifest: ViewManifest, params: QueryParams): Promise<Que
   return { items: paged, total, page, pageSize, facets };
 }
 
+/**
+ * Parse a leading YAML frontmatter block into a structured object, so the client
+ * can render it nesting-aware (the old client-side line parser flattened nested
+ * frontmatter into an unlabeled wall). Returns null when there's no block or it
+ * isn't a mapping. Uses YAML 1.2 core schema, so bare dates stay strings.
+ */
+function extractFrontmatter(text: string): Record<string, unknown> | null {
+  const m = /^\uFEFF?---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text);
+  if (!m) return null;
+  try {
+    const parsed = parseYaml(m[1]) as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function recordFs(manifest: ViewManifest, id: string): Promise<Record<string, unknown> | null> {
   let rootDir: string;
   try {
@@ -613,6 +632,8 @@ async function recordFs(manifest: ViewManifest, id: string): Promise<Record<stri
       }
     }
     record[documentField] = content;
+    const fm = extractFrontmatter(content);
+    if (fm) record._frontmatter = fm;
   }
   const rel = String(record[manifest.idField] ?? record.path);
   record._ann = (await getAnnotationsFor(manifest.skill, [rel])).get(rel) ?? {};

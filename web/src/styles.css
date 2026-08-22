@@ -1100,11 +1100,26 @@ body {
 
 /* Document frontmatter header (calcifer-7b34.2) */
 .doc-frontmatter {
-  margin: 0 0 16px; padding: 10px 12px;
+  margin: 0 0 16px; padding: 8px 12px;
   background: rgba(127, 127, 127, 0.06);
   border: 1px solid rgba(127, 127, 127, 0.15);
   border-radius: 8px; font-size: 0.85rem;
 }
-.doc-frontmatter .fm-row { display: flex; gap: 8px; align-items: baseline; margin: 3px 0; }
-.doc-frontmatter .fm-key { min-width: 90px; color: var(--muted, #6b7280); font-weight: 600; text-transform: capitalize; }
-.doc-frontmatter .fm-vals { display: flex; flex-wrap: wrap; gap: 4px; }
+.doc-frontmatter > .fm-summary {
+  cursor: pointer; color: var(--muted, #6b7280); font-weight: 600; user-select: none;
+}
+.doc-frontmatter .fm-body { margin-top: 8px; }
+.doc-frontmatter dl.fm-tree { margin: 0; }
+.doc-frontmatter dd { margin: 0; }
+.doc-frontmatter .fm-entry { margin: 2px 0; }
+.doc-frontmatter .fm-entry.fm-leaf { display: flex; gap: 8px; align-items: baseline; }
+.doc-frontmatter .fm-entry.fm-leaf > .fm-key { min-width: 130px; flex: 0 0 auto; }
+.doc-frontmatter .fm-key { color: var(--muted, #6b7280); font-weight: 600; }
+.doc-frontmatter .fm-entry.fm-nested > .fm-key { display: block; margin: 6px 0 2px; color: var(--text, inherit); }
+.doc-frontmatter .fm-entry.fm-nested > .fm-val {
+  border-left: 2px solid rgba(127, 127, 127, 0.15); padding-left: 10px; margin-left: 2px;
+}
+.doc-frontmatter .fm-val { min-width: 0; word-break: break-word; }
+.doc-frontmatter .fm-list { margin: 0; padding-left: 16px; }
+.doc-frontmatter .fm-list > li { margin: 4px 0; }
+.doc-frontmatter .fm-empty { color: var(--muted, #9ca3af); }

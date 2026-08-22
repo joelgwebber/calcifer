@@ -76,6 +76,8 @@ export interface ViewSummary {
 export type Row = Record<string, unknown> & {
   _ann?: Record<string, string>;
   _timeline?: Array<Record<string, unknown>>;
+  /** Parsed YAML frontmatter of the record's document, if any (server-parsed). */
+  _frontmatter?: unknown;
 };
 
 export interface QueryResult {
