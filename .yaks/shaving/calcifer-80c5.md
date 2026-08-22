@@ -4,7 +4,7 @@ title: 'Memory: converge on upstream''s provider-agnostic memory subsystem'
 type: feature
 priority: 2
 created: '2026-08-22T15:16:48Z'
-updated: '2026-08-22T20:27:24Z'
+updated: '2026-08-22T20:50:49Z'
 labels:
 - memory
 ---
@@ -58,3 +58,7 @@ SYNC DONE (this session). Merged upstream/main (v2.2.0, 915 commits) into main: 
 ---
 ▸ 2026-08-22T20:27:24Z
 OUTAGE + FIX (post-restart): after the service came up on v2.2.0, ALL channels (web + WhatsApp) showed activity but never completed. Root cause = the OneCLI /v1 breaking change: @onecli-sh/sdk 0.5->2.2.1 calls POST http://172.17.0.1:10254/v1/agents, but the running gateway (ghcr.io/onecli/onecli:latest, frozen at install day) returned 404 -> ensureAgent failed -> no container spawned. FIX (sanctioned, per docs/onecli-upgrades.md): edited ~/.onecli/docker-compose.yml to pin image to 1.41.0 (was :latest; backup at docker-compose.yml.bak-preupdate), and created ~/.onecli/.env with ONECLI_BIND_HOST=172.17.0.1 (the recreate had dropped the docker-bridge bind, leaving it on 127.0.0.1 where containers can't reach it). /v1/health now 200 host-side AND container-side; version 1.41.0. Verified end-to-end: fresh web message -> container spawns (new ncl-<slug>-<session> naming) -> 'OK — Jay' reply in ~4s, with Jay recalled from auto-injected OKF memory. Everything green.
+
+---
+▸ 2026-08-22T20:50:49Z
+CONFABULATION FIX (follow-on to 619d). The web agent kept reporting phantom 'disconnected mcp__simple-memory__*' tools even though simple-memory was removed from all group configs in 619d. Root cause: the dead stdio impl container/agent-runner/src/simple-memory-mcp-stdio.ts (OURS, from the v1->v2 migration af5babe3; never registered; NOT in upstream) lingered, and since the agent mounts calcifer-project read-only it could READ that file + old transcripts and invent 'offline tools'. Removed the file (commit 348102cf) + deleted stale materialized container.json for dm-with-alicia/the-hearth (regenerate clean from DB). Verified: fresh web audit now reports ONLY file-based OKF memory (index.md + system/definition.md + people/jay.md) as connected, and mnemon as explicitly not-installed — no simple-memory anywhere. DECISION: do NOT install mnemon; it's redundant with the upstream OKF subsystem. Memory is now: OKF file memory (auto-injected, human-editable) + cross-session-context. Remaining cruft (low pri): stale v1 data/sessions/* + data/projects/* agent-runner-src copies still contain the old file, but v2 uses data/v2-sessions and never mounts those.
