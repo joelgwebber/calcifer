@@ -159,7 +159,10 @@ function cmdList(schema, schools) {
 
 function cmdMissing(schema, schools, target, criterion) {
   const list = target === 'all' ? schools : schools.filter((s) => s.slug === target);
-  if (!list.length) die(`no such school: ${target}`);
+  if (!list.length) {
+    if (target === 'all') return console.log('No schools yet.');
+    die(`no such school: ${target}`);
+  }
   for (const s of list) {
     const v = flatValues(s);
     const gaps = [];
@@ -202,7 +205,10 @@ const fmtVal = (x) => (x === undefined || x === null || x === '' ? '—' : Strin
 
 function cmdDerive(schema, schools, target) {
   const list = target === 'all' ? schools : schools.filter((s) => s.slug === target);
-  if (!list.length) die(`no such school: ${target}`);
+  if (!list.length) {
+    if (target === 'all') return console.log('No schools yet.');
+    die(`no such school: ${target}`);
+  }
   const idx = fieldIndex(schema);
   const derived = [...idx.entries()].filter(([, { def }]) => def.type === 'derived').map(([n]) => n);
   for (const s of list) {
@@ -224,7 +230,10 @@ function cmdDerive(schema, schools, target) {
 
 function cmdValidate(schema, schools, target) {
   const list = target === 'all' ? schools : schools.filter((s) => s.slug === target);
-  if (!list.length) die(`no such school: ${target}`);
+  if (!list.length) {
+    if (target === 'all') return console.log('No schools yet.');
+    die(`no such school: ${target}`);
+  }
   const idx = fieldIndex(schema);
   const meta = (schema.meta && schema.meta.enums) || {};
   const curVer = String(schema.schema_version ?? '');
