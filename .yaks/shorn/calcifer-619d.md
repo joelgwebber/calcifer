@@ -4,7 +4,7 @@ title: Retire Simple Memory MCP + clean up orphaned memory files
 type: task
 priority: 2
 created: '2026-08-22T15:17:05Z'
-updated: '2026-08-22T15:42:24Z'
+updated: '2026-08-22T19:05:19Z'
 parent: calcifer-80c5
 labels:
 - memory
@@ -19,3 +19,7 @@ MCP removed from all 3 groups via ncl groups config remove-mcp-server (dm-with-j
 ---
 ▸ 2026-08-22T15:42:24Z
 COMPLETE. Migrated person_jay.md -> /home/joel/Seafile/family-wiki/memory/people/jay.md (cleaned frontmatter) and deleted the orphaned .claude-shared/projects/*/memory/ dirs across all sessions. Simple Memory MCP already removed from all 3 groups.
+
+---
+▸ 2026-08-22T19:05:19Z
+Still valid post-convergence: simple-memory removal + orphan cleanup are compatible with upstream's system. person_jay content preserved for re-homing into upstream's memory tree.

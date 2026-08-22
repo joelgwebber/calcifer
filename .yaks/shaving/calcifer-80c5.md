@@ -1,10 +1,10 @@
 ---
 id: calcifer-80c5
-title: 'Memory architecture: wiki-backed durable memory + consolidation'
+title: 'Memory: converge on upstream''s provider-agnostic memory subsystem'
 type: feature
 priority: 2
 created: '2026-08-22T15:16:48Z'
-updated: '2026-08-22T15:17:05Z'
+updated: '2026-08-22T19:05:04Z'
 labels:
 - memory
 ---
@@ -25,3 +25,28 @@ TARGET (owner-approved direction): two tiers, both leaning on what nc already ha
 Retire Simple Memory MCP. Skip Anthropic memory_20250818 tool (CLI/API-only store, opposite of the discoverability goal; avoid extra complexity).
 
 Open convention choice: dedicated memory/ area per wiki vs woven into normal wiki structure.
+
+---
+▸ 2026-08-22T19:05:04Z
+DIRECTION CHANGE (upstream scan, this session). Upstream qwibitai/NanoClaw is v2.2.0, 911 commits ahead of our merge-base (24922593, 2026-05-25). It has built a mature PROVIDER-AGNOSTIC persistent-memory subsystem we should converge on instead of building bespoke. Decision: run /update-nanoclaw first, then adopt upstream memory; do NOT finish our bespoke contract/consolidator.
+
+UPSTREAM MODEL (docs/memory.md; container/agent-runner/src/memory/):
+- File-based Markdown per agent group at groups/<folder>/memory/ = /workspace/agent/memory/. No DB/embeddings.
+- memory/index.md (Core Memory + map) + memory/system/definition.md (agent-owned doctrine) are AUTO-INJECTED into context on every fresh window (startup/clear/compaction) via a provider-agnostic session-start hook; 16k cap each; detail followed JIT via links.
+- OKF (Open Knowledge Format) v0.1: one concept per file, YAML 'type' frontmatter (person/project/decision...); portable across providers.
+- Role/persona -> /workspace/agent/instructions.prepend.md; transcripts -> conversations/.
+- /migrate-memory skill absorbs legacy (CLAUDE.md notes, Claude auto-memory dir, .seed.md, imported-agent-memory.md).
+- Scaffold auto-created on boot; never clobbers existing files.
+
+WE CONVERGED on the core (file-based, index-first, headlines+pointers with detail in linked files, human-editable, no DB). Theirs is MORE MATURE: auto-injection > our consult-contract; OKF portability; provider-agnostic; migration skill + rich definition.md doctrine ('remember the approach not the instance', entity-thinking, keep-it-true/prune).
+
+OUR DIVERGENCES TO PRESERVE ON TOP OF UPSTREAM: (1) web-UI discoverability; (2) family-shared vs personal split (maps better to AGENT-GROUP scope: shared family agent group [yak 5ecc] holds family memory, dm-with-joel holds personal — cleaner than our two-wikis idea).
+
+CRUFT TO CLEAR during convergence (created this session, now superseded):
+- Bespoke 'Durable memory' contract block in groups/dm-with-joel/CLAUDE.local.md (gitignored) -> superseded by upstream definition.md; remove/replace.
+- Bespoke wiki memory scaffold at /home/joel/Seafile/family-wiki/memory/ (index.md + people/jay.md) and /home/joel/Seafile/joel-wiki/memory/index.md -> re-home person_jay content into upstream's tree (or keep wiki as store via symlink if we go that route); otherwise delete.
+- Verify simple-memory stays removed from all 3 group configs after the sync.
+
+KEEP (compatible, done): 619d cleanup — simple-memory removed from all 3 groups; orphan Claude-state memory/ files deleted; person_jay content preserved (now in wiki, easily re-homed).
+
+BLOCKED ON: /update-nanoclaw sync (user running next, post-compact).

@@ -4,7 +4,7 @@ title: Establish wiki-backed memory contract (CLAUDE.local.md pointers)
 type: task
 priority: 2
 created: '2026-08-22T15:17:05Z'
-updated: '2026-08-22T15:42:24Z'
+updated: '2026-08-22T19:05:19Z'
 parent: calcifer-80c5
 labels:
 - memory
@@ -19,3 +19,7 @@ Convention decided: dedicated memory/ area per wiki, INDEX-FIRST retrieval. Rati
 Done for dm-with-joel + shared: created family-wiki/memory/{index.md,people/jay.md} and joel-wiki/memory/index.md (host /home/joel/Seafile/...); added a 'Durable memory' contract to groups/dm-with-joel/CLAUDE.local.md (index-first, when to consult/update, keep entries short + link out, grep fallback, daily consolidation tidies).
 
 REMAINING (mechanical rollout): same CLAUDE.local.md contract for dm-with-alicia (alicia-wiki) + the-hearth (family-only); alicia-wiki/memory scaffold. NOTE existing wikis already have human structure (joel-wiki/people, preferences; family-wiki/health, vehicles) — memory/ index can link OUT to those human docs for detail rather than duplicating.
+
+---
+▸ 2026-08-22T19:05:19Z
+OBVIATED by the decision to converge on upstream's memory subsystem. Our bespoke wiki-backed contract (CLAUDE.local.md 'Durable memory' block) is superseded by upstream's auto-injected memory/system/definition.md. The artifacts it produced (wiki memory/ scaffold + CLAUDE.local.md contract) are now CRUFT to clear during convergence; person_jay content is preserved. Not pursuing as designed.
