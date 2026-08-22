@@ -4,7 +4,7 @@ title: 'Memory: converge on upstream''s provider-agnostic memory subsystem'
 type: feature
 priority: 2
 created: '2026-08-22T15:16:48Z'
-updated: '2026-08-22T20:02:43Z'
+updated: '2026-08-22T20:27:24Z'
 labels:
 - memory
 ---
@@ -54,3 +54,7 @@ BLOCKED ON: /update-nanoclaw sync (user running next, post-compact).
 ---
 ▸ 2026-08-22T20:02:43Z
 SYNC DONE (this session). Merged upstream/main (v2.2.0, 915 commits) into main: merge commit 4d8054f7 + integration commit a610a218, both pushed to origin. Upstream's provider-agnostic memory subsystem is now IN TREE (container/agent-runner/src/memory/, docs/memory.md, /migrate-memory skill). Resolved 17 conflicts; reconciled the async DbDriver ripple; renumbered our migrations 016/017->024/025; kept both our activity-status (5b6b) + upstream's typing module; kept our web-thread funnel guard in findSessionByAgentGroup alongside upstream's a2a path; exempted session-echo from our #2436 group_context. Host build + 1989 host tests + 353 container tests green. Upgrade marker stamped v2.2.0. Container rebuild in progress; service restart pending. Memory adoption now unblocked -> see 3f90.
+
+---
+▸ 2026-08-22T20:27:24Z
+OUTAGE + FIX (post-restart): after the service came up on v2.2.0, ALL channels (web + WhatsApp) showed activity but never completed. Root cause = the OneCLI /v1 breaking change: @onecli-sh/sdk 0.5->2.2.1 calls POST http://172.17.0.1:10254/v1/agents, but the running gateway (ghcr.io/onecli/onecli:latest, frozen at install day) returned 404 -> ensureAgent failed -> no container spawned. FIX (sanctioned, per docs/onecli-upgrades.md): edited ~/.onecli/docker-compose.yml to pin image to 1.41.0 (was :latest; backup at docker-compose.yml.bak-preupdate), and created ~/.onecli/.env with ONECLI_BIND_HOST=172.17.0.1 (the recreate had dropped the docker-bridge bind, leaving it on 127.0.0.1 where containers can't reach it). /v1/health now 200 host-side AND container-side; version 1.41.0. Verified end-to-end: fresh web message -> container spawns (new ncl-<slug>-<session> naming) -> 'OK — Jay' reply in ~4s, with Jay recalled from auto-injected OKF memory. Everything green.
