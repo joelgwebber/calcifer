@@ -4,7 +4,7 @@ title: 'Memory: converge on upstream''s provider-agnostic memory subsystem'
 type: feature
 priority: 2
 created: '2026-08-22T15:16:48Z'
-updated: '2026-08-22T19:05:04Z'
+updated: '2026-08-22T20:02:43Z'
 labels:
 - memory
 ---
@@ -50,3 +50,7 @@ CRUFT TO CLEAR during convergence (created this session, now superseded):
 KEEP (compatible, done): 619d cleanup — simple-memory removed from all 3 groups; orphan Claude-state memory/ files deleted; person_jay content preserved (now in wiki, easily re-homed).
 
 BLOCKED ON: /update-nanoclaw sync (user running next, post-compact).
+
+---
+▸ 2026-08-22T20:02:43Z
+SYNC DONE (this session). Merged upstream/main (v2.2.0, 915 commits) into main: merge commit 4d8054f7 + integration commit a610a218, both pushed to origin. Upstream's provider-agnostic memory subsystem is now IN TREE (container/agent-runner/src/memory/, docs/memory.md, /migrate-memory skill). Resolved 17 conflicts; reconciled the async DbDriver ripple; renumbered our migrations 016/017->024/025; kept both our activity-status (5b6b) + upstream's typing module; kept our web-thread funnel guard in findSessionByAgentGroup alongside upstream's a2a path; exempted session-echo from our #2436 group_context. Host build + 1989 host tests + 353 container tests green. Upgrade marker stamped v2.2.0. Container rebuild in progress; service restart pending. Memory adoption now unblocked -> see 3f90.
