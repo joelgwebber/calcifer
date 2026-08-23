@@ -37,8 +37,10 @@ criteria:
   admissions:
     title: Admissions selectivity
     spec: criteria/admissions.md
+    # admissions_process_type enum: stats_based | holistic | mixed (see criteria/admissions.md)
     fields:
       acceptance_rate_pct: { type: pct, label: "Acceptance rate %" }
+      admissions_process_type: { type: enum, label: "Admissions process" }
     prose_sections: [selectivity_notes]
 
   academic_programs:
