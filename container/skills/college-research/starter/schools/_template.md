@@ -75,9 +75,10 @@ fields:
 
 ## References
 
-<!-- References live here in the body (not frontmatter): they read naturally as prose
-     and keep the structured header light. Cite them inline above by id, e.g.
-     [paper-2025-10-14]. Tier 1-3 per the evidence model; for student media, note the
+<!-- References live in the body (not frontmatter). Cite inline by id, e.g. [cds-2024-25].
+     Format: [id] "Title." [Publisher, Year](url) — tier 1-3[, provenance], retrieved YYYY-MM-DD.
+     Use an explicit link on Publisher, Year (not a raw URL); for student media include
      provenance (news / op-ed / letter). -->
 
-- **paper-2025-10-14** — [Opinion: ...](https://example.edu/paper/opinion/...) · The Example Daily, 2025-10-14 · Tier 1 · op-ed
+- [cds-2024-25] "Common Data Set 2024-2025." [Example University Office of Institutional Research, 2025](https://example.edu/cds.pdf) — tier 2, retrieved 2026-01-01.
+- [paper-2025-10-14] "Opinion: ..." [The Example Daily, 2025](https://example.edu/opinion/...) — tier 1, op-ed, retrieved 2026-01-01.

@@ -76,10 +76,11 @@ Frontmatter = the structured header; body = exposition + references. See
   line stating the assumptions and arithmetic.
 - Derived fields (e.g. `grad_gap_4_to_6`, `orgs_per_1000_undergrads`) are **not stored** —
   store their inputs and let `colleges.mjs derive` compute them.
-- References go in a `## References` section in the **body** (not frontmatter), each an
-  entry with an `id`, link, `tier` (1-3) and, for student media, `provenance`
-  (`news` / `op-ed` / `letter`). Cite them inline by `id`. Keeping them in the body
-  reads naturally and keeps the structured header light.
+- References go in a `## References` section in the **body** (not frontmatter). Format
+  each entry as:
+  `[id] "Title." [Publisher, Year](url) — tier 1-3[, provenance], retrieved YYYY-MM-DD.`
+  Use an explicit markdown link on the publisher/year, **not** a raw URL; for student
+  media include `provenance` (`news`/`op-ed`/`letter`). Cite inline by `[id]`.
 
 ## Evidence model (universal discipline — applies to every criterion)
 
