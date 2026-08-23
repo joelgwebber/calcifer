@@ -1,4 +1,8 @@
 ---
+# type: college is the OKF concept type (reserved key, first line) — these records are
+# OKF concepts, portable/greppable like the agent's memory bundle. Our institution
+# category lives under institution_type (NOT type, which OKF reserves).
+type: college
 # Structured header. Fields are grouped by criterion; every non-derived cell carries
 # the full metadata contract (see schema.yml meta.field_metadata). Derived fields
 # (grad_gap_4_to_6, orgs_per_1000_undergrads, ...) are NOT stored — `colleges.mjs
@@ -9,7 +13,7 @@ schema_version: "0.1"
 school: Example University
 slug: example
 location: City, ST
-type: large-urban-research      # free label; groups peers for the size-band caveat
+institution_type: large-urban-research   # our category; groups peers for the size-band caveat
 last_reviewed: "2026-01-01"
 
 fields:

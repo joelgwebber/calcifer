@@ -195,11 +195,67 @@ function convertWikiLinks(md: string): string {
   });
 }
 
-/** Count scalar leaves in a parsed-frontmatter value (for the collapse heuristic). */
+function isScalar(v: unknown): v is string | number | boolean {
+  return v === null || v === undefined || ['string', 'number', 'boolean'].includes(typeof v);
+}
+
+/**
+ * A "value cell" is the one shape that recurs across structured records (a college
+ * field, and likely future OKF concepts): an object with a scalar `value`. We
+ * special-case ONLY three keys — `value` (promoted to the headline), `source_url`
+ * (turned into a link), and `notes` (tucked behind a disclosure). Every OTHER key
+ * — `as_of`, `confidence`, `retrieved`, `source_type`, and anything we've never
+ * seen — degrades to a compact `key: value` chip. Nothing is dropped or ranked;
+ * that deliberate limit is the boundary where a per-type render schema would take
+ * over (e.g. to format 57 -> "57%", order fields, or hide `retrieved`).
+ */
+function isValueCell(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v) && 'value' in v && isScalar((v as Record<string, unknown>).value);
+}
+const CELL_PROMOTED = new Set(['value', 'notes', 'source_url']);
+
+/** Count rows a value renders as (for the collapse heuristic): a value cell is one row. */
 function countLeaves(v: unknown): number {
+  if (isValueCell(v)) return 1;
   if (Array.isArray(v)) return v.reduce<number>((n, x) => n + countLeaves(x), 0);
   if (v && typeof v === 'object') return Object.values(v).reduce<number>((n, x) => n + countLeaves(x), 0);
   return 1;
+}
+
+function ValueCell({ cell }: { cell: Record<string, unknown> }) {
+  const src = typeof cell.source_url === 'string' && cell.source_url ? cell.source_url : undefined;
+  const val = cell.value;
+  const shown = val === '' || val === null || val === undefined ? '—' : String(val);
+  const chips = Object.entries(cell).filter(
+    ([k, v]) => !CELL_PROMOTED.has(k) && isScalar(v) && v !== '' && v !== null && v !== undefined,
+  );
+  const notes = typeof cell.notes === 'string' && cell.notes.trim() ? cell.notes.trim() : '';
+  return (
+    <div className="fm-cell">
+      {src ? (
+        <a className="fm-cell-value" href={src} target="_blank" rel="noreferrer noopener">
+          {shown} ↗
+        </a>
+      ) : (
+        <span className="fm-cell-value">{shown}</span>
+      )}
+      {chips.length > 0 && (
+        <span className="fm-cell-byline">
+          {chips.map(([k, v]) => (
+            <span className="fm-chip" key={k}>
+              <span className="fm-chip-k">{k}</span> {String(v)}
+            </span>
+          ))}
+        </span>
+      )}
+      {notes && (
+        <details className="fm-cell-notes">
+          <summary>notes</summary>
+          <div className="fm-cell-notes-body">{notes}</div>
+        </details>
+      )}
+    </div>
+  );
 }
 
 /** Recursively render a parsed-frontmatter value as a labeled, indented tree. */
@@ -220,6 +276,16 @@ function FmNode({ data }: { data: unknown }) {
     return (
       <dl className="fm-tree">
         {Object.entries(data as Record<string, unknown>).map(([k, v]) => {
+          if (isValueCell(v)) {
+            return (
+              <div className="fm-entry fm-leaf" key={k}>
+                <dt className="fm-key">{k}</dt>
+                <dd className="fm-val">
+                  <ValueCell cell={v as Record<string, unknown>} />
+                </dd>
+              </div>
+            );
+          }
           const nested = !!v && typeof v === 'object';
           return (
             <div className={`fm-entry ${nested ? 'fm-nested' : 'fm-leaf'}`} key={k}>

@@ -61,6 +61,9 @@ node /app/skills/college-research/colleges.mjs list
 Frontmatter = the structured header; body = exposition + references. See
 `schools/_template.md` for the exact shape. Rules:
 
+- Each record is an **OKF concept**: the first frontmatter line is `type: college`
+  (`type` is OKF-reserved). The institution category lives under `institution_type`,
+  never `type`.
 - Fields are grouped by criterion: `fields.<criterion>.<field>`. Each cell carries the
   full metadata contract (`value, source_url, source_type, as_of, retrieved,
   confidence, notes` — see `schema.yml` `meta`).

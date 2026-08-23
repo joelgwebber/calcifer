@@ -1123,3 +1123,14 @@ body {
 .doc-frontmatter .fm-list { margin: 0; padding-left: 16px; }
 .doc-frontmatter .fm-list > li { margin: 4px 0; }
 .doc-frontmatter .fm-empty { color: var(--muted, #9ca3af); }
+/* Provenance value-cell: value headline + muted byline chips + notes disclosure. */
+.doc-frontmatter .fm-cell { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.doc-frontmatter .fm-cell-value { font-weight: 600; color: var(--text, inherit); }
+.doc-frontmatter a.fm-cell-value { text-decoration: none; }
+.doc-frontmatter a.fm-cell-value:hover { text-decoration: underline; }
+.doc-frontmatter .fm-cell-byline { display: inline-flex; flex-wrap: wrap; gap: 3px 8px; font-size: 0.9em; }
+.doc-frontmatter .fm-chip { white-space: nowrap; color: var(--muted, #6b7280); }
+.doc-frontmatter .fm-chip-k { opacity: 0.65; margin-right: 3px; }
+.doc-frontmatter .fm-cell-notes { flex-basis: 100%; margin-top: 1px; }
+.doc-frontmatter .fm-cell-notes > summary { cursor: pointer; color: var(--muted, #6b7280); font-size: 0.9em; }
+.doc-frontmatter .fm-cell-notes-body { margin-top: 4px; color: var(--muted, #4b5563); white-space: pre-wrap; }
