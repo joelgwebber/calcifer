@@ -11,11 +11,13 @@ gathering and structuring evidence about schools, under a discipline designed to
 resist marketing spin, while keeping the irreducible qualitative findings as
 first-class prose.
 
-**This is wiki-native, not an app.** One markdown file per school: a structured
-header (comparable fields) in YAML frontmatter, plus prose findings in the body.
-The set of schools is small and the schema keeps evolving, so plain files —
-greppable, human-editable, diffable, Seafile-synced — beat a database. A small
-`colleges.mjs` tool adds real queries on top of the structured subset.
+**This is wiki-native, not an app**, and it follows OKF/NC norms: one `type: college`
+OKF concept per school, a lean structured header (only genuinely comparable numbers, as
+bare scalars) plus prose findings, and an `index.md` map you navigate index-first with
+grep/`yq`. The set of schools is small and half the value is irreducible prose, so plain
+files — greppable, human-editable, Seafile-synced — beat a database. A small
+`colleges.mjs` tool adds queries over the comparable subset; it's an accelerant, not a
+gatekeeper.
 
 ## Layout (code vs. data)
 
@@ -23,8 +25,8 @@ greppable, human-editable, diffable, Seafile-synced — beat a database. A small
   (the query/validate tool) and `starter/` (the scaffold copied into the wiki on
   first run).
 - **Data** (the corpus, read-write, Seafile-synced): the family wiki at
-  `/workspace/extra/shared/family-wiki/colleges/` — `schema.yml`, `criteria/`,
-  `schools/`, `README.md`. This is the source of truth and it evolves; edit it freely.
+  `/workspace/extra/shared/family-wiki/colleges/` — `index.md`, `schema.yml`,
+  `criteria/`, `schools/`. This is the source of truth and it evolves; edit it freely.
 - **Runtime lib** (writable, NOT synced): `js-yaml` for the tool, installed once
   under `/workspace/agent/college-research/node_modules` — kept out of the wiki so
   Seafile never syncs `node_modules`.
@@ -52,35 +54,35 @@ node /app/skills/college-research/colleges.mjs list
 
 | Path (under the wiki `colleges/`) | What |
 |------|------|
-| `schema.yml` | Machine-readable field registry — the tool's source of truth. Field defs, §4 pairings, derived formulas. |
-| `criteria/<name>.md` | One spec per criterion: its decomposition, falsification tests, field notes, open questions. `engagement.md` first. |
+| `index.md` | The OKF map: Core description + the Schools list + criteria links. Keep it current. |
+| `schema.yml` | Machine-readable field registry — the tool's source of truth. Lean field defs, §4 pairings, derived formulas. |
+| `criteria/<name>.md` | One spec per criterion (engagement, admissions, academic_programs, …): decomposition, falsification tests, open questions. |
 | `schools/<slug>.md` | One record per school. `_template.md` is the blank; files starting with `_` are skipped by the tool. |
 
 ## Record format
 
-Frontmatter = the structured header; body = exposition + references. See
+Frontmatter = a **lean** structured header; body = prose findings + references. See
 `schools/_template.md` for the exact shape. Rules:
 
 - Each record is an **OKF concept**: the first frontmatter line is `type: college`
-  (`type` is OKF-reserved). The institution category lives under `institution_type`,
-  never `type`.
-- Fields are grouped by criterion: `fields.<criterion>.<field>`. Each cell carries the
-  full metadata contract (`value, source_url, source_type, as_of, retrieved,
-  confidence, notes` — see `schema.yml` `meta`).
-- `as_of` is the **reporting period of the data**, not the retrieval date and not the
-  CDS edition year (institutions publish CDS sections with inconsistent lag — a
-  2024-25 CDS may report Fall 2023 class sizes). Getting this wrong silently offsets
-  comparisons by a year.
-- **Never fabricate a value.** If you cannot verify a field, leave it out — `colleges.mjs
-  missing` will list it. A value with `confidence: estimated` **requires** a `notes`
-  line stating the assumptions and arithmetic.
-- Derived fields (e.g. `grad_gap_4_to_6`, `orgs_per_1000_undergrads`) are **not stored** —
-  store their inputs and let `colleges.mjs derive` compute them.
-- References go in a `## References` section in the **body** (not frontmatter). Format
-  each entry as:
-  `[id] "Title." [Publisher, Year](url) — tier 1-3[, provenance], retrieved YYYY-MM-DD.`
-  Use an explicit markdown link on the publisher/year, **not** a raw URL; for student
-  media include `provenance` (`news`/`op-ed`/`letter`). Cite inline by `[id]`.
+  (`type` is OKF-reserved). The institution category lives under `institution_type`.
+- **Comparable numbers only, as BARE scalars grouped by criterion** —
+  `engagement: { grad_rate_6yr: 91, ... }`. **No** per-field `source_url` / `retrieved` /
+  `confidence` / `notes`. This is personal research, not a citation graph — err strongly
+  toward YAGNI. Only put a number in frontmatter if you'd actually compare it across schools.
+- **The prose carries everything else** — the caveats that make a number mean something
+  ("use the 6-yr; the 4-yr is meaningless under co-op"), specific artifacts, and sourcing.
+  It's greppable; lean on it rather than adding structured fields.
+- **Never fabricate a value.** If you can't get it, leave the field out (`colleges.mjs
+  missing` lists gaps).
+- Derived fields (e.g. `orgs_per_1000_undergrads`) are **not stored** — store the inputs;
+  `colleges.mjs derive` computes them.
+- **References are loose**, in a `## References` body section:
+  `[id] "Title." [Publisher, Year](url) — tier 1-3[, provenance].` Cite inline by `[id]`.
+  **Never manufacture a citation** for word-of-mouth or family-provided data — note it in
+  prose instead ("rough figures from Alicia's research, unverified").
+- **Keep `index.md` current.** When you add or edit a school, update the Schools list in
+  `colleges/index.md` (one line: Title — location — one-line take). The index is the map.
 
 ## Evidence model (universal discipline — applies to every criterion)
 
@@ -100,10 +102,10 @@ Rank sources by how expensive they are for an institution to fake:
 search finds what you expect; consecutive reading finds what's there). Pick a random
 week-9 Tuesday for the events calendar and classify each event's host.
 
-**Provenance is the point.** Every field carries its source, reporting period, and
-confidence; every prose claim cites a reference with its tier and (for student media) its
-provenance. A system that flattens news vs. op-ed vs. letter into "sources" loses real
-findings — in calibration, an op-ed's published rebuttal *was* the finding.
+**Provenance is deliberately loose.** This is personal research: don't attach source
+metadata to every field. Keep a short `## References` for sources worth returning to, cite
+them in prose where it matters, and — where the *distinction* is itself the finding (an
+op-ed vs. its published rebuttal) — say so in prose. Don't build a citation graph.
 
 ## Browsing stack
 
@@ -118,12 +120,13 @@ findings — in calibration, an op-ed's published rebuttal *was* the finding.
 1. Pick a school (create `schools/<slug>.md` from `_template.md` if new).
 2. For each criterion in scope, **read `criteria/<criterion>.md`** — it carries that
    criterion's source map and falsification tests.
-3. Gather evidence per that criterion's workflow. Fill fields with full metadata; write
-   the prose sections; add references.
+3. Gather evidence per that criterion's workflow. Fill the **bare comparable values**;
+   put caveats, artifacts, and sourcing in **prose**; keep references loose.
 4. **Run the criterion's falsification tests before accepting any positive finding.**
-5. `node /app/skills/college-research/colleges.mjs validate <slug>` — fix every warning.
+5. `node /app/skills/college-research/colleges.mjs validate <slug>` — fix warnings — and
+   update the Schools list in `colleges/index.md`.
 6. Surface the draft for review. Calcifer drafts; the family reviews — especially the
-   Tier C prose and the falsification verdicts, which are deliberately human-judged.
+   prose findings and the falsification verdicts, which are deliberately human-judged.
 
 ## Tool commands
 
@@ -132,13 +135,13 @@ T="node /app/skills/college-research/colleges.mjs"
 $T list                              # all schools + fill counts
 $T missing <slug|all>                # unfilled fields — drives the workflow
 $T compare sections_under_20_pct     # table across schools; auto-adds §4 companions
-$T compare grad_rate_4yr presence_continuity_pct
+$T compare grad_rate_6yr offcampus_pct
 $T derive <slug|all>                 # recompute derived fields from inputs (+ flag drift)
-$T validate <slug|all>               # provenance, §4 pairing, and schema checks
+$T validate <slug|all>               # unknown-field + §4 pairing checks
 ```
 
 The data is also plain text: `grep -r "reading group" $CORPUS/schools/`, or
-`yq '.fields.engagement.grad_rate_4yr' $CORPUS/schools/northeastern.md`.
+`yq '.engagement.grad_rate_6yr' $CORPUS/schools/northeastern.md`.
 
 ## Extending the schema (adding fields or a whole criterion)
 
@@ -158,7 +161,7 @@ Apply the same discipline that built the engagement criterion:
    residue of what couldn't be structured.
 
 Fields are `snake_case`. Derived fields store their formula in `schema.yml`, not in records.
-Bump `schema_version` when you add or repair a field, and note in a record when a value was
-carried forward under an older definition. **Resist premature abstraction:** don't factor a
-generic "evidence model" doc out of a single criterion — wait until a second criterion shows
-what is actually cross-cutting.
+Keep the comparable set small — a field earns frontmatter only if you'd compare it across
+schools; otherwise it's prose. **Resist premature abstraction:** don't factor a generic
+"evidence model" doc out of a single criterion — wait until a second criterion shows what
+is actually cross-cutting.

@@ -1,84 +1,57 @@
 ---
-# type: college is the OKF concept type (reserved key, first line) — these records are
-# OKF concepts, portable/greppable like the agent's memory bundle. Our institution
-# category lives under institution_type (NOT type, which OKF reserves).
+# `type: college` is the OKF concept type (reserved first line). Comparable numbers are
+# BARE scalars, grouped by criterion. No per-field source/retrieved/confidence/notes —
+# caveats and sourcing live in the prose below. Leave a field OUT rather than guess.
 type: college
-# Structured header. Fields are grouped by criterion; every non-derived cell carries
-# the full metadata contract (see schema.yml meta.field_metadata). Derived fields
-# (grad_gap_4_to_6, orgs_per_1000_undergrads, ...) are NOT stored — `colleges.mjs
-# derive` computes them from the inputs below. Run `colleges.mjs missing <slug>` to
-# see every field still unfilled. Leave a field OUT entirely rather than guessing a
-# value; an `estimated` confidence REQUIRES a notes line stating the assumptions.
-schema_version: "0.1"
-school: Example University
-slug: example
+title: Example University
 location: City, ST
-institution_type: large-urban-research   # our category; groups peers for the size-band caveat
+institution_type: large-urban-research   # free label; groups peers (size-band caveat)
 last_reviewed: "2026-01-01"
-
-fields:
-  engagement:
-    undergraduates:
-      value: 20000
-      source_url: https://example.edu/cds
-      source_type: cds
-      as_of: "Fall 2024"        # reporting period of the DATA, not the CDS edition year
-      retrieved: "2026-01-01"
-      confidence: reported
-      notes: ""
-    sections_under_20_pct:
-      value: 55
-      source_url: https://example.edu/cds
-      source_type: cds
-      as_of: "Fall 2024"
-      retrieved: "2026-01-01"
-      confidence: reported
-      notes: ""
-    sections_50plus_pct:        # required companion of the above (§4)
-      value: 12
-      source_url: https://example.edu/cds
-      source_type: cds
-      as_of: "Fall 2024"
-      retrieved: "2026-01-01"
-      confidence: reported
-      notes: ""
-    presence_continuity_pct:
-      value: 90
-      source_url: https://example.edu/about
-      source_type: estimate
-      as_of: "AY 2024-25"
-      retrieved: "2026-01-01"
-      confidence: estimated
-      notes: "100 - (study_abroad 45% x 1 term / 8) ≈ 94; rounded down for satellite rotation. Store the arithmetic, not just the number."
+undergraduates: 20000
+engagement:
+  housing_upperclass_pct: 55
+  offcampus_pct: 40
+  grad_rate_6yr: 85
+  sections_under_20_pct: 55
+  sections_50plus_pct: 12
+  presence_continuity_pct: 90
+  undergrad_orgs_active: 450
+  coop_participation_pct: 0
+admissions:
+  acceptance_rate_pct: 30
+academic_programs:
+  biology_offering_type: dedicated_major
+  linguistics_offering_type: via_consortium
+  creative_writing_offering_type: dedicated_minor
+  arts_offering_type: dedicated_major
 ---
 
 # Example University
 
-<!-- Exposition (Tier C): free prose, structured by the four sub-constructs plus
-     governance friction. This zone carries findings the schema cannot represent and
-     is a first-class citizen — do not push toward eliminating it. Cite references by
-     id, e.g. [paper-2025-10-14]. -->
+<!-- One-paragraph synthesis: what defines this school, the headline findings, and the
+     caveats that make a bare number mean something (e.g. "use the 6-yr grad rate; the
+     4-yr is meaningless because co-op stretches the norm to 5 years"). The comparable
+     numbers are in the frontmatter; the WHY lives here, greppable. -->
 
 ## Voluntary intellectual life
-
 ## Organizational density
-
 ## Faculty access
-
 ## Civic embeddedness
-
 ## Governance friction
-
 ## Notable artifacts
-- <!-- 3-5 specific, dated, named examples: a student-founded org + founding year, a
-       recurring event, a student-taught course. -->
+- <!-- 3-5 specific, dated, named examples. -->
+
+## Academic programs
+### Biology
+### Linguistics
+### Creative writing
+### Arts
 
 ## References
 
-<!-- References live in the body (not frontmatter). Cite inline by id, e.g. [cds-2024-25].
-     Format: [id] "Title." [Publisher, Year](url) — tier 1-3[, provenance], retrieved YYYY-MM-DD.
-     Use an explicit link on Publisher, Year (not a raw URL); for student media include
-     provenance (news / op-ed / letter). -->
+<!-- Loose — only sources worth keeping; cite inline by [id] where it matters. Format:
+     [id] "Title." [Publisher, Year](url) — tier 1-3[, provenance].
+     Do NOT manufacture a citation for word-of-mouth or family-provided data — just note
+     the source in prose, e.g. "rough figures from Alicia's research, unverified." -->
 
-- [cds-2024-25] "Common Data Set 2024-2025." [Example University Office of Institutional Research, 2025](https://example.edu/cds.pdf) — tier 2, retrieved 2026-01-01.
-- [paper-2025-10-14] "Opinion: ..." [The Example Daily, 2025](https://example.edu/opinion/...) — tier 1, op-ed, retrieved 2026-01-01.
+- [cds-2024-25] "Common Data Set 2024-2025." [Example University, 2025](https://example.edu/cds.pdf) — tier 2.

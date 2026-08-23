@@ -1,213 +1,54 @@
-# Machine-readable field registry for the college corpus.
+# Per-type field registry for `type: college` OKF concepts.
 #
-# This is the single source of truth for: which fields exist, their §4 "never read
-# alone" pairings, and derived-field formulas. The `colleges.mjs` tool reads it.
-# Extend it per the discipline in the skill's SKILL.md (§ "Extending the schema"):
-# decompose first, write the falsification test before the field, add pairings here.
+# LEAN by design (strong YAGNI): only fields we actually compare across schools live
+# here, as BARE scalars in each record's frontmatter, grouped by criterion. Everything
+# else — caveats, narrative, specific artifacts, sourcing — lives in greppable prose.
+# We deliberately do NOT track per-field retrieved / source_url / confidence / notes;
+# this is personal college research, not an academic citation graph.
 #
-# Prose ("Tier C") lives in each record's body, not here — see prose_sections.
+# The tool (colleges.mjs) reads this for the field list, §4 "never read alone" pairings,
+# and derived formulas. Extend per criteria/<name>.md when a field earns its place.
 
-schema_version: "0.1"
+type: college
 
-meta:
-  # Every non-derived field cell in a record must carry these keys (notes optional
-  # unless confidence == estimated). `validate` enforces this.
-  field_metadata: [value, source_url, source_type, as_of, retrieved, confidence, notes]
-  enums:
-    source_type: [cds, ipeds, institutional, student_media, press, directory, estimate]
-    confidence: [reported, derived, estimated]
-    tier: [1, 2, 3]            # reference source tier (§ evidence model)
-    provenance: [news, op-ed, letter, "n/a"]
+# Top-level identity keys every record carries (not compared as metrics).
+identity: [title, location, institution_type, last_reviewed, undergraduates]
 
 criteria:
   engagement:
     title: Student engagement & campus life
-    status: "draft v0.1 — calibrated on Northeastern & Boston University"
     spec: criteria/engagement.md
-    # Tier C — qualitative, required, NEVER scored. One prose section each in the body.
-    prose_sections:
-      - voluntary_intellectual_life
-      - organizational_density
-      - faculty_access
-      - civic_embeddedness
-      - governance_friction
-      - notable_artifacts
-
     fields:
-      # --- supporting bases (feed derivations) ---
-      undergraduates:
-        type: int
-        tier: A
-        source: "CDS B1 / IPEDS"
-        definition: "Total degree-seeking undergraduates at the primary campus. Base for per-capita derivations."
-
-      # --- Tier A: hard, published, directly comparable (mostly CDS) ---
-      housing_upperclass_pct:
-        type: pct
-        tier: A
-        source: "CDS F1"
-        definition: "% of all degree-seeking undergrads in college-owned/operated/affiliated housing. Record the first-year figure too; the gap is the signal."
-      offcampus_pct:
-        type: pct
-        tier: A
-        source: "CDS F1"
-        definition: "% living off-campus or commuting."
-        pair_with: presence_continuity_pct
-      grad_rate_4yr:
-        type: pct
-        tier: A
-        source: "CDS B4-B11"
-        definition: "Line D / line C, most recent completed cohort. Do NOT substitute the 6-year rate."
-      grad_rate_6yr:
-        type: pct
-        tier: A
-        source: "CDS B4-B11"
-        definition: "Line G / line C."
-        pair_with: grad_rate_4yr
-      grad_gap_4_to_6:
-        type: derived
-        inputs: [grad_rate_6yr, grad_rate_4yr]
-        formula: "grad_rate_6yr - grad_rate_4yr"
-        definition: "Large gaps indicate a structurally extended program (co-op, required abroad, five-year norm)."
-      sections_total:
-        type: int
-        tier: A
-        source: "CDS I3"
-        definition: "Total class sections (excludes subsections). Base for subsection ratio."
-      subsections_total:
-        type: int
-        tier: A
-        source: "CDS I3"
-        definition: "Total class sub-sections (labs, discussions). Base for subsection ratio."
-      sections_under_20_pct:
-        type: pct
-        tier: A
-        source: "CDS I3"
-        definition: "(2-9 + 10-19) / total sections. NEVER report alone."
-        pair_with: sections_50plus_pct
-      sections_50plus_pct:
-        type: pct
-        tier: A
-        source: "CDS I3"
-        definition: "(50-99 + 100+) / total sections. Always paired with sections_under_20_pct."
-      subsections_per_1000_sections:
-        type: derived
-        inputs: [subsections_total, sections_total]
-        formula: "(subsections_total / sections_total) * 1000"
-        definition: "Whether the lecture+discussion model operates at all."
-      humanities_share_pct:
-        type: pct
-        tier: A
-        source: "CDS J1"
-        definition: "Sum of English, history, foreign lang/lit, philosophy & religion, area/ethnic studies. Use this NARROW definition consistently."
-      top3_concentration_pct:
-        type: pct
-        tier: A
-        source: "CDS J1"
-        definition: "Sum of the three largest bachelor's-degree categories."
-      greek_pct:
-        type: pct
-        tier: A
-        source: "CDS F1"
-        definition: "Report as a range if the source PDF extracts ambiguously."
-      out_of_state_pct:
-        type: pct
-        tier: A
-        source: "CDS F1"
-        definition: "% of undergrads from out of state."
-      curriculum_type:
-        type: enum
-        values: [core, distribution, competency, open]
-        tier: A
-        source: "CDS E3"
-        definition: "General-education structure."
-        pair_with: has_cross_school_requirement
-      has_cross_school_requirement:
-        type: bool
-        tier: A
-        source: "CDS E3 + catalog"
-        definition: "Does gen-ed include a required shared text, common core sequence, or cross-college course? Two 'competency' schools can differ entirely on this."
-      undergrad_research_flagged:
-        type: bool
-        tier: A
-        source: "CDS E1"
-        definition: "Self-reported and sometimes wrong. Treat a false as a prompt to verify, not a finding."
-
-      # --- Tier B: countable, ~20-40 min each ---
-      presence_continuity_pct:
-        type: pct
-        tier: B
-        source: "multiple (estimate)"
-        definition: "Est. share of degree-seeking upperclassmen physically on the primary campus in a typical fall term. Highest-value field. Itemize deductions (co-op, abroad, satellite, off-campus) — never report only the total. See criteria/engagement.md."
-      undergrad_orgs_active:
-        type: int
-        tier: B
-        source: "org directory backend"
-        definition: "Undergraduate orgs at the primary campus only. Exclude grad orgs, club sports, Greek chapters, satellite campuses unless itemized. NEVER take the marketing figure."
+      housing_upperclass_pct: { type: pct, label: "Upperclass housing %" }
+      offcampus_pct: { type: pct, label: "Off-campus %", pair_with: presence_continuity_pct }
+      grad_rate_6yr: { type: pct, label: "6-yr grad rate" }
+      sections_under_20_pct: { type: pct, label: "Sections <20 %", pair_with: sections_50plus_pct }
+      sections_50plus_pct: { type: pct, label: "Sections 50+ %" }
+      presence_continuity_pct: { type: pct, label: "Presence continuity % (est)" }
+      undergrad_orgs_active: { type: int, label: "Active undergrad orgs" }
       orgs_per_1000_undergrads:
         type: derived
-        inputs: [undergrad_orgs_active, undergraduates]
+        label: "Orgs per 1,000 undergrads"
         formula: "(undergrad_orgs_active / undergraduates) * 1000"
-        definition: "UNVALIDATED across institution sizes — see criteria/engagement.md gaps."
-      student_allocated_dollars:
-        type: currency
-        tier: B
-        source: "SG budget docs"
-        definition: "Annual student-fee dollars allocated to orgs by the student body."
-      funding_requested_dollars:
-        type: currency
-        tier: B
-        source: "SG budget docs"
-        definition: "Total org funding requested (base for funding_demand_ratio)."
-      student_allocated_per_undergrad:
-        type: derived
-        inputs: [student_allocated_dollars, undergraduates]
-        formula: "student_allocated_dollars / undergraduates"
-        definition: "Do NOT read alone — pair with allocation_authority."
-        pair_with: allocation_authority
-      allocation_authority:
-        type: enum
-        values: [student_final, student_recommends_admin_approves, admin_controlled]
-        tier: B
-        source: "funding manual"
-        definition: "Who controls allocation. More dollars can coexist with less student control; the raw figure can read backwards without this."
-      funding_demand_ratio:
-        type: derived
-        inputs: [funding_requested_dollars, student_allocated_dollars]
-        formula: "funding_requested_dollars / student_allocated_dollars"
-        definition: "Both calibration schools sat near 1.5 (real competition). Values near 1.0 warrant scrutiny."
-      paper_independent:
-        type: bool
-        tier: B
-        source: "paper's own about/masthead"
-        definition: "Financially AND editorially independent of the university. Screening filter, not a differentiator."
-      paper_founded:
-        type: year
-        tier: B
-        source: "paper site"
-        definition: "Year the paper was founded."
-      paper_independent_since:
-        type: year
-        tier: B
-        source: "paper site"
-        definition: "Year the paper became independent (distinct from founding)."
-      oldest_student_org_year:
-        type: year
-        tier: B
-        source: "org sites"
-        definition: "Oldest continuously student-run org. Operationalizes the turnover test."
-      new_orgs_recognized_3yr:
-        type: int
-        tier: B
-        source: "SG approval records"
-        definition: "Student-founded orgs formally recognized in the last three years."
-      study_abroad_participation_pct:
-        type: pct
-        tier: B
-        source: "institutional / press"
-        definition: "Share spending >= one term abroad. Input to presence_continuity."
-      coop_participation_pct:
-        type: pct
-        tier: B
-        source: "institutional"
-        definition: "Share of graduates completing >= one co-op. Input to presence_continuity."
+      coop_participation_pct: { type: pct, label: "Co-op participation %" }
+    prose_sections:
+      [voluntary_intellectual_life, organizational_density, faculty_access, civic_embeddedness, governance_friction, notable_artifacts]
+
+  admissions:
+    title: Admissions selectivity
+    spec: criteria/admissions.md
+    fields:
+      acceptance_rate_pct: { type: pct, label: "Acceptance rate %" }
+    prose_sections: [selectivity_notes]
+
+  academic_programs:
+    title: Academic programs (subject fit)
+    spec: criteria/academic_programs.md
+    # offering_type enum: dedicated_major | dedicated_minor | via_consortium | individualized | none
+    # (authoritative definitions live in criteria/academic_programs.md)
+    fields:
+      biology_offering_type: { type: enum, label: "Biology" }
+      linguistics_offering_type: { type: enum, label: "Linguistics" }
+      creative_writing_offering_type: { type: enum, label: "Creative writing" }
+      arts_offering_type: { type: enum, label: "Arts" }
+    prose_sections: [biology, linguistics, creative_writing, arts]
