@@ -1,8 +1,122 @@
-# .sightmap/components.yaml — global components, matched on every view.
-# Put shared UI (nav, footer, …) here so one definition improves every page.
-# Full schema: https://sightmap.org/docs
-#
-# components:
-#   - name: SiteNav
-#     selector: 'nav[data-component="SiteNav"]'
+# Global components — matched on every view (calcifer web UI, "hearth").
+# These make up the authed app shell (the left rail + its controls), which is
+# rendered by App.tsx's Shell on every authed route (/, /app/*). It is absent on
+# the anonymous login screen, so on that capture these report as "not present".
 version: 1
+memory:
+  - >-
+    Selectors: this app's classNames are hand-authored and stable (plain Vite
+    build, not CSS-modules/hashed), so class selectors are safe here. Prefer
+    them; add a data attribute in the source only if a class becomes ambiguous.
+  - >-
+    The global rail/shell components render only when signed in. On the
+    signed-out login capture they are legitimately absent (presence, not a dead
+    selector).
+  - >-
+    The UI is served from web/dist. After editing web/src, run `cd web && npm
+    run build` and reload the tab — an unreloaded tab runs the old bundle
+    (e.g. .rail-archived read 0 until reload).
+components:
+  # The left navigation rail: brand, app links, conversation list, archive, sign
+  # out. Collapses to an icon strip on desktop; becomes a drawer on mobile.
+  - name: Sidebar
+    selector: 'nav.rail'
+    source: web/src/App.tsx
+    description: Left navigation rail (Apps + Conversations) rendered by Shell.
+
+  - name: SidebarBrand
+    selector: '.rail-brand'
+    source: web/src/App.tsx
+    description: '"hearth" wordmark at the top of the rail.'
+
+  - name: NavCollapseButton
+    selector: '.rail-collapse'
+    source: web/src/App.tsx
+    description: Desktop-only chevron that collapses/expands the rail to an icon strip.
+
+  # Chat + one per installed view app (Apartments, Family Wiki, Books, …). The
+  # label is the per-instance discriminator so NavLink[label="Books"] resolves one.
+  - name: NavLink
+    selector: '.rail-link'
+    source: web/src/App.tsx
+    description: A destination link in the rail (Chat or an app view).
+    properties:
+      - name: label
+        extract: '.rail-label'
+
+  - name: NewChatButton
+    selector: '.thread-list-new'
+    source: web/src/ui/ThreadList.tsx
+    description: Starts a fresh conversation.
+
+  # One row per active (non-archived) conversation. Title varies per instance;
+  # the trailing "⋯" options button and the row trigger are scoped inside it (T2).
+  - name: ConversationItem
+    selector: '.thread-list-item'
+    source: web/src/ui/ThreadList.tsx
+    description: An active conversation row in the rail; opens the thread on click.
+    properties:
+      - name: title
+        extract: '.thread-list-item-trigger'
+
+  # The Rename/Archive popover raised by a conversation's "⋯" button.
+  - name: ConversationMenu
+    selector: '.thread-item-menu'
+    source: web/src/ui/ThreadList.tsx
+    description: Per-conversation overflow menu (Rename, Archive).
+
+  - name: ConversationMenuAction
+    selector: '.thread-item-menu-action'
+    source: web/src/ui/ThreadList.tsx
+    description: An action inside the conversation overflow menu.
+    properties:
+      - name: label
+        extract: text
+
+  - name: ArchivedButton
+    selector: '.rail-archived'
+    source: web/src/App.tsx
+    description: Opens the archived-conversations browser modal.
+
+  - name: SignOutButton
+    selector: '.rail-logout'
+    source: web/src/App.tsx
+    description: Ends the session (only shown when auth is required).
+
+  # Floating hamburger; opens the drawer on mobile or re-expands a collapsed rail.
+  - name: NavToggle
+    selector: '.nav-toggle'
+    source: web/src/App.tsx
+    description: Mobile/collapsed-rail navigation toggle.
+
+  # Archived-conversation browser (a modal over the shell). Raised by
+  # ArchivedButton; only present after it is clicked.
+  # Targets the outer role="dialog" overlay (not the inner .archive-panel) so the
+  # dialog node itself is covered and everything inside is scoped to it.
+  - name: ArchiveBrowser
+    selector: '.archive-overlay'
+    source: web/src/ui/ArchiveBrowser.tsx
+    description: Modal listing archived conversations with a name filter.
+
+  - name: ArchiveSearch
+    selector: '.archive-search'
+    source: web/src/ui/ArchiveBrowser.tsx
+    description: Client-side name filter for the archived list.
+
+  - name: ArchiveCloseButton
+    selector: '.archive-close'
+    source: web/src/ui/ArchiveBrowser.tsx
+    description: Closes the archive browser.
+
+  # One row per archived conversation. Title varies per instance; the Rescue
+  # button is scoped inside it (T2).
+  - name: ArchiveRow
+    selector: '.archive-row'
+    source: web/src/ui/ArchiveBrowser.tsx
+    description: An archived conversation row with a Rescue action.
+    properties:
+      - name: title
+        extract: '.archive-row-title'
+    # The per-row Rescue button is identical across rows (no per-instance text),
+    # so it stays scoped (T2) inside ArchiveRow[title=…] rather than its own
+    # component. Target it via the row in a snapshot.

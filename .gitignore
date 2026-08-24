@@ -58,3 +58,7 @@ forks.md
 
 # sightmap runtime session state
 .sightmap/.session
+# sightmap captures embed live rendered DOM (real family data: names, emails,
+# records, conversation titles) — keep them local and regenerable via
+# `sightmap capture`. The YAML corpus (components/views/requests) is committed.
+.sightmap/snapshots/

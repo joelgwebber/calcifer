@@ -1,0 +1,84 @@
+# Home (route "/") — the chat screen when authed, the login form when not.
+# Both render at "/" (login is a conditional render in AuthedApp, not a separate
+# route), so they are two STATES of one view. Capture "/" both signed-out and
+# signed-in; the view set unions them. The authed shell chrome lives in
+# components.yaml (globals).
+version: 1
+views:
+  - name: Home
+    route: "/"
+    url: "http://localhost:8787/"
+    source: web/src/App.tsx
+    memory:
+      - >-
+        Login and Chat share the URL "/" (login is a conditional render in
+        AuthedApp, not a route). They are two STATES of this one view, captured
+        separately; the LoginForm* components and the Transcript/Composer*
+        components never co-occur.
+      - >-
+        Conditional components, expected absent from steady-state captures:
+        ChatCardAction / ChatQuestionOption (only after an agent turn emits a
+        card or prompt) and LoginError (only after a failed sign-in).
+    components:
+      # --- Signed-out state: the login card (web/src/ui/Login.tsx) ---
+      - name: LoginForm
+        selector: '.login-card'
+        source: web/src/ui/Login.tsx
+        description: Sign-in form shown when a session is required and absent.
+
+      - name: LoginInput
+        selector: '.login-input'
+        source: web/src/ui/Login.tsx
+        description: Handle or password field (autocomplete disambiguates which).
+        properties:
+          - name: field
+            extract: attr=autocomplete
+
+      - name: LoginSubmit
+        selector: '.login-button'
+        source: web/src/ui/Login.tsx
+        description: Submits the login form.
+
+      - name: LoginError
+        selector: '.login-error'
+        source: web/src/ui/Login.tsx
+        description: Inline authentication error message.
+
+      # --- Signed-in state: the transcript + composer (web/src/ui/Thread.tsx) ---
+      - name: Transcript
+        selector: '.thread-viewport'
+        source: web/src/ui/Thread.tsx
+        description: Scrolling message transcript for the current conversation.
+
+      - name: Composer
+        selector: '.composer'
+        source: web/src/ui/Thread.tsx
+        description: Message input row at the foot of the chat.
+
+      - name: ComposerInput
+        selector: '.composer-input'
+        source: web/src/ui/Thread.tsx
+        description: The "Message hearth…" text input.
+
+      - name: ComposerSend
+        selector: '.composer-send'
+        source: web/src/ui/Thread.tsx
+        description: Sends the composed message.
+
+      # Inline generative-UI parts the agent can emit into the transcript. Present
+      # only when a turn produced a card / interactive prompt.
+      - name: ChatCardAction
+        selector: '.chat-card-action'
+        source: web/src/ui/Card.tsx
+        description: A button/link inside an agent-sent card (incl. record-card Open/Star).
+        properties:
+          - name: label
+            extract: text
+
+      - name: ChatQuestionOption
+        selector: '.chat-question-option'
+        source: web/src/ui/Question.tsx
+        description: A selectable answer in an agent-sent interactive prompt.
+        properties:
+          - name: label
+            extract: text

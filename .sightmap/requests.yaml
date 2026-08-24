@@ -1,0 +1,104 @@
+# Runtime network classification for the calcifer web UI. Routes are globs over
+# the URL path (* = one segment, ** = any depth). These name the app's own JSON
+# API + SSE stream so traffic reads [Name] instead of [--]; static assets are
+# intentionally left unmapped. Host handlers live in src/channels/web.ts (chat +
+# threads) and the views API; clients are under web/src.
+version: 1
+requests:
+  # --- Auth / session ---
+  - name: SessionCheck
+    route: /api/me
+    method: GET
+    source: web/src/api.ts
+    description: Resolves the current user (drives the login gate).
+  - name: Login
+    route: /api/login
+    method: POST
+    source: web/src/api.ts
+    description: Password sign-in; sets the session cookie.
+  - name: Logout
+    route: /api/logout
+    method: POST
+    source: web/src/api.ts
+    description: Clears the session.
+
+  # --- Chat plane ---
+  - name: EventStream
+    route: /api/stream
+    method: GET
+    source: web/src/runtime.tsx
+    description: SSE stream (message / typing / status / answered events).
+  - name: SendMessage
+    route: /api/send
+    method: POST
+    source: web/src/send.ts
+    description: Posts a user turn into the current thread's session.
+  - name: ThreadHistory
+    route: /api/history
+    method: GET
+    source: web/src/runtime.tsx
+    description: Loads a thread's transcript on connect / switch.
+  - name: QuestionAction
+    route: /api/action
+    method: POST
+    source: web/src/ui/Question.tsx
+    description: Submits the chosen answer to an interactive prompt / approval.
+
+  # --- Conversation management (thread_meta) ---
+  - name: ThreadList
+    route: /api/threads
+    method: GET
+    source: web/src/runtime.tsx
+    description: The active (non-archived) conversation list.
+  - name: ArchivedThreads
+    route: /api/threads/archived
+    method: GET
+    source: web/src/threads-api.ts
+    description: Archived conversations (optional ?q= name filter).
+  - name: ArchiveThread
+    route: /api/threads/archive
+    method: POST
+    source: web/src/threads-api.ts
+    description: Archive (soft-delete) or rescue a conversation.
+  - name: RenameThread
+    route: /api/threads/rename
+    method: POST
+    source: web/src/threads-api.ts
+    description: Persist a conversation title override.
+
+  # --- View "apps" data plane ---
+  - name: ViewList
+    route: /api/views
+    method: GET
+    source: web/src/views/api.ts
+    description: The installed view apps (drives the rail app links).
+  - name: ViewManifest
+    route: /api/views/*
+    method: GET
+    source: web/src/views/api.ts
+    description: One view's manifest (fields, collections, presentation).
+  - name: ViewData
+    route: /api/views/*/data
+    method: GET
+    source: web/src/views/api.ts
+    description: A view's records/rows (list) or folder listing (browse).
+  - name: ViewRecord
+    route: /api/views/*/record/*
+    method: GET
+    source: web/src/views/api.ts
+    description: A single record for the detail page.
+  - name: ViewFile
+    route: /api/views/*/file/**
+    method: GET
+    source: web/src/views/api.ts
+    description: Raw file bytes (open/download) for an fs view.
+  - name: ViewThumb
+    route: /api/views/*/thumb/**
+    method: GET
+    source: web/src/views/api.ts
+    description: Gallery thumbnail bytes.
+  - name: SetAnnotation
+    route: /api/annotations
+    method: POST
+    source: web/src/views/api.ts
+    description: Toggle a star / save a note on a record.
