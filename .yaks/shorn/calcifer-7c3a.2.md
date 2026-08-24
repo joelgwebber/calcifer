@@ -8,8 +8,6 @@ updated: '2026-07-04T18:18:51Z'
 parent: calcifer-7c3a
 ---
 
-PARENT YAK: calcifer-7c3a
-
 The slice (7c3a.1) keeps messages in an in-memory store, so a refresh loses the
 transcript. Reuse nc-native history rather than inventing a new store (owner
 decision #4): on thread open, the host merges the session's `inbound.db`

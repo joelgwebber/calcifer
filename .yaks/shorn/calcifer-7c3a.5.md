@@ -8,8 +8,6 @@ updated: '2026-07-07T22:36:31Z'
 parent: calcifer-7c3a
 ---
 
-PARENT YAK: calcifer-7c3a
-
 The headline differentiator over reusing Telegram/Matrix: render nanoclaw's
 approval flow (and OneCLI credentialed-action approvals) as rich inline UI
 instead of a text DM.

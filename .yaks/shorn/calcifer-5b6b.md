@@ -3,11 +3,11 @@ id: calcifer-5b6b
 title: 'Web UI: real-time agent activity feedback during turns'
 type: feature
 priority: 2
+parent: calcifer-7c3a
 created: '2026-06-13T12:00:00Z'
 updated: '2026-08-16T18:36:43Z'
 ---
 
-PARENT YAK: calcifer-7c3a
 
 The slice's `isRunning` is deliberately simple: true on send, false when an
 assistant message arrives. nanoclaw is turn-fuzzy — an agent may send 0/1/N

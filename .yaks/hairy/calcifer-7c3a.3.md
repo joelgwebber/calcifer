@@ -4,12 +4,10 @@ title: 'Web UI: attachments / media (inbound upload + outbound files)'
 type: task
 priority: 2
 created: '2026-06-13T12:00:00Z'
-updated: '2026-08-17T18:43:47Z'
+updated: '2026-08-23T22:26:11Z'
 labels:
 - web-ui
 ---
-
-PARENT YAK: calcifer-7c3a
 
 Embed images and files in both directions.
 

@@ -8,8 +8,6 @@ updated: '2026-07-06T18:21:23Z'
 parent: calcifer-7c3a
 ---
 
-PARENT YAK: calcifer-7c3a
-
 The slice runs no-auth (single `web:local` platform_id, public mg). Add basic
 auth so the web channel maps a logged-in user to a nanoclaw identity, and — per
 owner decision #2 — the agent group is implied by the login context (one user →

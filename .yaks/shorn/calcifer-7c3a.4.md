@@ -8,8 +8,6 @@ updated: '2026-07-07T21:54:09Z'
 parent: calcifer-7c3a
 ---
 
-PARENT YAK: calcifer-7c3a
-
 nanoclaw's `send_card` writes outbound rows with `kind:'chat-sdk'` and content
 `{ type:'card', card, fallbackText }` (title / description / children / actions
 with url buttons). The Chat SDK bridge already renders these for Discord/Slack;

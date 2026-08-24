@@ -4,7 +4,7 @@ title: NYC apartment listing early-alert skill
 type: feature
 priority: 2
 created: '2026-06-23T21:15:05Z'
-updated: '2026-06-24T15:55:00Z'
+updated: '2026-08-15T04:46:16Z'
 ---
 
 Build a NanoClaw skill that monitors multiple NYC rental listing sources and delivers real-time alerts for new listings before they get buried. Covers pre-RLS sources (Compass Coming Soon, direct landlord sites), no-fee management companies, Craigslist, and StreetEasy as full-market backstop. Configurable filters: neighborhoods, price, beds, amenities.

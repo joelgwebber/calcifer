@@ -8,8 +8,6 @@ updated: '2026-07-04T18:11:45Z'
 parent: calcifer-7c3a
 ---
 
-PARENT YAK: calcifer-7c3a
-
 Prove the whole thesis cheaply: text round-trip, multiple conversations, and the
 push path (assistant messages arrive out-of-band, not as a request response).
 Text only — no attachments, auth, persistence, cards, or approvals.

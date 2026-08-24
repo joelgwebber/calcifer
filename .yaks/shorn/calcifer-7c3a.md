@@ -2,9 +2,9 @@
 id: calcifer-7c3a
 title: Web/mobile UI for nanoclaw via assistant-ui
 type: feature
-priority: 2
+priority: 3
 created: '2026-06-13T12:00:00Z'
-updated: '2026-08-17T18:43:47Z'
+updated: '2026-08-23T22:26:18Z'
 ---
 
 A structured web (and later mobile) UI for nanoclaw: multiple concurrent

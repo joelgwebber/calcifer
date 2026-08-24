@@ -4,12 +4,10 @@ title: 'Web UI: mobile (React Native) + verify ExternalStore parity'
 type: task
 priority: 4
 created: '2026-06-13T12:00:00Z'
-updated: '2026-08-17T18:43:47Z'
+updated: '2026-08-23T22:26:16Z'
 labels:
 - web-ui
 ---
-
-PARENT YAK: calcifer-7c3a
 
 assistant-ui ships `@assistant-ui/react-native` (Expo; there's an Expo example
 with drawer nav + thread persistence) and `@assistant-ui/react-ink` (terminal),
