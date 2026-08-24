@@ -51,7 +51,7 @@ export function Thread() {
       </ThreadPrimitive.Viewport>
 
       <ComposerPrimitive.Root className="composer">
-        <ComposerPrimitive.Input className="composer-input" placeholder="Message nanoclaw…" autoFocus />
+        <ComposerPrimitive.Input className="composer-input" placeholder="Message hearth…" autoFocus />
         <ComposerPrimitive.Send className="composer-send">Send</ComposerPrimitive.Send>
       </ComposerPrimitive.Root>
     </ThreadPrimitive.Root>

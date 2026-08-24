@@ -1,14 +1,49 @@
+/*
+ * Hearth theme tokens (calcifer-7dd1 / C1). One documented light + dark set; a
+ * warm ember/firelight palette (a subtle nod to the hearth, not a wordmark).
+ * The accent is used sparingly (user bubble, links, active nav) so it reads like
+ * firelight, not a flood. Every component color resolves through these tokens —
+ * no hardcoded hex/rgba in component rules. `--fg` is a legacy alias of `--text`
+ * kept for the view CSS; both re-resolve per scheme.
+ */
 :root {
-  --bg: #ffffff;
-  --sidebar-bg: #f5f5f7;
-  --border: #e2e2e5;
-  --text: #1c1c1e;
-  --muted: #6b6b70;
-  --accent: #3b6ef5;
-  --user-bubble: #3b6ef5;
-  --user-text: #ffffff;
-  --assistant-bubble: #ececef;
-  --assistant-text: #1c1c1e;
+  /* Light — "hearthstone" (warm parchment + ember). */
+  --bg: #faf7f2;
+  --sidebar-bg: #f3ece2;
+  --border: #e7ded2;
+  --text: #241f1c;
+  --fg: var(--text);
+  --muted: #8a7f76;
+  --accent: #c8552b;
+  --accent-soft: rgba(200, 85, 43, 0.12);
+  --user-bubble: #c8552b;
+  --user-text: #fff8f4;
+  --assistant-bubble: #efe6d9;
+  --assistant-text: var(--text);
+  --hover-bg: rgba(60, 40, 24, 0.06);
+  --hover-bg-strong: rgba(60, 40, 24, 0.1);
+  --star: #d98324;
+  --danger: #b3402a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark — "banked coals" (warm charcoal; the ember accent glows). */
+    --bg: #17130f;
+    --sidebar-bg: #221c17;
+    --border: #332a22;
+    --text: #f0e9e0;
+    --muted: #a89a8c;
+    --accent: #ec8a52;
+    --accent-soft: rgba(236, 138, 82, 0.16);
+    --user-bubble: #ec8a52;
+    --user-text: #241f1c;
+    --assistant-bubble: #262019;
+    --hover-bg: rgba(255, 245, 235, 0.06);
+    --hover-bg-strong: rgba(255, 245, 235, 0.1);
+    --star: #eaa53a;
+    --danger: #e8765c;
+  }
 }
 
 * {
@@ -194,7 +229,7 @@ body {
   cursor: pointer;
 }
 .rail-collapse:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--hover-bg);
   color: var(--text);
 }
 
@@ -203,6 +238,7 @@ body {
   font-size: 15px;
   padding: 6px 10px 12px;
   white-space: nowrap;
+  color: var(--accent);
 }
 
 .rail-section {
@@ -225,11 +261,11 @@ body {
 }
 
 .rail-link:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--hover-bg);
 }
 
 .rail-link.active {
-  background: rgba(59, 110, 245, 0.12);
+  background: var(--accent-soft);
   color: var(--accent);
   font-weight: 600;
 }
@@ -328,7 +364,7 @@ body {
 
 .collection-tabs button.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--user-text);
   border-color: var(--accent);
 }
 
@@ -536,12 +572,12 @@ body {
 }
 
 .icon-button:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--hover-bg);
 }
 
 .icon-button.starred {
-  color: #e2a600;
-  border-color: #e2a600;
+  color: var(--star);
+  border-color: var(--star);
 }
 
 .pager {
@@ -753,7 +789,7 @@ body {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8px 30px var(--hover-bg);
 }
 
 .login-title {
@@ -788,7 +824,7 @@ body {
 
 .login-error {
   font-size: 13px;
-  color: #c02626;
+  color: var(--danger);
 }
 
 .login-button {
@@ -845,10 +881,10 @@ body {
   border-radius: 8px;
 }
 .thread-list-item:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--hover-bg);
 }
 .thread-list-item[data-active='true'] {
-  background: rgba(59, 110, 245, 0.12);
+  background: var(--accent-soft);
 }
 
 .thread-list-item-trigger {
@@ -889,7 +925,7 @@ body {
   cursor: pointer;
 }
 .thread-item-menu-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--hover-bg-strong);
   color: var(--text);
 }
 
@@ -926,7 +962,7 @@ body {
   cursor: pointer;
 }
 .thread-item-menu-action:hover {
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--hover-bg);
 }
 
 .thread-rename-input {
@@ -1114,13 +1150,13 @@ body {
 }
 
 .chat-card-action:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--hover-bg);
 }
 
 .chat-card-action-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--user-text);
 }
 
 .chat-card-action-primary:hover {
@@ -1129,12 +1165,12 @@ body {
 }
 
 .chat-card-action-danger {
-  border-color: #e5484d;
-  color: #e5484d;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .chat-card-action-danger:hover {
-  background: rgba(229, 72, 77, 0.08);
+  background: var(--hover-bg);
 }
 
 /* Interactive prompts / approvals (ask_question) as inline tool UI (7c3a.5). */
@@ -1186,7 +1222,7 @@ body {
 
 .chat-question-option:hover {
   background: var(--accent);
-  color: #fff;
+  color: var(--user-text);
 }
 
 .chat-question-answered {
@@ -1230,7 +1266,7 @@ body {
   appearance: none;
   border: none;
   background: var(--accent);
-  color: #ffffff;
+  color: var(--user-text);
   border-radius: 10px;
   padding: 0 18px;
   font-size: 15px;
@@ -1262,7 +1298,7 @@ body {
 .prose ul,
 .prose ol { margin: 0.6em 0; padding-left: 1.4em; }
 .prose li { margin: 0.2em 0; }
-.prose a { color: var(--accent, #3b82f6); text-decoration: underline; }
+.prose a { color: var(--accent); text-decoration: underline; }
 .prose code {
   background: rgba(127, 127, 127, 0.15);
   padding: 0.1em 0.35em;
@@ -1280,7 +1316,7 @@ body {
   margin: 0.6em 0;
   padding: 0.2em 0 0.2em 1em;
   border-left: 3px solid rgba(127, 127, 127, 0.4);
-  color: var(--muted, #6b7280);
+  color: var(--muted, var(--muted));
 }
 .prose table { border-collapse: collapse; margin: 0.6em 0; }
 .prose th,
@@ -1314,10 +1350,10 @@ body {
 .tree-crumbs { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; margin: 4px 0 10px; }
 .tree-crumbs .crumb {
   background: none; border: none; padding: 2px 4px; cursor: pointer;
-  color: var(--accent, #3b82f6); font-size: 0.95rem; border-radius: 4px;
+  color: var(--accent); font-size: 0.95rem; border-radius: 4px;
 }
 .tree-crumbs .crumb:disabled { color: var(--fg, inherit); cursor: default; font-weight: 600; }
-.tree-crumbs .crumb-sep { color: var(--muted, #9ca3af); }
+.tree-crumbs .crumb-sep { color: var(--muted, var(--muted)); }
 .tree-list { list-style: none; margin: 0; padding: 0; }
 .tree-row {
   display: flex; align-items: center; gap: 8px;
@@ -1326,9 +1362,9 @@ body {
 .tree-row:hover { background: rgba(127, 127, 127, 0.06); }
 .tree-star {
   background: none; border: none; cursor: pointer; font-size: 1rem;
-  color: var(--muted, #9ca3af); width: 22px; flex: none;
+  color: var(--muted, var(--muted)); width: 22px; flex: none;
 }
-.tree-star.starred { color: #f59e0b; }
+.tree-star.starred { color: var(--star); }
 .tree-name {
   display: flex; align-items: center; gap: 8px; flex: 1 1 auto;
   background: none; border: none; text-align: left; cursor: pointer;
@@ -1336,9 +1372,9 @@ body {
 }
 .tree-name:hover { text-decoration: underline; }
 .tree-icon { flex: none; }
-.tree-meta { flex: none; color: var(--muted, #9ca3af); font-size: 0.85rem; min-width: 60px; text-align: right; }
-.tree-dl { flex: none; text-decoration: none; font-size: 1rem; padding: 0 6px; color: var(--accent, #3b82f6); }
-.tree-empty { padding: 16px 8px; color: var(--muted, #9ca3af); }
+.tree-meta { flex: none; color: var(--muted, var(--muted)); font-size: 0.85rem; min-width: 60px; text-align: right; }
+.tree-dl { flex: none; text-decoration: none; font-size: 1rem; padding: 0 6px; color: var(--accent); }
+.tree-empty { padding: 16px 8px; color: var(--muted, var(--muted)); }
 
 /* Gallery presentation (calcifer-d720 / libraries) */
 .gallery-grid {
@@ -1355,7 +1391,7 @@ body {
   border: none; cursor: pointer; text-decoration: none; font-size: 2.5rem;
 }
 .gtile-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.gtile-folder, .gtile-file { color: var(--muted, #9ca3af); }
+.gtile-folder, .gtile-file { color: var(--muted, var(--muted)); }
 .gtile-name {
   font-size: 0.82rem; line-height: 1.2; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; color: var(--fg, inherit);
@@ -1365,7 +1401,7 @@ body {
   background: rgba(0, 0, 0, 0.45); color: #fff; border: none; cursor: pointer;
   border-radius: 4px; font-size: 0.9rem; width: 24px; height: 24px; line-height: 1;
 }
-.gtile-star.starred { color: #f59e0b; }
+.gtile-star.starred { color: var(--star); }
 
 /* Interactive record card in chat (calcifer-2588) */
 .chat-record-card { display: flex; gap: 12px; align-items: flex-start; }
@@ -1375,7 +1411,7 @@ body {
 .chat-record-title { font-weight: 600; color: var(--fg, inherit); text-decoration: none; }
 .chat-record-title:hover { text-decoration: underline; }
 .chat-record-star { cursor: pointer; border: 1px solid rgba(127,127,127,0.3); background: none; }
-.chat-record-star.starred { color: #f59e0b; border-color: #f59e0b; }
+.chat-record-star.starred { color: var(--star); border-color: var(--star); }
 
 /* Document frontmatter header (calcifer-7b34.2) */
 .doc-frontmatter {
@@ -1385,7 +1421,7 @@ body {
   border-radius: 8px; font-size: 0.85rem;
 }
 .doc-frontmatter > .fm-summary {
-  cursor: pointer; color: var(--muted, #6b7280); font-weight: 600; user-select: none;
+  cursor: pointer; color: var(--muted, var(--muted)); font-weight: 600; user-select: none;
 }
 .doc-frontmatter .fm-body { margin-top: 8px; }
 .doc-frontmatter dl.fm-tree { margin: 0; }
@@ -1393,7 +1429,7 @@ body {
 .doc-frontmatter .fm-entry { margin: 2px 0; }
 .doc-frontmatter .fm-entry.fm-leaf { display: flex; gap: 8px; align-items: baseline; }
 .doc-frontmatter .fm-entry.fm-leaf > .fm-key { min-width: 130px; flex: 0 0 auto; }
-.doc-frontmatter .fm-key { color: var(--muted, #6b7280); font-weight: 600; }
+.doc-frontmatter .fm-key { color: var(--muted, var(--muted)); font-weight: 600; }
 .doc-frontmatter .fm-entry.fm-nested > .fm-key { display: block; margin: 6px 0 2px; color: var(--text, inherit); }
 .doc-frontmatter .fm-entry.fm-nested > .fm-val {
   border-left: 2px solid rgba(127, 127, 127, 0.15); padding-left: 10px; margin-left: 2px;
@@ -1401,15 +1437,15 @@ body {
 .doc-frontmatter .fm-val { min-width: 0; word-break: break-word; }
 .doc-frontmatter .fm-list { margin: 0; padding-left: 16px; }
 .doc-frontmatter .fm-list > li { margin: 4px 0; }
-.doc-frontmatter .fm-empty { color: var(--muted, #9ca3af); }
+.doc-frontmatter .fm-empty { color: var(--muted, var(--muted)); }
 /* Provenance value-cell: value headline + muted byline chips + notes disclosure. */
 .doc-frontmatter .fm-cell { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 .doc-frontmatter .fm-cell-value { font-weight: 600; color: var(--text, inherit); }
 .doc-frontmatter a.fm-cell-value { text-decoration: none; }
 .doc-frontmatter a.fm-cell-value:hover { text-decoration: underline; }
 .doc-frontmatter .fm-cell-byline { display: inline-flex; flex-wrap: wrap; gap: 3px 8px; font-size: 0.9em; }
-.doc-frontmatter .fm-chip { white-space: nowrap; color: var(--muted, #6b7280); }
+.doc-frontmatter .fm-chip { white-space: nowrap; color: var(--muted, var(--muted)); }
 .doc-frontmatter .fm-chip-k { opacity: 0.65; margin-right: 3px; }
 .doc-frontmatter .fm-cell-notes { flex-basis: 100%; margin-top: 1px; }
-.doc-frontmatter .fm-cell-notes > summary { cursor: pointer; color: var(--muted, #6b7280); font-size: 0.9em; }
-.doc-frontmatter .fm-cell-notes-body { margin-top: 4px; color: var(--muted, #4b5563); white-space: pre-wrap; }
+.doc-frontmatter .fm-cell-notes > summary { cursor: pointer; color: var(--muted, var(--muted)); font-size: 0.9em; }
+.doc-frontmatter .fm-cell-notes-body { margin-top: 4px; color: var(--muted, var(--muted)); white-space: pre-wrap; }

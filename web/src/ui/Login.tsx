@@ -25,7 +25,7 @@ export function Login({ onSuccess }: { onSuccess: (me: Me) => void }) {
   return (
     <div className="login">
       <form className="login-card" onSubmit={onSubmit}>
-        <div className="login-title">nanoclaw</div>
+        <div className="login-title">hearth</div>
         <label className="login-label">
           Handle
           <input

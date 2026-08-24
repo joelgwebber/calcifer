@@ -86,7 +86,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
 
         <nav className="rail">
           <div className="rail-head">
-            <div className="rail-brand">nanoclaw</div>
+            <div className="rail-brand">hearth</div>
             {!isMobile && (
               <button
                 className="rail-collapse"
