@@ -22,7 +22,7 @@ import Database from 'better-sqlite3';
 
 import { getMessagingGroupAgents, getMessagingGroupByPlatform } from '../db/messaging-groups.js';
 import { findSessionForAgent, getActiveSessionsByMessagingGroup } from '../db/sessions.js';
-import { getThreadMetaFor } from '../db/thread-meta.js';
+import { getThreadMetaFor, setThreadArchived, setThreadTitle } from '../db/thread-meta.js';
 import { log } from '../log.js';
 import { inboundDbPath, outboundDbPath } from '../mailbox/sqlite/index.js';
 import { type WebCard } from './web-cards.js';
@@ -314,4 +314,34 @@ export async function listArchivedThreads(platformId: string, query?: string): P
   if (q) list = list.filter((t) => t.title.toLowerCase().includes(q));
   list.sort((a, b) => b.lastActive - a.lastActive);
   return list.map(stripArchived);
+}
+
+/** The web messaging group id for a platformId, or null if unknown. */
+async function webMessagingGroupId(platformId: string): Promise<string | null> {
+  const mg = await getMessagingGroupByPlatform(CHANNEL_TYPE, platformId);
+  return mg?.id ?? null;
+}
+
+/**
+ * Rename a web conversation (calcifer-3236 / B0). An empty/whitespace title
+ * clears the override, falling back to the first-message title. Returns false
+ * if the platformId maps to no known web messaging group.
+ */
+export async function renameWebThread(platformId: string, threadId: string, title: string | null): Promise<boolean> {
+  const mgId = await webMessagingGroupId(platformId);
+  if (!mgId) return false;
+  await setThreadTitle(mgId, threadId, title && title.trim() ? title.trim() : null);
+  return true;
+}
+
+/**
+ * Archive (archived=true) or rescue (archived=false) a web conversation
+ * (calcifer-3236 / B0). Returns false if the platformId maps to no known web
+ * messaging group.
+ */
+export async function setWebThreadArchived(platformId: string, threadId: string, archived: boolean): Promise<boolean> {
+  const mgId = await webMessagingGroupId(platformId);
+  if (!mgId) return false;
+  await setThreadArchived(mgId, threadId, archived);
+  return true;
 }

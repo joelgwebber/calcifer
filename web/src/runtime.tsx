@@ -8,6 +8,7 @@ import {
 } from '@assistant-ui/react';
 import { useStore, type MyMessage } from './store';
 import { sendUserMessage } from './send';
+import { renameThread as renameThreadApi } from './threads-api';
 
 const convertMessage = (m: MyMessage): ThreadMessageLike => {
   // Cards and interactive prompts render as generative-UI tool-call parts
@@ -119,7 +120,11 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       void fetchHistory(id);
     },
     onRename: (id, title) => {
+      // Optimistic local update, then persist to thread_meta so it survives a
+      // reload (calcifer-3236 / B0). hydrateThreadList reads the same override
+      // back from the host on next connect, so there's no clobber.
       useStore.getState().renameThread(id, title);
+      void renameThreadApi(id, title);
     },
     onDelete: (id) => {
       useStore.getState().deleteThread(id);

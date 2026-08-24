@@ -59,7 +59,13 @@ import {
 import type { ChannelAdapter, ChannelSetup, OutboundMessage } from './adapter.js';
 import type { NormalizedOption } from './ask-question.js';
 import { registerChannelAdapter } from './channel-registry.js';
-import { listThreads, loadThreadHistory } from './web-history.js';
+import {
+  listArchivedThreads,
+  listThreads,
+  loadThreadHistory,
+  renameWebThread,
+  setWebThreadArchived,
+} from './web-history.js';
 import { getThumbnail, isThumbnailable } from './web-thumbs.js';
 import {
   annotateForUser,
@@ -308,6 +314,96 @@ function createAdapter(): ChannelAdapter {
       log.error('web thread list failed', { err });
       sendJson(res, 500, { error: 'thread list failed' });
     }
+  }
+
+  async function handleArchivedThreads(req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<void> {
+    const user = await resolveUser(req);
+    if (!user) {
+      unauthorized(res);
+      return;
+    }
+    try {
+      const threads = await listArchivedThreads(user.userId, url.searchParams.get('q') ?? undefined);
+      sendJson(res, 200, { threads });
+    } catch (err) {
+      log.error('web archived thread list failed', { err });
+      sendJson(res, 500, { error: 'archived list failed' });
+    }
+  }
+
+  async function handleRenameThread(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    const user = await resolveUser(req);
+    if (!user) {
+      unauthorized(res);
+      return;
+    }
+    let body: string;
+    try {
+      body = await readBody(req);
+    } catch {
+      sendJson(res, 413, { error: 'payload too large' });
+      return;
+    }
+    let parsed: { threadId?: unknown; title?: unknown };
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      sendJson(res, 400, { error: 'invalid json' });
+      return;
+    }
+    const { threadId, title } = parsed;
+    if (typeof threadId !== 'string' || !threadId) {
+      sendJson(res, 400, { error: 'threadId required' });
+      return;
+    }
+    if (title != null && typeof title !== 'string') {
+      sendJson(res, 400, { error: 'title must be a string or null' });
+      return;
+    }
+    // Scoped to the authenticated user's own messaging group.
+    const ok = await renameWebThread(user.userId, threadId, title ?? null);
+    if (!ok) {
+      sendJson(res, 404, { error: 'unknown messaging group' });
+      return;
+    }
+    sendJson(res, 200, { ok: true });
+  }
+
+  async function handleArchiveThread(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    const user = await resolveUser(req);
+    if (!user) {
+      unauthorized(res);
+      return;
+    }
+    let body: string;
+    try {
+      body = await readBody(req);
+    } catch {
+      sendJson(res, 413, { error: 'payload too large' });
+      return;
+    }
+    let parsed: { threadId?: unknown; archived?: unknown };
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      sendJson(res, 400, { error: 'invalid json' });
+      return;
+    }
+    const { threadId, archived } = parsed;
+    if (typeof threadId !== 'string' || !threadId) {
+      sendJson(res, 400, { error: 'threadId required' });
+      return;
+    }
+    if (typeof archived !== 'boolean') {
+      sendJson(res, 400, { error: 'archived (boolean) required' });
+      return;
+    }
+    const ok = await setWebThreadArchived(user.userId, threadId, archived);
+    if (!ok) {
+      sendJson(res, 404, { error: 'unknown messaging group' });
+      return;
+    }
+    sendJson(res, 200, { ok: true });
   }
 
   async function handleLogin(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
@@ -708,6 +804,18 @@ function createAdapter(): ChannelAdapter {
     }
     if (req.method === 'GET' && url.pathname === '/api/threads') {
       void handleThreads(req, res).catch(fail);
+      return;
+    }
+    if (req.method === 'GET' && url.pathname === '/api/threads/archived') {
+      void handleArchivedThreads(req, res, url).catch(fail);
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/api/threads/rename') {
+      void handleRenameThread(req, res).catch(fail);
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/api/threads/archive') {
+      void handleArchiveThread(req, res).catch(fail);
       return;
     }
 
