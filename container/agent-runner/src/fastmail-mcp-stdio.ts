@@ -202,13 +202,29 @@ server.tool(
             return;
           }
 
-          const limitedResults = results.slice(-args.limit);
+          // UID SEARCH returns UIDs in ascending order, so the highest UIDs
+          // are the most recent messages. Sort defensively (don't rely on
+          // server ordering) and keep the newest `limit`.
+          const limitedResults = [...results]
+            .sort((a, b) => a - b)
+            .slice(-args.limit);
           const fetch = imap.fetch(limitedResults, {
             bodies: 'HEADER.FIELDS (FROM TO SUBJECT DATE)',
             struct: true
           });
 
-          const messages: any[] = [];
+          const messages: {
+            uid: number;
+            from: string;
+            to: string;
+            subject: string;
+            date: string;
+            sortKey: number;
+          }[] = [];
+          // simpleParser is async; each body parse is a promise we MUST await
+          // before resolving, or the result set is a non-deterministic subset
+          // of whatever finished parsing before fetch's 'end' fired.
+          const parses: Promise<void>[] = [];
 
           fetch.on('message', (msg: Imap.ImapMessage, seqno: number) => {
             let msgUid = seqno;
@@ -216,16 +232,23 @@ server.tool(
               msgUid = attrs.uid;
             });
             msg.on('body', (stream: Readable) => {
-              simpleParser(stream, (err: Error | undefined, parsed: ParsedMail) => {
-                if (err) return;
-                messages.push({
-                  uid: msgUid,
-                  from: parsed.from?.text || 'Unknown',
-                  to: parsed.to?.text || 'Unknown',
-                  subject: parsed.subject || '(no subject)',
-                  date: parsed.date?.toISOString() || 'Unknown',
-                });
-              });
+              parses.push(
+                simpleParser(stream)
+                  .then((parsed: ParsedMail) => {
+                    messages.push({
+                      uid: msgUid,
+                      from: parsed.from?.text || 'Unknown',
+                      to: parsed.to?.text || 'Unknown',
+                      subject: parsed.subject || '(no subject)',
+                      date: parsed.date?.toISOString() || 'Unknown',
+                      sortKey: parsed.date ? parsed.date.getTime() : 0,
+                    });
+                  })
+                  .catch(() => {
+                    // Skip messages that fail to parse rather than dropping the
+                    // whole batch.
+                  }),
+              );
             });
           });
 
@@ -235,15 +258,20 @@ server.tool(
           });
 
           fetch.once('end', () => {
-            imap.end();
-            const formatted = messages.map(m =>
-              `[${m.uid}] ${m.subject}\n  From: ${m.from}\n  Date: ${m.date}`
-            ).join('\n\n');
-            resolve({
-              content: [{
-                type: 'text' as const,
-                text: `Messages in ${args.folder} (${messages.length} shown):\n\n${formatted}`
-              }]
+            Promise.all(parses).then(() => {
+              imap.end();
+              // Present newest-first so recent mail is never buried below the
+              // limit for high-volume senders/folders.
+              messages.sort((a, b) => b.sortKey - a.sortKey);
+              const formatted = messages.map(m =>
+                `[${m.uid}] ${m.subject}\n  From: ${m.from}\n  Date: ${m.date}`
+              ).join('\n\n');
+              resolve({
+                content: [{
+                  type: 'text' as const,
+                  text: `Messages in ${args.folder} (${messages.length} shown, newest first):\n\n${formatted}`
+                }]
+              });
             });
           });
         });

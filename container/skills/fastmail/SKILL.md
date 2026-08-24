@@ -13,7 +13,10 @@ env-guard: FASTMAIL_EMAIL
 
 **mcp__fastmail__fastmail_list_messages** — List messages in a folder
 - `folder` (default: INBOX), `limit` (default: 20), `search` (optional IMAP criteria)
+- Results are returned **newest-first**, and `limit` keeps the most recent matches. So for a prolific sender you still see their latest mail without raising `limit`.
 - Search examples: `["UNSEEN"]`, `["FROM", "user@example.com"]`, `["SUBJECT", "invoice"]`
+- To scope by date, add `SINCE` with a `DD-Mon-YYYY` date, e.g. `["FROM", "user@example.com", "SINCE", "01-Aug-2026"]`. This is far cheaper than paging with a large `limit`.
+- `list_messages` searches **one folder at a time**. If you don't know where a message lives, check both `INBOX` and `Archive` (most Fastmail mail is auto-archived); use `fastmail_list_folders` to enumerate the rest.
 
 **mcp__fastmail__fastmail_read_message** — Read full message content
 - `folder`, `uid` (from list_messages)
