@@ -8,7 +8,7 @@ import {
 } from '@assistant-ui/react';
 import { useStore, type MyMessage } from './store';
 import { sendUserMessage } from './send';
-import { renameThread as renameThreadApi } from './threads-api';
+import { archiveThread as archiveThreadApi, renameThread as renameThreadApi } from './threads-api';
 
 const convertMessage = (m: MyMessage): ThreadMessageLike => {
   // Cards and interactive prompts render as generative-UI tool-call parts
@@ -125,6 +125,13 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       // back from the host on next connect, so there's no clobber.
       useStore.getState().renameThread(id, title);
       void renameThreadApi(id, title);
+    },
+    onArchive: (id) => {
+      // Archive is the primary soft-delete (calcifer-6d5a / B2): drop it from the
+      // active list locally and persist archived_at. It reappears via the
+      // archive browser (B3) and can be rescued (B4).
+      useStore.getState().deleteThread(id);
+      void archiveThreadApi(id, true);
     },
     onDelete: (id) => {
       useStore.getState().deleteThread(id);

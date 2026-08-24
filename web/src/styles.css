@@ -839,12 +839,22 @@ body {
 }
 
 .thread-list-item {
+  position: relative;
+  display: flex;
+  align-items: center;
   border-radius: 8px;
+}
+.thread-list-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.thread-list-item[data-active='true'] {
+  background: rgba(59, 110, 245, 0.12);
 }
 
 .thread-list-item-trigger {
+  flex: 1 1 auto;
+  min-width: 0;
   display: block;
-  width: 100%;
   text-align: left;
   appearance: none;
   background: transparent;
@@ -859,14 +869,78 @@ body {
   text-overflow: ellipsis;
 }
 
-.thread-list-item-trigger:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
-
 .thread-list-item[data-active='true'] .thread-list-item-trigger {
-  background: rgba(59, 110, 245, 0.12);
   color: var(--accent);
   font-weight: 600;
+}
+
+/* Tap-first overflow trigger (B1/B2). */
+.thread-item-menu-btn {
+  flex: none;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 8px;
+  margin-right: 2px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.thread-item-menu-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text);
+}
+
+.thread-item-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+}
+
+.thread-item-menu {
+  position: absolute;
+  top: 100%;
+  right: 6px;
+  z-index: 46;
+  min-width: 132px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+
+.thread-item-menu-action {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-size: 13px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.thread-item-menu-action:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.thread-rename-input {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 7px 11px;
+}
+.thread-rename-input:focus {
+  outline: none;
 }
 
 /* ---- Main / thread ---- */
