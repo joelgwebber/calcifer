@@ -424,6 +424,54 @@ body {
   font-size: 14px;
 }
 
+.detail-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.detail-crumbs .crumb {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.detail-crumbs .crumb:hover {
+  text-decoration: underline;
+}
+
+.detail-crumbs .crumb-current {
+  color: var(--fg, inherit);
+  font-weight: 600;
+}
+
+.detail-crumbs .crumb-sep {
+  color: var(--muted);
+}
+
+.doc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.doc-meta-item {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.doc-meta-label {
+  font-weight: 500;
+}
+
 .detail-actions {
   display: flex;
   gap: 8px;

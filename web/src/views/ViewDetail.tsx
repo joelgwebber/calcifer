@@ -45,6 +45,12 @@ export function ViewDetail() {
   const hasDoc = !!rawDoc.trim();
   const { body: docBody } = splitFrontmatter(rawDoc);
   const docMarkdown = convertWikiLinks(docBody);
+  const isFs = manifest.data.type === 'fs';
+  // Timestamp-style metadata (e.g. Modified) shown compactly at the top of a
+  // rendered document, replacing the redundant path/kind/size footer (calcifer-cdef).
+  const metaFields = hasDoc
+    ? detailFieldList(manifest).filter((name) => manifest.fields[name]?.type === 'datetime')
+    : [];
 
   // Intra-view navigation for the prose primitive: a relative .md link loads that
   // doc within the same view; anything else falls through to the browser.
@@ -75,9 +81,26 @@ export function ViewDetail() {
   return (
     <div className="detail">
       <div className="detail-top">
-        <Link className="detail-back" to={`/app/${manifest.view}`}>
-          ← {manifest.title}
-        </Link>
+        {isFs ? (
+          <nav className="detail-crumbs">
+            {fsCrumbs(manifest.view, manifest.title, id).map((c, i, arr) => (
+              <span key={i}>
+                {c.to ? (
+                  <Link className="crumb" to={c.to}>
+                    {c.label}
+                  </Link>
+                ) : (
+                  <span className="crumb crumb-current">{c.label}</span>
+                )}
+                {i < arr.length - 1 && <span className="crumb-sep">/</span>}
+              </span>
+            ))}
+          </nav>
+        ) : (
+          <Link className="detail-back" to={`/app/${manifest.view}`}>
+            ← {manifest.title}
+          </Link>
+        )}
         <div className="detail-actions">
           {hasStar && (
             <button className={`icon-button ${starred ? 'starred' : ''}`} onClick={toggleStar}>
@@ -106,27 +129,39 @@ export function ViewDetail() {
 
       {hasDoc && (
         <div className="doc">
+          {metaFields.length > 0 && (
+            <div className="doc-meta">
+              {metaFields.map((name) => (
+                <span className="doc-meta-item" key={name}>
+                  <span className="doc-meta-label">{manifest.fields[name]?.label ?? name}</span>
+                  <FieldValue type={manifest.fields[name]!.type} value={row[name]} />
+                </span>
+              ))}
+            </div>
+          )}
           {row._frontmatter ? <FrontmatterPanel data={row._frontmatter} /> : null}
           <Prose markdown={docMarkdown} nav={{ onNavigate, resolveAsset }} />
         </div>
       )}
 
-      <table className="detail-fields">
-        <tbody>
-          {detailFieldList(manifest).map((name) => {
-            const spec = manifest.fields[name];
-            if (!spec || spec.type === 'document') return null;
-            return (
-              <tr key={name}>
-                <th>{spec.label ?? name}</th>
-                <td>
-                  <FieldValue type={spec.type} value={row[name]} />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      {!hasDoc && (
+        <table className="detail-fields">
+          <tbody>
+            {detailFieldList(manifest).map((name) => {
+              const spec = manifest.fields[name];
+              if (!spec || spec.type === 'document') return null;
+              return (
+                <tr key={name}>
+                  <th>{spec.label ?? name}</th>
+                  <td>
+                    <FieldValue type={spec.type} value={row[name]} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
 
       {manifest.detail?.timeline && Array.isArray(row._timeline) && row._timeline.length > 0 && (
         <div className="detail-timeline">
@@ -318,6 +353,26 @@ function FrontmatterPanel({ data }: { data: unknown }) {
       </div>
     </details>
   );
+}
+
+/**
+ * Breadcrumb trail for a document opened from an fs browse view: the library
+ * root, each ancestor folder (linking back into the tree via ?path=), and the
+ * file itself as the non-navigable leaf (calcifer-1373).
+ */
+function fsCrumbs(view: string, title: string, path: string): Array<{ label: string; to: string | null }> {
+  const trail: Array<{ label: string; to: string | null }> = [{ label: title, to: `/app/${view}` }];
+  const parts = path.split('/').filter(Boolean);
+  let acc = '';
+  parts.forEach((part, i) => {
+    if (i === parts.length - 1) {
+      trail.push({ label: part, to: null });
+    } else {
+      acc = acc ? `${acc}/${part}` : part;
+      trail.push({ label: part, to: `/app/${view}?path=${encodeURIComponent(acc)}` });
+    }
+  });
+  return trail;
 }
 
 /** Resolve a relative markdown href against the current document's path. */
