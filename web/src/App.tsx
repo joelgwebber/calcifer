@@ -88,32 +88,48 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
           <div className="rail-head">
             <div className="rail-brand">nanoclaw</div>
             {!isMobile && (
-              <button className="rail-collapse" aria-label="Collapse navigation" onClick={toggleCollapsed}>
-                ‹
+              <button
+                className="rail-collapse"
+                aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+                onClick={toggleCollapsed}
+              >
+                {collapsed ? '›' : '‹'}
               </button>
             )}
           </div>
-          <NavLink to="/" end className={({ isActive }) => `rail-link ${isActive ? 'active' : ''}`}>
-            Chat
-          </NavLink>
-          {groupViews(views).map(({ group, items }) => (
-            <div key={group ?? '__top'}>
-              <div className="rail-section">{group ?? 'Apps'}</div>
-              {items.map((v) => (
-                <NavLink
-                  key={v.view}
-                  to={`/app/${v.view}`}
-                  className={({ isActive }) => `rail-link ${isActive ? 'active' : ''}`}
-                >
-                  {v.title}
-                </NavLink>
-              ))}
-            </div>
-          ))}
-          <div className="rail-spacer" />
+
+          <div className="rail-nav">
+            <NavLink to="/" end className={({ isActive }) => `rail-link ${isActive ? 'active' : ''}`} title="Chat">
+              <span className="rail-icon">💬</span>
+              <span className="rail-label">Chat</span>
+            </NavLink>
+            {groupViews(views).map(({ group, items }) => (
+              <div className="rail-group" key={group ?? '__top'}>
+                <div className="rail-section">{group ?? 'Apps'}</div>
+                {items.map((v) => (
+                  <NavLink
+                    key={v.view}
+                    to={`/app/${v.view}`}
+                    className={({ isActive }) => `rail-link ${isActive ? 'active' : ''}`}
+                    title={v.title}
+                  >
+                    <span className="rail-icon">{viewGlyph(v)}</span>
+                    <span className="rail-label">{v.title}</span>
+                  </NavLink>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          <div className="rail-convos">
+            <div className="rail-section">Conversations</div>
+            <ThreadList />
+          </div>
+
           {me.authRequired && (
             <button className="rail-logout" title={`Signed in as ${label}`} onClick={onLogout}>
-              Sign out
+              <span className="rail-icon">⏻</span>
+              <span className="rail-label">Sign out</span>
             </button>
           )}
         </nav>
@@ -173,17 +189,24 @@ function groupViews(views: ViewSummary[]): Array<{ group: string | null; items: 
 }
 
 function ChatPane() {
+  // Conversations now live in the unified rail (A2); the chat route is just the
+  // transcript + composer, filling the shell's main region.
   return (
     <div className="chat">
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <span>Conversations</span>
-        </div>
-        <ThreadList />
-      </aside>
       <div className="chat-main">
         <Thread />
       </div>
     </div>
   );
+}
+
+/** Emoji glyph for a view's rail icon (manifest `icon`), monogram fallback. */
+const VIEW_ICONS: Record<string, string> = {
+  book: '📚',
+  building: '🏢',
+  folder: '📁',
+  image: '🖼️',
+};
+function viewGlyph(v: ViewSummary): string {
+  return (v.icon && VIEW_ICONS[v.icon]) || v.title.slice(0, 1).toUpperCase();
 }
