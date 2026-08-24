@@ -1,0 +1,8 @@
+# .sightmap/components.yaml — global components, matched on every view.
+# Put shared UI (nav, footer, …) here so one definition improves every page.
+# Full schema: https://sightmap.org/docs
+#
+# components:
+#   - name: SiteNav
+#     selector: 'nav[data-component="SiteNav"]'
+version: 1
