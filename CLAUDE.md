@@ -13,6 +13,16 @@ If you are a fresh install (you ran `git clone`, not `git pull`) and there are n
 
 ---
 
+<!-- FORK:calcifer START -->
+## Calcifer fork — operations
+
+Fork-specific operations for this install (the `ncl` CLI, where config actually lives, how to make
+changes take effect, recipes, gotchas) live in **[CALCIFER.md](CALCIFER.md)** — read it before any
+ops work here. Load-bearing: `container.json` is **derived** from the `container_configs` DB and
+rewritten every spawn (never hand-edit it — use `ncl groups config …`); and `ncl groups restart`
+cannot cold-start a group (it only recycles *running* containers — send a message to cold-start).
+<!-- FORK:calcifer END -->
+
 # NanoClaw
 
 Personal AI assistant. See [README.md](README.md) for philosophy and setup. Architecture lives in `docs/`.
@@ -282,6 +292,7 @@ This project uses pnpm with `minimumReleaseAge: 4320` (3 days) in `pnpm-workspac
 
 | Doc | Purpose |
 |-----|---------|
+| [CALCIFER.md](CALCIFER.md) | **Calcifer fork ops** — `ncl` CLI, config source-of-truth, restart/recycle/rebuild table, recipes, gotchas log |
 | [docs/architecture.md](docs/architecture.md) | Full architecture writeup |
 | [docs/api-details.md](docs/api-details.md) | Host API + DB schema details |
 | [docs/db.md](docs/db.md) | DB architecture overview: three-DB model, cross-mount rules, readers/writers map |
