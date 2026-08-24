@@ -33,15 +33,66 @@ body {
   height: 100%;
 }
 
-/* ---- App shell (rail + main) ---- */
+/* ---- App shell (responsive: collapsible rail / mobile drawer, A1) ---- */
 .shell {
-  display: flex;
+  display: grid;
+  grid-template-columns: 200px 1fr;
   height: 100%;
+  position: relative;
+  transition: grid-template-columns 0.18s ease;
+}
+
+/* Desktop/tablet collapsed: rail clips to zero width. */
+.shell.nav-collapsed {
+  grid-template-columns: 0 1fr;
+}
+
+/* Mobile: single column; the rail floats as an overlay drawer (below). */
+.shell.shell-mobile {
+  grid-template-columns: 1fr;
+}
+
+/* Floating hamburger — only shown when the rail is out of the way
+   (desktop collapsed, or mobile with the drawer closed). */
+.nav-toggle {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 30;
+  display: none;
+  width: 34px;
+  height: 34px;
+  font-size: 18px;
+  line-height: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+.shell.nav-collapsed .nav-toggle,
+.shell.shell-mobile .nav-toggle {
+  display: block;
+}
+.shell.shell-mobile.nav-drawer-open .nav-toggle {
+  display: none;
+}
+
+/* Backdrop behind the mobile drawer. */
+.nav-backdrop {
+  display: none;
+}
+.shell.shell-mobile.nav-drawer-open .nav-backdrop {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  background: rgba(0, 0, 0, 0.4);
 }
 
 .rail {
-  width: 180px;
-  flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -50,10 +101,57 @@ body {
   border-right: 1px solid var(--border);
 }
 
+/* Mobile: the rail becomes a fixed slide-in drawer. */
+.shell.shell-mobile .rail {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 260px;
+  z-index: 40;
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+}
+.shell.shell-mobile.nav-drawer-open .rail {
+  transform: translateX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell,
+  .shell.shell-mobile .rail {
+    transition: none;
+  }
+}
+
+.rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rail-collapse {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  font-size: 16px;
+  line-height: 1;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.rail-collapse:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text);
+}
+
 .rail-brand {
   font-weight: 700;
   font-size: 15px;
   padding: 6px 10px 12px;
+  white-space: nowrap;
 }
 
 .rail-section {

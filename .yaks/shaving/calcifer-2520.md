@@ -4,7 +4,7 @@ title: A · Responsive layout & unified navigation
 type: feature
 priority: 2
 created: '2026-08-23T22:03:02Z'
-updated: '2026-08-23T22:03:02Z'
+updated: '2026-08-24T03:42:21Z'
 parent: calcifer-d483
 labels:
 - web-ui

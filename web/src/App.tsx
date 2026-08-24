@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, NavLink, Route, Routes, useParams } from 'react-router-dom';
+import { BrowserRouter, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { fetchMe, logout, type Me } from './api';
 import { RuntimeProvider } from './runtime';
 import { ThreadList } from './ui/ThreadList';
@@ -10,6 +10,7 @@ import { ViewList } from './views/ViewList';
 import { ViewBrowse } from './views/ViewBrowse';
 import { ViewDetail } from './views/ViewDetail';
 import { Login } from './ui/Login';
+import { useLayoutMode, useNav } from './ui/layout';
 
 type AuthState = { status: 'loading' } | { status: 'anon' } | { status: 'authed'; me: Me };
 
@@ -52,11 +53,46 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
   }, []);
   const label = me.displayName || me.handle;
 
+  const mode = useLayoutMode();
+  const isMobile = mode === 'mobile';
+  const { collapsed, drawerOpen, toggleCollapsed, setCollapsed, closeDrawer, toggleDrawer } = useNav();
+  const { pathname } = useLocation();
+
+  // A tap on a nav link closes the mobile drawer; leaving mobile drops it too.
+  useEffect(() => {
+    if (isMobile) closeDrawer();
+  }, [pathname, isMobile, closeDrawer]);
+
+  // The floating toggle opens the drawer on mobile, or re-expands a collapsed
+  // desktop rail. The in-rail chevron collapses it again on desktop.
+  const onFloatingToggle = () => (isMobile ? toggleDrawer() : setCollapsed(false));
+
+  const shellClass = [
+    'shell',
+    `shell-${mode}`,
+    !isMobile && collapsed ? 'nav-collapsed' : '',
+    isMobile && drawerOpen ? 'nav-drawer-open' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <RuntimeProvider>
-      <div className="shell">
+      <div className={shellClass}>
+        <button className="nav-toggle" aria-label="Open navigation" onClick={onFloatingToggle}>
+          ☰
+        </button>
+        <div className="nav-backdrop" onClick={closeDrawer} aria-hidden="true" />
+
         <nav className="rail">
-          <div className="rail-brand">nanoclaw</div>
+          <div className="rail-head">
+            <div className="rail-brand">nanoclaw</div>
+            {!isMobile && (
+              <button className="rail-collapse" aria-label="Collapse navigation" onClick={toggleCollapsed}>
+                ‹
+              </button>
+            )}
+          </div>
           <NavLink to="/" end className={({ isActive }) => `rail-link ${isActive ? 'active' : ''}`}>
             Chat
           </NavLink>
