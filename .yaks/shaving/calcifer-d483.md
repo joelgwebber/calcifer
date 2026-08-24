@@ -4,7 +4,7 @@ title: Web UI overhaul — responsive shell, conversation management, theming
 type: feature
 priority: 2
 created: '2026-08-23T22:02:34Z'
-updated: '2026-08-23T22:25:51Z'
+updated: '2026-08-24T19:34:18Z'
 labels:
 - web-ui
 ---

@@ -97,6 +97,8 @@ type Actions = {
   setTitle: (threadId: string, title: string) => void;
   renameThread: (threadId: string, title: string) => void;
   deleteThread: (threadId: string) => void;
+  /** Return an archived thread to the active list (calcifer-77be / B4 rescue). */
+  restoreThread: (threadId: string, title: string) => void;
   setRunning: (threadId: string, running: boolean) => void;
   /** Set (or clear, with null) the live activity label for a thread. */
   setStatus: (threadId: string, label: string | null) => void;
@@ -203,6 +205,18 @@ export const useStore = create<State & Actions>((set, get) => {
     setTitle: (threadId, title) => set((s) => ({ titles: { ...s.titles, [threadId]: title } })),
 
     renameThread: (threadId, title) => set((s) => ({ titles: { ...s.titles, [threadId]: title } })),
+
+    restoreThread: (threadId, title) =>
+      set((s) => {
+        // Idempotent: if it's somehow already active, leave the list untouched.
+        if (s.threadIds.includes(threadId)) return {};
+        return {
+          threadIds: [threadId, ...s.threadIds],
+          messages: { ...s.messages, [threadId]: s.messages[threadId] ?? [] },
+          titles: { ...s.titles, [threadId]: title || DEFAULT_TITLE },
+          running: { ...s.running, [threadId]: s.running[threadId] ?? false },
+        };
+      }),
 
     deleteThread: (threadId) =>
       set((s) => {

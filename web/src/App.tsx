@@ -3,6 +3,7 @@ import { BrowserRouter, NavLink, Route, Routes, useLocation, useParams } from 'r
 import { fetchMe, logout, type Me } from './api';
 import { RuntimeProvider } from './runtime';
 import { ThreadList } from './ui/ThreadList';
+import { ArchiveBrowser } from './ui/ArchiveBrowser';
 import { Thread } from './ui/Thread';
 import { fetchManifest, fetchViewList } from './views/api';
 import type { ViewManifest, ViewSummary } from './views/types';
@@ -52,6 +53,8 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
     void fetchViewList().then(setViews);
   }, []);
   const label = me.displayName || me.handle;
+
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   const mode = useLayoutMode();
   const isMobile = mode === 'mobile';
@@ -124,6 +127,14 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
           <div className="rail-convos">
             <div className="rail-section">Conversations</div>
             <ThreadList />
+            <button
+              className="rail-archived"
+              title="Archived conversations"
+              onClick={() => setArchiveOpen(true)}
+            >
+              <span className="rail-icon">🗄️</span>
+              <span className="rail-label">Archived</span>
+            </button>
           </div>
 
           {me.authRequired && (
@@ -141,6 +152,8 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
             <Route path="/app/:view/:id" element={<ViewDetail />} />
           </Routes>
         </main>
+
+        <ArchiveBrowser open={archiveOpen} onClose={() => setArchiveOpen(false)} />
       </div>
     </RuntimeProvider>
   );

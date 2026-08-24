@@ -4,7 +4,7 @@ title: 'B4: Rescue / unarchive conversations'
 type: task
 priority: 2
 created: '2026-08-23T22:03:38Z'
-updated: '2026-08-23T22:03:57Z'
+updated: '2026-08-24T19:34:06Z'
 parent: calcifer-5bf0
 depends_on:
 - calcifer-d029
