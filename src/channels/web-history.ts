@@ -22,6 +22,7 @@ import Database from 'better-sqlite3';
 
 import { getMessagingGroupAgents, getMessagingGroupByPlatform } from '../db/messaging-groups.js';
 import { findSessionForAgent, getActiveSessionsByMessagingGroup } from '../db/sessions.js';
+import { getThreadMetaFor } from '../db/thread-meta.js';
 import { log } from '../log.js';
 import { inboundDbPath, outboundDbPath } from '../mailbox/sqlite/index.js';
 import { type WebCard } from './web-cards.js';
@@ -56,6 +57,8 @@ export interface ThreadSummary {
   title: string;
   /** Epoch milliseconds (UTC). */
   lastActive: number;
+  /** Pinned to the top of the list (reserved for B5 — pin/bucketing). */
+  pinned?: boolean;
 }
 
 /**
@@ -217,18 +220,24 @@ export async function loadThreadHistory(platformId: string, threadId: string): P
   return messages;
 }
 
+interface EnrichedThread extends ThreadSummary {
+  archived: boolean;
+}
+
 /**
- * The web thread list: one entry per active per-thread session on the web
- * messaging group, newest first, titled from its first user message.
+ * Every per-thread session on the web messaging group, enriched with its
+ * thread_meta (calcifer-3236 / B0): a persisted title override wins over the
+ * first-message title, and archive/pin state ride along. listThreads and
+ * listArchivedThreads partition this by `archived`.
  */
-export async function listThreads(platformId: string): Promise<ThreadSummary[]> {
+async function enrichedThreads(platformId: string): Promise<EnrichedThread[]> {
   const mg = await getMessagingGroupByPlatform(CHANNEL_TYPE, platformId);
   if (!mg) return [];
 
   const agentGroupId = await currentAgentGroupId(mg.id);
   if (!agentGroupId) return [];
 
-  const summaries: ThreadSummary[] = [];
+  const base: Array<{ threadId: string; title: string; lastActive: number }> = [];
   for (const session of await getActiveSessionsByMessagingGroup(mg.id)) {
     if (session.agent_group_id !== agentGroupId) continue; // scope to the current wiring
     if (!session.thread_id) continue; // per-thread sessions only
@@ -255,13 +264,54 @@ export async function listThreads(platformId: string): Promise<ThreadSummary[]> 
       }
     }
 
-    summaries.push({
+    base.push({
       threadId: session.thread_id,
       title,
       lastActive: toEpoch(session.last_active ?? session.created_at),
     });
   }
 
-  summaries.sort((a, b) => b.lastActive - a.lastActive);
-  return summaries;
+  const meta = await getThreadMetaFor(
+    mg.id,
+    base.map((b) => b.threadId),
+  );
+  return base.map((b) => {
+    const m = meta.get(b.threadId);
+    // A persisted, non-empty override wins; otherwise the first-message title.
+    const override = m?.title && m.title.trim() ? m.title : null;
+    return {
+      threadId: b.threadId,
+      title: override ?? b.title,
+      lastActive: b.lastActive,
+      pinned: m?.pinned ?? false,
+      archived: !!m?.archived_at,
+    };
+  });
+}
+
+function stripArchived({ archived: _archived, ...summary }: EnrichedThread): ThreadSummary {
+  return summary;
+}
+
+/**
+ * The active web thread list: one entry per per-thread session that is NOT
+ * archived, newest first, titled by its override or first user message.
+ */
+export async function listThreads(platformId: string): Promise<ThreadSummary[]> {
+  const list = (await enrichedThreads(platformId)).filter((t) => !t.archived);
+  list.sort((a, b) => b.lastActive - a.lastActive);
+  return list.map(stripArchived);
+}
+
+/**
+ * The archived web thread list (calcifer-3236 / B0), newest first. `query`
+ * filters by a case-insensitive substring of the (possibly overridden) title —
+ * the archive-browser search (B3).
+ */
+export async function listArchivedThreads(platformId: string, query?: string): Promise<ThreadSummary[]> {
+  let list = (await enrichedThreads(platformId)).filter((t) => t.archived);
+  const q = query?.trim().toLowerCase();
+  if (q) list = list.filter((t) => t.title.toLowerCase().includes(q));
+  list.sort((a, b) => b.lastActive - a.lastActive);
+  return list.map(stripArchived);
 }
