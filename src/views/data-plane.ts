@@ -392,7 +392,14 @@ function fsFields(
 }
 
 /** Browse mode: list immediate children (subdirs + files) of one folder. */
-function browseFs(rootDir: string, relDir: string, exts: Set<string> | null): Array<Record<string, unknown>> {
+/**
+ * One folder level for a tree presentation. Deliberately NOT filtered by the
+ * manifest's `exts` (calcifer-d2cb): `exts` governs which files become full
+ * *document records* (rendered content + search, see walkFiles), but the browse
+ * tree must list every file so non-markdown siblings (PDFs, scans, photos) are
+ * visible and clickable — they open via the exts-agnostic byte endpoint.
+ */
+function browseFs(rootDir: string, relDir: string): Array<Record<string, unknown>> {
   const dirAbs = safeResolve(rootDir, relDir);
   let real: string;
   let realRoot: string;
@@ -418,7 +425,6 @@ function browseFs(rootDir: string, relDir: string, exts: Set<string> | null): Ar
       if (d.isDirectory()) {
         out.push(fsFields(rootDir, abs, 0, st.mtime, 'dir'));
       } else if (d.isFile()) {
-        if (exts && !exts.has(path.extname(d.name).replace(/^\./, '').toLowerCase())) continue;
         out.push(fsFields(rootDir, abs, st.size, st.mtime, 'file'));
       }
     } catch {
@@ -479,7 +485,7 @@ async function queryFs(manifest: ViewManifest, params: QueryParams): Promise<Que
   // Browse mode (tree presentation): one folder level, dirs first. Search still
   // filters the current folder; folder navigation is driven by the `path` param.
   if (params.browse) {
-    let items = browseFs(rootDir, params.path ?? '', exts);
+    let items = browseFs(rootDir, params.path ?? '');
     if (params.q?.trim()) {
       const needle = params.q.trim().toLowerCase();
       items = items.filter((r) =>
