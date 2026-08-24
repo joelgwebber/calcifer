@@ -93,6 +93,40 @@ async function ensureDir(libraryId: string, dir: string): Promise<void> {
   }
 }
 
+/**
+ * Move or copy a file OR directory via Seafile's v2.1 batch endpoints
+ * (calcifer-9e4c). The api2 `/dir/` endpoint only supports mkdir/rename — NOT
+ * move/copy — so directory relocations (and cross-library ones) 400 with
+ * "Operation not supported" when sent there. sync-batch-move-item /
+ * sync-batch-copy-item handle both files and directories, within or across
+ * libraries, and take a JSON body (like the other /api/v2.1/ endpoints).
+ * Moves/copies the item INTO `dstDir`, keeping its name.
+ */
+async function seafileBatchItemOp(
+  operation: 'move' | 'copy',
+  srcRepo: string,
+  srcPath: string,
+  dstRepo: string,
+  dstDir: string,
+): Promise<any> {
+  const srcParent = srcPath.substring(0, srcPath.lastIndexOf('/')) || '/';
+  const name = srcPath.split('/').filter(Boolean).pop();
+  if (!name) throw new Error('cannot move/copy the library root itself');
+  const endpoint =
+    operation === 'move' ? '/api/v2.1/repos/sync-batch-move-item/' : '/api/v2.1/repos/sync-batch-copy-item/';
+  return seafileRequest(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      src_repo_id: srcRepo,
+      src_parent_dir: srcParent,
+      src_dirents: [name],
+      dst_repo_id: dstRepo,
+      dst_parent_dir: dstDir,
+    }),
+  });
+}
+
 const MIME_BY_EXT: Record<string, string> = {
   pdf: 'application/pdf',
   doc: 'application/msword',
@@ -435,15 +469,20 @@ server.tool(
   async (args) => {
     const dstRepo = args.dst_library_id || args.library_id;
     const dstDir = args.dst_path.substring(0, args.dst_path.lastIndexOf('/')) || '/';
-    const resource = args.is_dir ? 'dir' : 'file';
-    // Seafile api2 move needs form-encoded params and honors a distinct dst_repo
-    // for cross-library moves — the old wrapper hardcoded dst_repo=source and
-    // sent JSON, so cross-library moves were impossible (calcifer-225e).
-    await seafilePostForm(`/api2/repos/${args.library_id}/${resource}/?p=${encodeURIComponent(args.src_path)}`, {
-      operation: 'move',
-      dst_repo: dstRepo,
-      dst_dir: dstDir,
-    });
+    await ensureDir(dstRepo, dstDir);
+    if (args.is_dir) {
+      // api2 /dir/ only supports mkdir/rename — directory (and cross-library)
+      // moves go through the v2.1 batch endpoint (calcifer-9e4c).
+      await seafileBatchItemOp('move', args.library_id, args.src_path, dstRepo, dstDir);
+    } else {
+      // Files: api2 /file/ move with a distinct dst_repo (form-encoded), the
+      // path calcifer-225e verified.
+      await seafilePostForm(`/api2/repos/${args.library_id}/file/?p=${encodeURIComponent(args.src_path)}`, {
+        operation: 'move',
+        dst_repo: dstRepo,
+        dst_dir: dstDir,
+      });
+    }
 
     const crossLib = dstRepo !== args.library_id ? ` in library ${dstRepo}` : '';
     return {
@@ -466,17 +505,22 @@ server.tool(
       .string()
       .optional()
       .describe('Destination library ID for cross-library copies (default: same as library_id)'),
-    is_dir: z.boolean().default(false).describe('Set true when copying a directory (uses the dir endpoint)'),
+    is_dir: z.boolean().default(false).describe('Set true when copying a directory'),
   },
   async (args) => {
     const dstRepo = args.dst_library_id || args.library_id;
     const dstDir = args.dst_path.substring(0, args.dst_path.lastIndexOf('/')) || '/';
-    const resource = args.is_dir ? 'dir' : 'file';
-    await seafilePostForm(`/api2/repos/${args.library_id}/${resource}/?p=${encodeURIComponent(args.src_path)}`, {
-      operation: 'copy',
-      dst_repo: dstRepo,
-      dst_dir: dstDir,
-    });
+    await ensureDir(dstRepo, dstDir);
+    if (args.is_dir) {
+      // Directory copy — v2.1 batch endpoint (calcifer-9e4c).
+      await seafileBatchItemOp('copy', args.library_id, args.src_path, dstRepo, dstDir);
+    } else {
+      await seafilePostForm(`/api2/repos/${args.library_id}/file/?p=${encodeURIComponent(args.src_path)}`, {
+        operation: 'copy',
+        dst_repo: dstRepo,
+        dst_dir: dstDir,
+      });
+    }
 
     const crossLib = dstRepo !== args.library_id ? ` in library ${dstRepo}` : '';
     return {
@@ -577,5 +621,12 @@ server.tool(
   }
 );
 
-const transport = new StdioServerTransport();
-server.connect(transport);
+// Only start the stdio server when run directly (bun /app/src/seafile-mcp-stdio.ts).
+// When imported (e.g. by the calcifer-9e4c regression test), skip startup so the
+// helpers can be exercised in isolation.
+if ((import.meta as { main?: boolean }).main) {
+  const transport = new StdioServerTransport();
+  server.connect(transport);
+}
+
+export { seafileRequest, seafilePostForm, ensureDir, seafileBatchItemOp, SEAFILE_URL, SEAFILE_TOKEN };
