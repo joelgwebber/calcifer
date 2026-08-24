@@ -52,6 +52,72 @@ async function seafileRequest(endpoint: string, options: RequestInit = {}): Prom
   return response.text();
 }
 
+/**
+ * POST a Seafile `api2` file/dir operation (mkdir, move, copy) as
+ * `application/x-www-form-urlencoded`. The `api2` endpoints do NOT accept JSON
+ * bodies for these operations, but `seafileRequest` defaults to JSON — sending
+ * JSON is why mkdir/move silently 400'd (calcifer-225e). `/api/v2.1/` endpoints
+ * (e.g. share-links) stay on JSON via their own explicit Content-Type.
+ */
+async function seafilePostForm(endpoint: string, params: Record<string, string>): Promise<any> {
+  return seafileRequest(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(params).toString(),
+  });
+}
+
+async function dirExists(libraryId: string, dir: string): Promise<boolean> {
+  try {
+    await seafileRequest(`/api2/repos/${libraryId}/dir/?p=${encodeURIComponent(dir)}`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Create `dir` and any missing parents. Seafile's mkdir does not create
+ * intermediate directories, so we walk the path and create each missing level.
+ * Idempotent (existing levels are skipped) and it surfaces real mkdir failures
+ * instead of swallowing them (calcifer-225e).
+ */
+async function ensureDir(libraryId: string, dir: string): Promise<void> {
+  if (!dir || dir === '/') return;
+  const parts = dir.split('/').filter(Boolean);
+  let cur = '';
+  for (const part of parts) {
+    cur += `/${part}`;
+    if (await dirExists(libraryId, cur)) continue;
+    await seafilePostForm(`/api2/repos/${libraryId}/dir/?p=${encodeURIComponent(cur)}`, { operation: 'mkdir' });
+  }
+}
+
+const MIME_BY_EXT: Record<string, string> = {
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  m4a: 'audio/mp4',
+  mp4: 'video/mp4',
+  zip: 'application/zip',
+};
+function guessMime(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+  return MIME_BY_EXT[ext] ?? 'application/octet-stream';
+}
+
 // Cache for library ID -> name mapping
 let libraryCache: Map<string, string> | null = null;
 
@@ -69,7 +135,11 @@ function getLocalPath(libraryName: string, filePath: string): string | null {
   return path.join(SEAFILE_LOCAL_PATH, libraryName, libraryName, filePath);
 }
 
-async function tryReadLocal(libraryId: string, filePath: string): Promise<string | null> {
+async function tryReadLocal(
+  libraryId: string,
+  filePath: string,
+  encoding: 'utf-8' | 'base64' = 'utf-8',
+): Promise<string | null> {
   if (!SEAFILE_LOCAL_PATH) return null;
 
   const libraryName = await getLibraryName(libraryId);
@@ -79,8 +149,14 @@ async function tryReadLocal(libraryId: string, filePath: string): Promise<string
   if (!localPath) return null;
 
   try {
-    const content = await fs.readFile(localPath, 'utf-8');
-    return content;
+    // Read raw bytes and encode per request: 'utf-8' text decoding is lossy for
+    // binary files (PDF/DOCX/images), so callers can ask for base64 to get the
+    // exact bytes back (calcifer-225e).
+    if (encoding === 'base64') {
+      const buf = await fs.readFile(localPath);
+      return buf.toString('base64');
+    }
+    return await fs.readFile(localPath, 'utf-8');
   } catch (err) {
     // File doesn't exist locally or can't be read, fall back to API
     return null;
@@ -187,15 +263,21 @@ server.tool(
   {
     library_id: z.string().describe('The library/repository ID'),
     path: z.string().describe('File path'),
+    encoding: z
+      .enum(['utf-8', 'base64'])
+      .default('utf-8')
+      .describe(
+        "How to return the content. Use 'base64' for binary files (PDF, DOCX, images, audio); 'utf-8' text decoding corrupts non-text bytes.",
+      ),
   },
   async (args) => {
     // Try local access first
-    const localContent = await tryReadLocal(args.library_id, args.path);
+    const localContent = await tryReadLocal(args.library_id, args.path, args.encoding);
     if (localContent !== null) {
       return {
         content: [{
           type: 'text' as const,
-          text: `File: ${args.path} [local]\n\n${localContent}`
+          text: `File: ${args.path} [local, ${args.encoding}]\n\n${localContent}`
         }]
       };
     }
@@ -212,12 +294,16 @@ server.tool(
       throw new Error(`Failed to download file: ${response.statusText}`);
     }
 
-    const content = await response.text();
+    // Encode per request: base64 preserves exact bytes for binary files.
+    const content =
+      args.encoding === 'base64'
+        ? Buffer.from(await response.arrayBuffer()).toString('base64')
+        : await response.text();
 
     return {
       content: [{
         type: 'text' as const,
-        text: `File: ${args.path} [api]\n\n${content}`
+        text: `File: ${args.path} [api, ${args.encoding}]\n\n${content}`
       }]
     };
   }
@@ -229,24 +315,20 @@ server.tool(
   {
     library_id: z.string().describe('The library/repository ID'),
     path: z.string().describe('File path (must start with /)'),
-    content: z.string().describe('File content'),
+    content: z.string().describe('File content — plain text, or base64-encoded bytes when encoding=base64'),
+    encoding: z
+      .enum(['utf-8', 'base64'])
+      .default('utf-8')
+      .describe("Set 'base64' to upload binary content (PDF, DOCX, images, audio) byte-for-byte."),
     replace: z.boolean().default(false).describe('Replace existing file if it exists'),
   },
   async (args) => {
     const parentDir = args.path.substring(0, args.path.lastIndexOf('/')) || '/';
 
-    // Ensure parent directory exists (Seafile won't create intermediate dirs on upload)
-    if (parentDir !== '/') {
-      try {
-        const encodedParent = encodeURIComponent(parentDir);
-        await seafileRequest(
-          `/api2/repos/${args.library_id}/dir/?p=${encodedParent}`,
-          { method: 'POST', body: JSON.stringify({ operation: 'mkdir' }) }
-        );
-      } catch {
-        // Directory may already exist — ignore mkdir errors
-      }
-    }
+    // Ensure the parent directory (and any missing intermediates) exists. Seafile
+    // won't create intermediate dirs on upload; a failure here is surfaced rather
+    // than swallowed, so it can't resurface later as a confusing upload 404.
+    await ensureDir(args.library_id, parentDir);
 
     // Get upload link scoped to the parent directory (required for subdirectory uploads)
     const encodedParent = encodeURIComponent(parentDir);
@@ -255,10 +337,14 @@ server.tool(
       { method: 'GET' }
     );
 
-    // Prepare multipart form data
+    // Prepare multipart form data. base64 content is decoded to raw bytes and
+    // given a best-effort mimetype so binary files upload intact.
     const formData = new FormData();
-    const blob = new Blob([args.content], { type: 'text/plain' });
-    const filename = args.path.split('/').pop() || 'file.txt';
+    const filename = args.path.split('/').pop() || 'file';
+    const blob =
+      args.encoding === 'base64'
+        ? new Blob([Buffer.from(args.content, 'base64')], { type: guessMime(filename) })
+        : new Blob([args.content], { type: 'text/plain' });
     formData.append('file', blob, filename);
     formData.append('parent_dir', parentDir);
     if (args.replace) {
@@ -292,20 +378,14 @@ server.tool(
 
 server.tool(
   'seafile_create_dir',
-  'Create a new directory in Seafile',
+  'Create a new directory in Seafile (creates missing parent directories too)',
   {
     library_id: z.string().describe('The library/repository ID'),
     path: z.string().describe('Directory path to create'),
   },
   async (args) => {
-    const encodedPath = encodeURIComponent(args.path);
-    await seafileRequest(
-      `/api2/repos/${args.library_id}/dir/?p=${encodedPath}`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ operation: 'mkdir' }),
-      }
-    );
+    // Recursive + idempotent + form-encoded mkdir (calcifer-225e).
+    await ensureDir(args.library_id, args.path);
 
     return {
       content: [{
@@ -341,30 +421,68 @@ server.tool(
 
 server.tool(
   'seafile_move',
-  'Move or rename a file or directory',
+  'Move a file or directory into a destination directory, optionally in another library. Keeps the original filename (this moves into dst_dir; it does not rename).',
   {
-    library_id: z.string().describe('The library/repository ID'),
+    library_id: z.string().describe('The source library/repository ID'),
     src_path: z.string().describe('Source path'),
-    dst_path: z.string().describe('Destination path'),
+    dst_path: z.string().describe('Destination path (its parent directory is the target directory)'),
+    dst_library_id: z
+      .string()
+      .optional()
+      .describe('Destination library ID for cross-library moves (default: same as library_id)'),
+    is_dir: z.boolean().default(false).describe('Set true when moving a directory (uses the dir endpoint)'),
   },
   async (args) => {
-    const encodedSrc = encodeURIComponent(args.src_path);
-    await seafileRequest(
-      `/api2/repos/${args.library_id}/file/?p=${encodedSrc}`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          operation: 'move',
-          dst_repo: args.library_id,
-          dst_dir: args.dst_path.substring(0, args.dst_path.lastIndexOf('/')) || '/',
-        }),
-      }
-    );
+    const dstRepo = args.dst_library_id || args.library_id;
+    const dstDir = args.dst_path.substring(0, args.dst_path.lastIndexOf('/')) || '/';
+    const resource = args.is_dir ? 'dir' : 'file';
+    // Seafile api2 move needs form-encoded params and honors a distinct dst_repo
+    // for cross-library moves — the old wrapper hardcoded dst_repo=source and
+    // sent JSON, so cross-library moves were impossible (calcifer-225e).
+    await seafilePostForm(`/api2/repos/${args.library_id}/${resource}/?p=${encodeURIComponent(args.src_path)}`, {
+      operation: 'move',
+      dst_repo: dstRepo,
+      dst_dir: dstDir,
+    });
 
+    const crossLib = dstRepo !== args.library_id ? ` in library ${dstRepo}` : '';
     return {
       content: [{
         type: 'text' as const,
-        text: `Moved ${args.src_path} to ${args.dst_path}`
+        text: `Moved ${args.src_path} to ${dstDir}${crossLib}`
+      }]
+    };
+  }
+);
+
+server.tool(
+  'seafile_copy',
+  'Copy a file or directory into a destination directory, optionally in another library. Useful to verify a cross-library relocation succeeded before deleting the source.',
+  {
+    library_id: z.string().describe('The source library/repository ID'),
+    src_path: z.string().describe('Source path'),
+    dst_path: z.string().describe('Destination path (its parent directory is the target directory)'),
+    dst_library_id: z
+      .string()
+      .optional()
+      .describe('Destination library ID for cross-library copies (default: same as library_id)'),
+    is_dir: z.boolean().default(false).describe('Set true when copying a directory (uses the dir endpoint)'),
+  },
+  async (args) => {
+    const dstRepo = args.dst_library_id || args.library_id;
+    const dstDir = args.dst_path.substring(0, args.dst_path.lastIndexOf('/')) || '/';
+    const resource = args.is_dir ? 'dir' : 'file';
+    await seafilePostForm(`/api2/repos/${args.library_id}/${resource}/?p=${encodeURIComponent(args.src_path)}`, {
+      operation: 'copy',
+      dst_repo: dstRepo,
+      dst_dir: dstDir,
+    });
+
+    const crossLib = dstRepo !== args.library_id ? ` in library ${dstRepo}` : '';
+    return {
+      content: [{
+        type: 'text' as const,
+        text: `Copied ${args.src_path} to ${dstDir}${crossLib}`
       }]
     };
   }
