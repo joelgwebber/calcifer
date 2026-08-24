@@ -1002,6 +1002,13 @@ body {
   gap: 12px;
 }
 
+/* Reclaim side space on small screens so bubbles aren't squeezed (calcifer-1adb). */
+@media (max-width: 700px) {
+  .thread-viewport {
+    padding: 14px 12px;
+  }
+}
+
 .thread-empty {
   margin: auto;
   color: var(--muted);
@@ -1022,7 +1029,9 @@ body {
 }
 
 .message-bubble {
-  max-width: 70%;
+  /* Use most of the width on narrow screens (calcifer-1adb), but cap the line
+     length on wide ones for readability: 65ch wins on desktop, 90% on mobile. */
+  max-width: min(90%, 65ch);
   padding: 10px 14px;
   border-radius: 16px;
   font-size: 15px;
