@@ -157,9 +157,19 @@ export async function loadThreadHistory(platformId: string, threadId: string): P
   const inDb = openReadonly(inboundDbPath(session.agent_group_id, session.id));
   if (inDb) {
     try {
+      // Scope to THIS thread's real web turns. Cross-session-context echo rows
+      // also ride in messages_in as kind='chat' but with channel_type
+      // 'session-echo' (and carry BOTH user and agent sibling messages), and
+      // on_wake/system rows arrive as channel_type 'agent'. Both are ambient
+      // context for the agent, not transcript — without this filter they render
+      // as bogus 'user' turns (every chat sprouts ~20 mixed messages all
+      // attributed to the user). channel_type='web' keeps only genuine user
+      // messages; assistant turns come from outbound.db below.
       const rows = inDb
-        .prepare("SELECT id, timestamp, content FROM messages_in WHERE kind IN ('chat', 'chat-sdk') ORDER BY seq ASC")
-        .all() as Array<{ id: string; timestamp: string; content: string }>;
+        .prepare(
+          "SELECT id, timestamp, content FROM messages_in WHERE kind IN ('chat', 'chat-sdk') AND channel_type = ? ORDER BY seq ASC",
+        )
+        .all(CHANNEL_TYPE) as Array<{ id: string; timestamp: string; content: string }>;
       for (const r of rows) {
         const text = extractText(r.content);
         if (text) messages.push({ id: r.id, role: 'user', text, createdAt: toEpoch(r.timestamp) });
@@ -227,9 +237,13 @@ export async function listThreads(platformId: string): Promise<ThreadSummary[]> 
     const inDb = openReadonly(inboundDbPath(session.agent_group_id, session.id));
     if (inDb) {
       try {
+        // Same channel_type scope as loadThreadHistory: title from the first
+        // real web turn, never a cross-session echo or system/on_wake row.
         const row = inDb
-          .prepare("SELECT content FROM messages_in WHERE kind IN ('chat', 'chat-sdk') ORDER BY seq ASC LIMIT 1")
-          .get() as { content: string } | undefined;
+          .prepare(
+            "SELECT content FROM messages_in WHERE kind IN ('chat', 'chat-sdk') AND channel_type = ? ORDER BY seq ASC LIMIT 1",
+          )
+          .get(CHANNEL_TYPE) as { content: string } | undefined;
         if (row) {
           const text = extractText(row.content);
           if (text) title = truncate(text);
