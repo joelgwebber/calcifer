@@ -4,7 +4,7 @@ title: 'B0: Thread-metadata persistence — central DB table + web adapter CRUD'
 type: task
 priority: 1
 created: '2026-08-23T22:03:28Z'
-updated: '2026-08-23T23:16:15Z'
+updated: '2026-08-24T00:13:17Z'
 parent: calcifer-5bf0
 labels:
 - web-ui,db
@@ -27,3 +27,7 @@ REMAINING for B0 (next slices):
 1. web-history.ts listThreads(): merge title override (getThreadMetaFor) + filter archived out; add listArchivedThreads(platformId). Thread identity = (mg.id, session.thread_id).
 2. web.ts endpoints: PATCH /api/threads/:id (rename), archive/unarchive (+ GET archived). Handlers resolve platformId->mg like the existing /api/threads + /api/history handlers.
 3. Client store: make renameThread persist (call PATCH) and stop hydrateThreadList from clobbering overrides; surface archived filtering. UI affordances themselves are B1/B2/B3/B4.
+
+---
+▸ 2026-08-24T00:13:17Z
+Slice 2 landed (tsc clean, committed): web-history.ts now merges thread_meta into the thread list — override title wins over first-message title, archived threads hidden from listThreads, pinned carried through, and new listArchivedThreads(platformId, query?) with title substring search for B3. Refactored into a shared enrichedThreads() collector. REMAINING: web.ts endpoints (PATCH rename, archive/unarchive, GET archived) + client store wiring (persist renameThread, stop hydrateThreadList clobbering overrides).
