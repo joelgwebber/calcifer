@@ -27,6 +27,7 @@ import { migration023 } from './023-approvals-instance.js';
 // calcifer-local migrations (renumbered from 016/017 during the v2.2.0 merge).
 import { migration024 } from './024-web-credentials.js';
 import { migration025 } from './025-annotations.js';
+import { migration026 } from './026-thread-metadata.js';
 
 interface MigrationBase {
   version: number;
@@ -94,6 +95,7 @@ export const migrations: Migration[] = [
   migration023,
   migration024,
   migration025,
+  migration026,
 ];
 
 /**
