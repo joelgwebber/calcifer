@@ -2,7 +2,7 @@
 # Both render at "/" (login is a conditional render in AuthedApp, not a separate
 # route), so they are two STATES of one view. Capture "/" both signed-out and
 # signed-in; the view set unions them. The authed shell chrome lives in
-# components.yaml (globals).
+# components.yaml (globals) and is $ref'd below to record that it appears here.
 version: 1
 views:
   - name: Home
@@ -20,65 +20,61 @@ views:
         ChatCardAction / ChatQuestionOption (only after an agent turn emits a
         card or prompt) and LoginError (only after a failed sign-in).
     components:
+      # Global shell — present in the signed-in state (absent in the login state).
+      - $ref: Sidebar
+      - $ref: NavToggle
+      - $ref: ArchiveBrowser
+
       # --- Signed-out state: the login card (web/src/ui/Login.tsx) ---
       - name: LoginForm
         selector: '.login-card'
         source: web/src/ui/Login.tsx
         description: Sign-in form shown when a session is required and absent.
-
-      - name: LoginInput
-        selector: '.login-input'
-        source: web/src/ui/Login.tsx
-        description: Handle or password field (autocomplete disambiguates which).
-        properties:
-          - name: field
-            extract: attr=autocomplete
-
-      - name: LoginSubmit
-        selector: '.login-button'
-        source: web/src/ui/Login.tsx
-        description: Submits the login form.
-
-      - name: LoginError
-        selector: '.login-error'
-        source: web/src/ui/Login.tsx
-        description: Inline authentication error message.
+        children:
+          - name: LoginInput
+            selector: '.login-input'
+            description: Handle or password field (autocomplete disambiguates which).
+            properties:
+              - name: field
+                extract: attr=autocomplete
+          - name: LoginSubmit
+            selector: '.login-button'
+            description: Submits the login form.
+          - name: LoginError
+            selector: '.login-error'
+            description: Inline authentication error (only after a failed sign-in).
 
       # --- Signed-in state: the transcript + composer (web/src/ui/Thread.tsx) ---
       - name: Transcript
         selector: '.thread-viewport'
         source: web/src/ui/Thread.tsx
         description: Scrolling message transcript for the current conversation.
+        children:
+          # Inline generative-UI parts the agent can emit into a message bubble;
+          # present only after a turn produces a card / interactive prompt.
+          - name: ChatCardAction
+            selector: '.chat-card-action'
+            source: web/src/ui/Card.tsx
+            description: A button/link inside an agent-sent card (incl. record Open/Star).
+            properties:
+              - name: label
+                extract: text
+          - name: ChatQuestionOption
+            selector: '.chat-question-option'
+            source: web/src/ui/Question.tsx
+            description: A selectable answer in an agent-sent interactive prompt.
+            properties:
+              - name: label
+                extract: text
 
       - name: Composer
         selector: '.composer'
         source: web/src/ui/Thread.tsx
         description: Message input row at the foot of the chat.
-
-      - name: ComposerInput
-        selector: '.composer-input'
-        source: web/src/ui/Thread.tsx
-        description: The "Message hearth…" text input.
-
-      - name: ComposerSend
-        selector: '.composer-send'
-        source: web/src/ui/Thread.tsx
-        description: Sends the composed message.
-
-      # Inline generative-UI parts the agent can emit into the transcript. Present
-      # only when a turn produced a card / interactive prompt.
-      - name: ChatCardAction
-        selector: '.chat-card-action'
-        source: web/src/ui/Card.tsx
-        description: A button/link inside an agent-sent card (incl. record-card Open/Star).
-        properties:
-          - name: label
-            extract: text
-
-      - name: ChatQuestionOption
-        selector: '.chat-question-option'
-        source: web/src/ui/Question.tsx
-        description: A selectable answer in an agent-sent interactive prompt.
-        properties:
-          - name: label
-            extract: text
+        children:
+          - name: ComposerInput
+            selector: '.composer-input'
+            description: The "Message hearth…" text input.
+          - name: ComposerSend
+            selector: '.composer-send'
+            description: Sends the composed message.

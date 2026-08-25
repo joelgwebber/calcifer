@@ -1,15 +1,14 @@
-# App record/document detail (route "/app/*/*") — one record or file. Two
+# App record/document detail (route "/app/*/*/**") — one record or file. Two
 # flavors share ViewDetail.tsx: a record (field table + note + timeline, e.g. an
 # apartment) and a rendered document (breadcrumbs + prose + structured
 # frontmatter, e.g. a wiki .md). Capture one of each so the set unions both.
 version: 1
 views:
-  # NOTE: fs document ids are URL-encoded (family%2FJay%2FJay.md); sightmap
-  # decodes the path before matching, so a doc becomes /app/<view>/<a>/<b>/… .
-  # "/app/*/*/**" requires 3+ segments (** matches zero-or-more), so it covers
-  # a flat record id (/app/apartments/se-123) and a deep decoded file path,
-  # while the 2-segment index (/app/apartments) falls through to AppList.
   - name: AppDetail
+    # Route globs: `*` matches exactly one path segment and `**` matches zero or
+    # more. sightmap decodes %2F before matching, so an fs document id
+    # (family%2FJay%2FJay.md) expands into multiple segments. Hence AppDetail is
+    # `/app/*/*/**` (3+ segments) and AppList is `/app/*` (exactly 2).
     route: "/app/*/*/**"
     url: "http://localhost:8787/app/apartments/se-5113565"
     source: web/src/views/ViewDetail.tsx
@@ -25,6 +24,12 @@ views:
         FrontmatterPanel). Each flavor's components are absent from the other's
         capture.
     components:
+      # Global shell reliably present on every detail page. (ArchiveBrowser / Menu
+      # stay auto-globals, not $ref'd here — they're transient overlays absent
+      # from these captures.)
+      - $ref: Sidebar
+      - $ref: NavToggle
+
       # Record flavor: single back-link to the list.
       - name: DetailBack
         selector: '.detail-back'
@@ -39,55 +44,58 @@ views:
         selector: '.detail-crumbs'
         source: web/src/views/ViewDetail.tsx
         description: Breadcrumb trail for a file opened from a browse view.
+        children:
+          - name: Crumb
+            selector: '.crumb'
+            description: One breadcrumb hop (current file is a non-navigable span).
+            properties:
+              - name: label
+                extract: text
 
-      - name: DetailCrumb
-        selector: '.detail-crumbs .crumb'
-        source: web/src/views/ViewDetail.tsx
-        description: One breadcrumb hop (current file is a non-navigable span).
-        properties:
-          - name: label
-            extract: text
-
-      # Star / Open / Download (all .icon-button) are scoped inside (T2).
+      # Star / Open / Download all share .icon-button, distinguished by label.
       - name: DetailActions
         selector: '.detail-actions'
         source: web/src/views/ViewDetail.tsx
         description: Per-record actions (star, and for files open/download).
+        children:
+          - name: Action
+            selector: '.icon-button'
+            description: A detail action (star / open / download).
+            properties:
+              - name: label
+                extract: text
 
-      # Shared editable note (record flavor). The textarea is scoped inside.
+      # Record flavor: shared editable note.
       - name: NoteEditor
         selector: '.note-editor'
         source: web/src/views/ViewDetail.tsx
         description: Shared free-text note for the record.
+        children:
+          - name: NoteInput
+            selector: '.note-input'
+            description: The note textarea (saves on blur).
 
-      - name: NoteInput
-        selector: '.note-input'
-        source: web/src/views/ViewDetail.tsx
-        description: The note textarea (saves on blur).
-
-      # Field table (record flavor). Any linked field values are scoped inside (T2).
+      # Record flavor: key/value field table (linked values scoped inside).
       - name: FieldsTable
         selector: '.detail-fields'
         source: web/src/views/ViewDetail.tsx
-        description: Key/value field table for a record without a rendered document.
+        description: Field table for a record without a rendered document.
 
       # Document flavor: rendered markdown + structured frontmatter.
       - name: Document
         selector: '.doc'
         source: web/src/views/ViewDetail.tsx
-        description: Rendered document container (frontmatter panel + prose).
+        description: Rendered document container.
+        children:
+          - name: FrontmatterPanel
+            selector: '.doc-frontmatter'
+            description: Collapsible structured-frontmatter panel (value-cell links inside).
+          - name: Prose
+            selector: '.prose'
+            source: web/src/views/Prose.tsx
+            description: Rendered markdown body; inline/wiki links scoped inside.
 
-      - name: FrontmatterPanel
-        selector: '.doc-frontmatter'
-        source: web/src/views/ViewDetail.tsx
-        description: Collapsible structured-frontmatter panel; value-cell links scoped inside.
-
-      - name: Prose
-        selector: '.prose'
-        source: web/src/views/Prose.tsx
-        description: Rendered markdown body; inline/wiki links scoped inside (T2).
-
-      # History timeline (record flavor, when the manifest defines one).
+      # Record flavor: history timeline (when the manifest defines one).
       - name: Timeline
         selector: '.detail-timeline'
         source: web/src/views/ViewDetail.tsx

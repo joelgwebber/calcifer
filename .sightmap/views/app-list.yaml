@@ -3,7 +3,9 @@
 # manifest): a card list (ViewList — records, e.g. Apartments), a dirs-first tree
 # (ViewBrowse tree — Documents, Books, Family Wiki), and a thumbnail grid
 # (ViewBrowse gallery — Pictures). Capture one of each so the set unions all
-# three presentations' components.
+# three presentations' components. Sub-controls nest with `children:` (their
+# selectors are scoped to the parent — e.g. a tab is just `button` within
+# `.collection-tabs`).
 version: 1
 views:
   - name: AppList
@@ -20,46 +22,51 @@ views:
         Pager is conditional: it renders only when a list's results exceed one
         page, so it is expected absent from the captured states.
     components:
-      # --- Shared header + controls ---
+      # Global shell reliably present on every app page. (ArchiveBrowser / Menu
+      # are also global but transient overlays — left as auto-globals, not $ref'd
+      # here, so coverage doesn't expect them in these closed-state captures.)
+      - $ref: Sidebar
+      - $ref: NavToggle
+
+      # --- Shared header + search ---
       - name: ViewHeader
         selector: '.view-header'
         source: web/src/views/ViewList.tsx
         description: App title + result/item count.
-
       - name: SearchInput
         selector: '.view-search'
         source: web/src/views/ViewList.tsx
         description: Free-text search (list) / folder filter (tree, gallery). Enter to apply.
 
       # --- List presentation (ViewList.tsx) ---
-      - name: CollectionTab
-        selector: '.collection-tabs button'
+      - name: CollectionTabs
+        selector: '.collection-tabs'
         source: web/src/views/ViewList.tsx
-        description: Collection selector (All + manifest-defined collections).
-        properties:
-          - name: label
-            extract: text
-
+        description: Collection selector strip (All + manifest-defined collections).
+        children:
+          - name: Tab
+            selector: 'button'
+            description: One collection tab.
+            properties:
+              - name: label
+                extract: text
       - name: SortSelect
         selector: '.view-sort'
         source: web/src/views/ViewList.tsx
         description: Sort-order dropdown.
-
       - name: FilterPanel
         selector: '.view-filters'
         source: web/src/views/Filters.tsx
-        description: Declarative filter sidebar (range / toggle / multiselect controls scoped inside).
-
-      - name: FilterGroup
-        selector: '.filter'
-        source: web/src/views/Filters.tsx
-        description: One labeled filter control group.
-        properties:
-          - name: label
-            extract: '.filter-label'
-
-      # One record card. Title varies per instance; the record link, star toggle,
-      # and open/ask actions (all .icon-button) are scoped inside it (T2).
+        description: Declarative filter sidebar.
+        children:
+          - name: FilterGroup
+            selector: '.filter'
+            description: One labeled filter control group (range / toggle / multiselect).
+            properties:
+              - name: label
+                extract: '.filter-label'
+      # One record card. Title varies per instance; the star / open / ask
+      # controls all share .icon-button, distinguished by their label.
       - name: ItemCard
         selector: '.card'
         source: web/src/views/ViewList.tsx
@@ -67,7 +74,16 @@ views:
         properties:
           - name: title
             extract: '.card-title'
-
+        children:
+          - name: CardAction
+            selector: '.icon-button'
+            description: A per-card control (star toggle, external open, or ask).
+            properties:
+              - name: label
+                extract: text
+      # Conditional: renders only when a list's results exceed one page, so it is
+      # absent from every captured state. Its prev/next buttons scope inside when
+      # present (kept childless here to avoid a false "broken selector" flag).
       - name: Pager
         selector: '.pager'
         source: web/src/views/ViewList.tsx
@@ -78,17 +94,15 @@ views:
         selector: '.tree-crumbs'
         source: web/src/views/ViewBrowse.tsx
         description: Folder breadcrumb trail for a browse view.
-
-      - name: Breadcrumb
-        selector: '.tree-crumbs .crumb'
-        source: web/src/views/ViewBrowse.tsx
-        description: One breadcrumb hop (the current/last one is disabled).
-        properties:
-          - name: label
-            extract: text
-
-      # One file/folder row (tree presentation). Name varies per instance; the
-      # star, open/descend link, and download are scoped inside it (T2).
+        children:
+          - name: Crumb
+            selector: '.crumb'
+            description: One breadcrumb hop (the current/last one is disabled).
+            properties:
+              - name: label
+                extract: text
+      # One file/folder row (tree). Name varies per instance; star / name /
+      # download nest inside.
       - name: TreeRow
         selector: '.tree-row'
         source: web/src/views/ViewBrowse.tsx
@@ -96,9 +110,17 @@ views:
         properties:
           - name: name
             extract: '.tree-name'
-
-      # One tile (gallery presentation). Name varies per instance; the star and
-      # thumbnail/descend control are scoped inside it (T2).
+        children:
+          - name: RowStar
+            selector: '.tree-star'
+            description: Star toggle for this row (reach by snapshot id).
+          - name: RowName
+            selector: '.tree-name'
+            description: The folder (descend) or file (open) control.
+          - name: RowDownload
+            selector: '.tree-dl'
+            description: Download link (files only).
+      # One tile (gallery). Name varies per instance; star / thumbnail nest inside.
       - name: GalleryTile
         selector: '.gtile'
         source: web/src/views/ViewBrowse.tsx
@@ -106,3 +128,10 @@ views:
         properties:
           - name: name
             extract: '.gtile-name'
+        children:
+          - name: TileStar
+            selector: '.gtile-star'
+            description: Star toggle for this tile (reach by snapshot id).
+          - name: TileThumb
+            selector: '.gtile-thumb'
+            description: The image (open) or folder (descend) control.
