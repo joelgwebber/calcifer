@@ -65,6 +65,7 @@ import {
   loadThreadHistory,
   renameWebThread,
   setWebThreadArchived,
+  setWebThreadPinned,
 } from './web-history.js';
 import { getThumbnail, isThumbnailable } from './web-thumbs.js';
 import {
@@ -399,6 +400,43 @@ function createAdapter(): ChannelAdapter {
       return;
     }
     const ok = await setWebThreadArchived(user.userId, threadId, archived);
+    if (!ok) {
+      sendJson(res, 404, { error: 'unknown messaging group' });
+      return;
+    }
+    sendJson(res, 200, { ok: true });
+  }
+
+  async function handlePinThread(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    const user = await resolveUser(req);
+    if (!user) {
+      unauthorized(res);
+      return;
+    }
+    let body: string;
+    try {
+      body = await readBody(req);
+    } catch {
+      sendJson(res, 413, { error: 'payload too large' });
+      return;
+    }
+    let parsed: { threadId?: unknown; pinned?: unknown };
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      sendJson(res, 400, { error: 'invalid json' });
+      return;
+    }
+    const { threadId, pinned } = parsed;
+    if (typeof threadId !== 'string' || !threadId) {
+      sendJson(res, 400, { error: 'threadId required' });
+      return;
+    }
+    if (typeof pinned !== 'boolean') {
+      sendJson(res, 400, { error: 'pinned (boolean) required' });
+      return;
+    }
+    const ok = await setWebThreadPinned(user.userId, threadId, pinned);
     if (!ok) {
       sendJson(res, 404, { error: 'unknown messaging group' });
       return;
@@ -812,6 +850,10 @@ function createAdapter(): ChannelAdapter {
     }
     if (req.method === 'POST' && url.pathname === '/api/threads/rename') {
       void handleRenameThread(req, res).catch(fail);
+      return;
+    }
+    if (req.method === 'POST' && url.pathname === '/api/threads/pin') {
+      void handlePinThread(req, res).catch(fail);
       return;
     }
     if (req.method === 'POST' && url.pathname === '/api/threads/archive') {

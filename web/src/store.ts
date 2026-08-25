@@ -72,6 +72,10 @@ type State = {
   messages: Record<string, MyMessage[]>;
   /** Per-thread display titles. */
   titles: Record<string, string>;
+  /** Per-thread last-activity time (epoch ms) — drives time-bucketing (B5). */
+  lastActive: Record<string, number>;
+  /** Per-thread pinned flag — pinned threads float to the top (B5). */
+  pinned: Record<string, boolean>;
   /** Per-thread running flag (agent is working). */
   running: Record<string, boolean>;
   /**
@@ -97,6 +101,8 @@ type Actions = {
   setTitle: (threadId: string, title: string) => void;
   renameThread: (threadId: string, title: string) => void;
   deleteThread: (threadId: string) => void;
+  /** Pin or unpin a thread (calcifer-3d5f / B5). */
+  setPinned: (threadId: string, pinned: boolean) => void;
   /** Return an archived thread to the active list (calcifer-77be / B4 rescue). */
   restoreThread: (threadId: string, title: string) => void;
   setRunning: (threadId: string, running: boolean) => void;
@@ -105,7 +111,7 @@ type Actions = {
   /** Ensure a thread entry exists (for out-of-band/pushed messages). */
   ensureThread: (threadId: string) => void;
   /** Replace the thread list with the host's known conversations (on connect). */
-  hydrateThreadList: (threads: { threadId: string; title: string }[]) => void;
+  hydrateThreadList: (threads: { threadId: string; title: string; lastActive?: number; pinned?: boolean }[]) => void;
   /** Replace a thread's transcript with host-loaded history and mark it hydrated. */
   setThreadMessages: (threadId: string, messages: MyMessage[]) => void;
   /** Mark an interactive prompt answered (by questionId, across all threads). */
@@ -125,6 +131,8 @@ export const useStore = create<State & Actions>((set, get) => {
     threadIds: [initialThreadId],
     messages: { [initialThreadId]: [] },
     titles: { [initialThreadId]: DEFAULT_TITLE },
+    lastActive: { [initialThreadId]: Date.now() },
+    pinned: {},
     running: { [initialThreadId]: false },
     status: {},
     hydrated: {},
@@ -138,6 +146,7 @@ export const useStore = create<State & Actions>((set, get) => {
         threadIds: [id, ...s.threadIds],
         messages: { ...s.messages, [id]: [] },
         titles: { ...s.titles, [id]: DEFAULT_TITLE },
+        lastActive: { ...s.lastActive, [id]: Date.now() },
         running: { ...s.running, [id]: false },
         currentThreadId: id,
       }));
@@ -151,6 +160,7 @@ export const useStore = create<State & Actions>((set, get) => {
         threadIds: [...prev.threadIds, threadId],
         messages: { ...prev.messages, [threadId]: [] },
         titles: { ...prev.titles, [threadId]: DEFAULT_TITLE },
+        lastActive: { ...prev.lastActive, [threadId]: Date.now() },
         running: { ...prev.running, [threadId]: false },
       }));
     },
@@ -162,13 +172,17 @@ export const useStore = create<State & Actions>((set, get) => {
         const titles: Record<string, string> = {};
         const messages: Record<string, MyMessage[]> = {};
         const running: Record<string, boolean> = {};
+        const lastActive: Record<string, number> = {};
+        const pinned: Record<string, boolean> = {};
         for (const t of threads) {
           titles[t.threadId] = t.title || DEFAULT_TITLE;
           // Preserve any messages/running state already accumulated live.
           messages[t.threadId] = s.messages[t.threadId] ?? [];
           running[t.threadId] = s.running[t.threadId] ?? false;
+          lastActive[t.threadId] = t.lastActive ?? s.lastActive[t.threadId] ?? Date.now();
+          if (t.pinned) pinned[t.threadId] = true;
         }
-        return { threadIds, titles, messages, running, currentThreadId: threadIds[0] };
+        return { threadIds, titles, messages, running, lastActive, pinned, currentThreadId: threadIds[0] };
       }),
 
     setThreadMessages: (threadId, msgs) =>
@@ -195,6 +209,12 @@ export const useStore = create<State & Actions>((set, get) => {
         const isFirstUser = wasEmpty && message.role === 'user';
         return {
           messages: { ...s.messages, [threadId]: [...existing, message] },
+          // Any new turn bumps the thread's recency so it re-buckets to "Today"
+          // and sorts to the top of its group (B5).
+          lastActive: {
+            ...s.lastActive,
+            [threadId]: Math.max(s.lastActive[threadId] ?? 0, message.createdAt || Date.now()),
+          },
           titles:
             isFirstUser && (s.titles[threadId] ?? DEFAULT_TITLE) === DEFAULT_TITLE
               ? { ...s.titles, [threadId]: truncate(message.text) }
@@ -206,6 +226,8 @@ export const useStore = create<State & Actions>((set, get) => {
 
     renameThread: (threadId, title) => set((s) => ({ titles: { ...s.titles, [threadId]: title } })),
 
+    setPinned: (threadId, pinned) => set((s) => ({ pinned: { ...s.pinned, [threadId]: pinned } })),
+
     restoreThread: (threadId, title) =>
       set((s) => {
         // Idempotent: if it's somehow already active, leave the list untouched.
@@ -214,6 +236,7 @@ export const useStore = create<State & Actions>((set, get) => {
           threadIds: [threadId, ...s.threadIds],
           messages: { ...s.messages, [threadId]: s.messages[threadId] ?? [] },
           titles: { ...s.titles, [threadId]: title || DEFAULT_TITLE },
+          lastActive: { ...s.lastActive, [threadId]: s.lastActive[threadId] ?? Date.now() },
           running: { ...s.running, [threadId]: s.running[threadId] ?? false },
         };
       }),
@@ -224,9 +247,13 @@ export const useStore = create<State & Actions>((set, get) => {
         const messages = { ...s.messages };
         const titles = { ...s.titles };
         const running = { ...s.running };
+        const lastActive = { ...s.lastActive };
+        const pinned = { ...s.pinned };
         delete messages[threadId];
         delete titles[threadId];
         delete running[threadId];
+        delete lastActive[threadId];
+        delete pinned[threadId];
 
         // Always keep at least one thread selected.
         let currentThreadId = s.currentThreadId;
@@ -239,11 +266,12 @@ export const useStore = create<State & Actions>((set, get) => {
             messages[id] = [];
             titles[id] = DEFAULT_TITLE;
             running[id] = false;
+            lastActive[id] = Date.now();
             currentThreadId = id;
           }
         }
 
-        return { threadIds, messages, titles, running, currentThreadId };
+        return { threadIds, messages, titles, running, lastActive, pinned, currentThreadId };
       }),
 
     setRunning: (threadId, running) =>

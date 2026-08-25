@@ -72,7 +72,7 @@ type StatusEventPayload = {
  * A host that's down or a thread with no session yet leaves the in-memory
  * state untouched.
  */
-async function fetchHistory(threadId: string): Promise<void> {
+export async function fetchHistory(threadId: string): Promise<void> {
   if (useStore.getState().hydrated[threadId]) return;
   try {
     const res = await fetch(`/api/history?threadId=${encodeURIComponent(threadId)}`, { credentials: 'same-origin' });
@@ -154,7 +154,9 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       try {
         const res = await fetch('/api/threads', { credentials: 'same-origin' });
         if (res.ok) {
-          const data = (await res.json()) as { threads: { threadId: string; title: string }[] };
+          const data = (await res.json()) as {
+            threads: { threadId: string; title: string; lastActive?: number; pinned?: boolean }[];
+          };
           if (!cancelled && data.threads?.length) {
             useStore.getState().hydrateThreadList(data.threads);
           }

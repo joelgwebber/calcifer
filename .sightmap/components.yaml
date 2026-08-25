@@ -79,7 +79,7 @@ components:
     children:
       - name: MenuAction
         selector: '.thread-item-menu-action'
-        description: An action in the overflow menu (Rename | Archive).
+        description: An action in the overflow menu (Pin/Unpin | Rename | Archive).
         properties:
           - name: label
             extract: text

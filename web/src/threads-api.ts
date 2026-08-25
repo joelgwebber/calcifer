@@ -43,6 +43,21 @@ export async function archiveThread(threadId: string, archived: boolean): Promis
   }
 }
 
+/** Pin (pinned=true) or unpin a conversation so it floats to the top (B5). */
+export async function pinThread(threadId: string, pinned: boolean): Promise<boolean> {
+  try {
+    const res = await fetch('/api/threads/pin', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ threadId, pinned }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** The archived conversations, optionally filtered by a case-insensitive title substring. */
 export async function fetchArchivedThreads(query?: string): Promise<ArchivedThread[]> {
   try {

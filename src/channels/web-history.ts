@@ -22,7 +22,7 @@ import Database from 'better-sqlite3';
 
 import { getMessagingGroupAgents, getMessagingGroupByPlatform } from '../db/messaging-groups.js';
 import { findSessionForAgent, getActiveSessionsByMessagingGroup } from '../db/sessions.js';
-import { getThreadMetaFor, setThreadArchived, setThreadTitle } from '../db/thread-meta.js';
+import { getThreadMetaFor, setThreadArchived, setThreadPinned, setThreadTitle } from '../db/thread-meta.js';
 import { log } from '../log.js';
 import { inboundDbPath, outboundDbPath } from '../mailbox/sqlite/index.js';
 import { type WebCard } from './web-cards.js';
@@ -343,5 +343,17 @@ export async function setWebThreadArchived(platformId: string, threadId: string,
   const mgId = await webMessagingGroupId(platformId);
   if (!mgId) return false;
   await setThreadArchived(mgId, threadId, archived);
+  return true;
+}
+
+/**
+ * Pin (pinned=true) or unpin a web conversation (calcifer-3d5f / B5). Pinned
+ * threads float to the top of the active list regardless of last-active time.
+ * Returns false if the platformId maps to no known web messaging group.
+ */
+export async function setWebThreadPinned(platformId: string, threadId: string, pinned: boolean): Promise<boolean> {
+  const mgId = await webMessagingGroupId(platformId);
+  if (!mgId) return false;
+  await setThreadPinned(mgId, threadId, pinned);
   return true;
 }

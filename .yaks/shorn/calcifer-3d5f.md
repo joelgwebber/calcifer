@@ -4,7 +4,7 @@ title: 'B5: Conversation list — time-bucketing + pinning'
 type: task
 priority: 3
 created: '2026-08-23T23:11:07Z'
-updated: '2026-08-23T23:11:07Z'
+updated: '2026-08-25T02:21:33Z'
 parent: calcifer-5bf0
 depends_on:
 - calcifer-3236
