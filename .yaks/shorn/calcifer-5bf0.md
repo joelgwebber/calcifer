@@ -4,7 +4,7 @@ title: B · Conversation management (rename, archive, rescue)
 type: feature
 priority: 2
 created: '2026-08-23T22:03:02Z'
-updated: '2026-08-23T22:03:02Z'
+updated: '2026-08-25T23:16:31Z'
 parent: calcifer-d483
 labels:
 - web-ui
