@@ -113,7 +113,7 @@ views:
         children:
           - name: RowStar
             selector: '.tree-star'
-            description: Star toggle for this row (reach by snapshot id).
+            description: Star toggle for this row (reach via TreeRow[name="…"] RowStar).
           - name: RowName
             selector: '.tree-name'
             description: The folder (descend) or file (open) control.
@@ -131,7 +131,7 @@ views:
         children:
           - name: TileStar
             selector: '.gtile-star'
-            description: Star toggle for this tile (reach by snapshot id).
+            description: Star toggle for this tile (reach via GalleryTile[name="…"] TileStar).
           - name: TileThumb
             selector: '.gtile-thumb'
             description: The image (open) or folder (descend) control.

@@ -4,11 +4,21 @@
 # short, parent-relative selectors) and records ownership in one place. The shell
 # is absent on the anonymous login screen, so there it reports as "not present".
 #
-# NB: component QUERIES (click/fill/bounds) are single-component — you cannot
-# address a child *through* its parent (`Parent Child` doesn't resolve), so any
-# control you need to drive individually keeps a globally-unique name; only
-# inherently-per-instance leaves (row stars, etc.) reuse generic names and are
-# reached by their numeric snapshot id.
+# NB: component QUERIES support a descendant combinator (validated against this
+# app via hover/click/fill/wait-for --component). `Parent[disc="…"] Child`
+# resolves the Child under the parent whose property matches — so identical
+# per-instance leaves (a row's star, a conversation's ⋯, an archived row's
+# Rescue) are addressable through their container's discriminator:
+# `ConversationItem[title^="…"] MenuButton`, `ArchiveRow[title="…"] RescueButton`
+# — no snapshot-id fallback needed. An UNSCOPED descendant (`ConversationItem
+# MenuButton`) is ambiguous across rows; add the parent predicate to pick one.
+# Whitespace is the (any-depth) descendant combinator; there is no `>` child
+# combinator (it's a parse error).
+#
+# Caveat: `browser bounds` is bare-component-NAME only (no property predicates
+# or descendant queries) — use it to box every instance of a named component,
+# not to resolve a single one. The interaction verbs (click/fill/hover/wait-for)
+# are the ones that take full component queries.
 version: 1
 memory:
   - >-
@@ -61,7 +71,7 @@ components:
         children:
           - name: MenuButton
             selector: '.thread-item-menu-btn'
-            description: The "⋯" overflow trigger (one per row; reach by snapshot id).
+            description: The "⋯" overflow trigger (one per row; reach via ConversationItem[title^="…"] MenuButton).
       - name: ArchivedButton
         selector: '.rail-archived'
         description: Opens the archived-conversations browser modal.
@@ -106,7 +116,7 @@ components:
         selector: '.archive-search'
         description: Client-side name filter for the archived list.
       # One archived row; title varies per instance. Its Rescue button nests
-      # inside (one per row → reach by snapshot id).
+      # inside (reach via ArchiveRow[title="…"] RescueButton).
       - name: ArchiveRow
         selector: '.archive-row'
         description: An archived conversation row.
