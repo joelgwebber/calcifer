@@ -375,7 +375,23 @@ function fsCrumbs(view: string, title: string, path: string): Array<{ label: str
   return trail;
 }
 
-/** Resolve a relative markdown href against the current document's path. */
+/** Decode one percent-encoded path segment, tolerating a stray '%'. */
+function decodeSegment(part: string): string {
+  try {
+    return decodeURIComponent(part);
+  } catch {
+    return part;
+  }
+}
+
+/**
+ * Resolve a relative markdown href against the current document's path, returning
+ * a DECODED logical path (real spaces, not %20). Markdown link destinations are
+ * percent-encoded per CommonMark (a file with spaces arrives as `A%20B.pdf`), so
+ * each segment is decoded here; callers encode exactly once when they build a
+ * route or byte-endpoint URL. Skipping this double-encoded the space (`%2520`),
+ * so the byte endpoint 404'd (calcifer-705c).
+ */
 function resolveDocPath(currentPath: string, href: string): string {
   const clean = href.split('#')[0].split('?')[0];
   if (!clean) return '';
@@ -385,7 +401,7 @@ function resolveDocPath(currentPath: string, href: string): string {
   for (const part of clean.replace(/^\//, '').split('/')) {
     if (part === '' || part === '.') continue;
     if (part === '..') stack.pop();
-    else stack.push(part);
+    else stack.push(decodeSegment(part));
   }
   return stack.join('/');
 }
