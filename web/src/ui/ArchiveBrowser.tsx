@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchArchivedThreads, archiveThread as archiveThreadApi, type ArchivedThread } from '../threads-api';
 import { useStore } from '../store';
+import { matchesQuery } from './match';
 
 /**
  * Archived-conversation browser (calcifer-d029 / B3 + calcifer-77be / B4). Opens
@@ -43,9 +44,9 @@ export function ArchiveBrowser({ open, onClose }: { open: boolean; onClose: () =
   }, [open, onClose]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     if (!q) return threads;
-    return threads.filter((t) => (t.title || 'New chat').toLowerCase().includes(q));
+    return threads.filter((t) => matchesQuery(t.title || 'New chat', q));
   }, [threads, query]);
 
   if (!open) return null;

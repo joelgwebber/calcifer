@@ -4,6 +4,7 @@ import { fetchMe, logout, type Me } from './api';
 import { RuntimeProvider } from './runtime';
 import { ThreadList } from './ui/ThreadList';
 import { ArchiveBrowser } from './ui/ArchiveBrowser';
+import { CommandPalette } from './ui/CommandPalette';
 import { Thread } from './ui/Thread';
 import { fetchManifest, fetchViewList } from './views/api';
 import type { ViewManifest, ViewSummary } from './views/types';
@@ -55,6 +56,19 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const label = me.displayName || me.handle;
 
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Cmd/Ctrl+K toggles the command palette from anywhere in the shell.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const mode = useLayoutMode();
   const isMobile = mode === 'mobile';
@@ -183,6 +197,7 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
         </main>
 
         <ArchiveBrowser open={archiveOpen} onClose={() => setArchiveOpen(false)} />
+        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} views={views} />
       </div>
     </RuntimeProvider>
   );
