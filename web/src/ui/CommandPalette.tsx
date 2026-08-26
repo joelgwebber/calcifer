@@ -97,10 +97,14 @@ export function CommandPalette({
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
+    // Arrow keys plus the TUI/readline home-row bindings: Ctrl-N = next,
+    // Ctrl-P = previous.
+    const next = e.key === 'ArrowDown' || (e.ctrlKey && (e.key === 'n' || e.key === 'N'));
+    const prev = e.key === 'ArrowUp' || (e.ctrlKey && (e.key === 'p' || e.key === 'P'));
+    if (next) {
       e.preventDefault();
       setSel((s) => Math.min(s + 1, items.length - 1));
-    } else if (e.key === 'ArrowUp') {
+    } else if (prev) {
       e.preventDefault();
       setSel((s) => Math.max(s - 1, 0));
     } else if (e.key === 'Enter') {
