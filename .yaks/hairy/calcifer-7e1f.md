@@ -4,8 +4,7 @@ title: 'Future: hosted, sharable artifacts with multi-file support (design const
 type: idea
 priority: 4
 created: '2026-08-23T23:11:20Z'
-updated: '2026-08-23T23:11:20Z'
-parent: calcifer-d483
+updated: '2026-08-26T00:48:23Z'
 labels:
 - web-ui
 ---
