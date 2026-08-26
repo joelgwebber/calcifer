@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BrowserRouter, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { fetchMe, logout, type Me } from './api';
 import { RuntimeProvider } from './runtime';
@@ -11,7 +11,7 @@ import { ViewList } from './views/ViewList';
 import { ViewBrowse } from './views/ViewBrowse';
 import { ViewDetail } from './views/ViewDetail';
 import { Login } from './ui/Login';
-import { useLayoutMode, useNav } from './ui/layout';
+import { useLayoutMode, useNav, useDrawerA11y } from './ui/layout';
 
 type AuthState = { status: 'loading' } | { status: 'anon' } | { status: 'authed'; me: Me };
 
@@ -70,6 +70,28 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
   // desktop rail. The in-rail chevron collapses it again on desktop.
   const onFloatingToggle = () => (isMobile ? toggleDrawer() : setCollapsed(false));
 
+  // Mobile drawer hygiene: modal semantics (Esc / focus-trap / scroll-lock /
+  // focus restore) while open, and a left-swipe on the drawer dismisses it.
+  const railRef = useRef<HTMLElement>(null);
+  const drawerActive = isMobile && drawerOpen;
+  useDrawerA11y(drawerActive, closeDrawer, railRef);
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  const onRailTouchStart = (e: React.TouchEvent) => {
+    if (!drawerActive) return;
+    const t = e.touches[0];
+    swipeStart.current = { x: t.clientX, y: t.clientY };
+  };
+  const onRailTouchEnd = (e: React.TouchEvent) => {
+    const start = swipeStart.current;
+    swipeStart.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    // A clear leftward, horizontally-dominant swipe closes the drawer.
+    if (dx < -50 && Math.abs(dx) > Math.abs(dy)) closeDrawer();
+  };
+
   const shellClass = [
     'shell',
     `shell-${mode}`,
@@ -87,7 +109,14 @@ function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
         </button>
         <div className="nav-backdrop" onClick={closeDrawer} aria-hidden="true" />
 
-        <nav className="rail">
+        <nav
+          className="rail"
+          ref={railRef}
+          tabIndex={-1}
+          onTouchStart={onRailTouchStart}
+          onTouchEnd={onRailTouchEnd}
+          {...(drawerActive ? { role: 'dialog', 'aria-modal': true, 'aria-label': 'Navigation' } : {})}
+        >
           <div className="rail-head">
             <div className="rail-brand">hearth</div>
             {!isMobile && (

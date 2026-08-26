@@ -6,6 +6,7 @@ import { CardMessagePart } from './Card';
 import { QuestionMessagePart } from './Question';
 import { Prose, type ProseNav } from '../views/Prose';
 import { useStore } from '../store';
+import { useNav } from './layout';
 
 /**
  * Render a text message part as markdown (calcifer-d1f8). Reuses the
@@ -35,6 +36,9 @@ function MarkdownText({ text }: TextMessagePartProps) {
 }
 
 export function Thread() {
+  // Yield autofocus to the mobile nav drawer while it's open — otherwise the
+  // composer's autoFocus fights the drawer's focus-trap for the input (A3).
+  const drawerOpen = useNav((s) => s.drawerOpen);
   return (
     <ThreadPrimitive.Root className="thread">
       <ThreadPrimitive.Viewport className="thread-viewport">
@@ -51,7 +55,7 @@ export function Thread() {
       </ThreadPrimitive.Viewport>
 
       <ComposerPrimitive.Root className="composer">
-        <ComposerPrimitive.Input className="composer-input" placeholder="Message hearth…" autoFocus />
+        <ComposerPrimitive.Input className="composer-input" placeholder="Message hearth…" autoFocus={!drawerOpen} />
         <ComposerPrimitive.Send className="composer-send">Send</ComposerPrimitive.Send>
       </ComposerPrimitive.Root>
     </ThreadPrimitive.Root>

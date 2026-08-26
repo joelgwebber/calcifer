@@ -6,7 +6,7 @@
  * collapsible; mobile shows it as an overlay drawer. A2 fills that single nav
  * surface with Apps + Conversations; A3 refines the mobile drawer.
  */
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore, type RefObject } from 'react';
 import { create } from 'zustand';
 
 export type LayoutMode = 'desktop' | 'tablet' | 'mobile';
@@ -64,3 +64,71 @@ export const useNav = create<NavState>((set) => ({
   closeDrawer: () => set({ drawerOpen: false }),
   toggleDrawer: () => set((s) => ({ drawerOpen: !s.drawerOpen })),
 }));
+
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+/**
+ * Modal-drawer accessibility (calcifer-4f71 / web overhaul A3). While `open`,
+ * the overlay drawer in `ref` behaves like a modal dialog: Escape closes it,
+ * Tab is trapped within it, background page scroll is locked, focus moves into
+ * the drawer on open, and returns to the previously-focused element (the
+ * hamburger) on close. Inert when closed — the whole effect is a no-op.
+ */
+export function useDrawerA11y(open: boolean, onClose: () => void, ref: RefObject<HTMLElement | null>): void {
+  useEffect(() => {
+    if (!open) return;
+    const el = ref.current;
+    const restoreFocusTo = document.activeElement as HTMLElement | null;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const focusables = (): HTMLElement[] =>
+      el ? Array.from(el.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((n) => n.offsetParent !== null) : [];
+    // Move focus into the drawer once it has actually slid in. A focus() during
+    // the same commit lands on a node the browser still computes as hidden (the
+    // drawer flips visibility:hidden→visible mid-transition) and silently fails,
+    // so defer past the open window; the focusin guard below then holds it.
+    const focusTimer = window.setTimeout(() => (focusables()[0] ?? el)?.focus(), 80);
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    // Guard: if focus escapes the open drawer (e.g. the chat composer's own
+    // autoFocus grabbing it back on the opening render), pull it in. This is
+    // what makes the trap robust against a one-shot external steal.
+    function onFocusIn(e: FocusEvent) {
+      if (el && e.target instanceof Node && !el.contains(e.target)) {
+        (focusables()[0] ?? el).focus();
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('focusin', onFocusIn);
+    return () => {
+      clearTimeout(focusTimer);
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('focusin', onFocusIn);
+      document.body.style.overflow = prevOverflow;
+      restoreFocusTo?.focus?.();
+    };
+  }, [open, onClose, ref]);
+}
