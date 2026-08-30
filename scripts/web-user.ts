@@ -114,10 +114,10 @@ async function cmdAdd(flags: Record<string, string | boolean>): Promise<void> {
   const agentGroupId = typeof flags['agent-group'] === 'string' ? (flags['agent-group'] as string) : '';
   if (!agentGroupId) {
     console.error('--agent-group <id> is required. Available agent groups:');
-    for (const ag of getAllAgentGroups()) console.error(`  ${ag.id}  ${ag.name}`);
+    for (const ag of await getAllAgentGroups()) console.error(`  ${ag.id}  ${ag.name}`);
     process.exit(2);
   }
-  const ag: AgentGroup | undefined = getAgentGroup(agentGroupId);
+  const ag: AgentGroup | undefined = await getAgentGroup(agentGroupId);
   if (!ag) {
     console.error(`Agent group not found: ${agentGroupId}`);
     process.exit(2);
@@ -127,22 +127,22 @@ async function cmdAdd(flags: Record<string, string | boolean>): Promise<void> {
   const now = new Date().toISOString();
 
   // 1. User row.
-  upsertUser({ id: userId, kind: 'web', display_name: displayName, created_at: now });
+  await upsertUser({ id: userId, kind: 'web', display_name: displayName, created_at: now });
 
   // 2. Role + membership.
-  const roles = getUserRoles(userId);
+  const roles = await getUserRoles(userId);
   if (role === 'owner' && !roles.some((r) => r.role === 'owner' && r.agent_group_id === null)) {
-    grantRole({ user_id: userId, role: 'owner', agent_group_id: null, granted_by: null, granted_at: now });
+    await grantRole({ user_id: userId, role: 'owner', agent_group_id: null, granted_by: null, granted_at: now });
   } else if (role === 'admin' && !roles.some((r) => r.role === 'admin' && r.agent_group_id === ag.id)) {
-    grantRole({ user_id: userId, role: 'admin', agent_group_id: ag.id, granted_by: null, granted_at: now });
+    await grantRole({ user_id: userId, role: 'admin', agent_group_id: ag.id, granted_by: null, granted_at: now });
   }
   // Always add a membership row so the access gate passes for plain members too.
-  addMember({ user_id: userId, agent_group_id: ag.id, added_by: null, added_at: now });
+  await addMember({ user_id: userId, agent_group_id: ag.id, added_by: null, added_at: now });
 
   // 3. Per-user messaging group.
-  let mg = getMessagingGroupByPlatform('web', platformId);
+  let mg = await getMessagingGroupByPlatform('web', platformId);
   if (!mg) {
-    createMessagingGroup({
+    await createMessagingGroup({
       id: generateId('mg'),
       channel_type: 'web',
       platform_id: platformId,
@@ -152,15 +152,15 @@ async function cmdAdd(flags: Record<string, string | boolean>): Promise<void> {
       unknown_sender_policy: 'strict',
       created_at: now,
     });
-    mg = getMessagingGroupByPlatform('web', platformId)!;
+    mg = (await getMessagingGroupByPlatform('web', platformId))!;
     console.log(`Created messaging group ${mg.id} (${platformId})`);
   } else {
     console.log(`Reusing messaging group ${mg.id} (${platformId})`);
   }
 
   // 4. Wire it to the agent group — per-thread sessions, respond to everything.
-  if (!getMessagingGroupAgentByPair(mg.id, ag.id)) {
-    createMessagingGroupAgent({
+  if (!(await getMessagingGroupAgentByPair(mg.id, ag.id))) {
+    await createMessagingGroupAgent({
       id: generateId('mga'),
       messaging_group_id: mg.id,
       agent_group_id: ag.id,
@@ -178,7 +178,7 @@ async function cmdAdd(flags: Record<string, string | boolean>): Promise<void> {
   }
 
   // 5. Credential.
-  upsertCredential(userId, hashPassword(password));
+  await upsertCredential(userId, hashPassword(password));
 
   console.log('');
   console.log('Web user provisioned.');
@@ -193,35 +193,35 @@ async function cmdAdd(flags: Record<string, string | boolean>): Promise<void> {
 async function cmdSetPassword(flags: Record<string, string | boolean>): Promise<void> {
   const handle = requireHandle(flags);
   const userId = `web:${handle}`;
-  if (!getUser(userId)) {
+  if (!(await getUser(userId))) {
     console.error(`No such user: ${userId}. Run "add" first.`);
     process.exit(2);
   }
   const { password, generated } = await resolvePassword(flags);
-  upsertCredential(userId, hashPassword(password));
+  await upsertCredential(userId, hashPassword(password));
   console.log(`Password updated for ${userId}.`);
   if (generated) console.log(`  new password: ${password}`);
 }
 
-function cmdRemove(flags: Record<string, string | boolean>): void {
+async function cmdRemove(flags: Record<string, string | boolean>): Promise<void> {
   const handle = requireHandle(flags);
   const userId = `web:${handle}`;
-  if (!getCredential(userId)) {
+  if (!(await getCredential(userId))) {
     console.error(`No credential for ${userId} (already disabled or never provisioned).`);
     process.exit(2);
   }
-  deleteCredential(userId);
+  await deleteCredential(userId);
   console.log(`Login disabled for ${userId}. Their user/messaging-group/threads are left intact.`);
 }
 
-function cmdList(): void {
-  const webUsers = getAllUsers().filter((u) => u.id.startsWith('web:'));
+async function cmdList(): Promise<void> {
+  const webUsers = (await getAllUsers()).filter((u) => u.id.startsWith('web:'));
   if (webUsers.length === 0) {
     console.log('No web users provisioned.');
     return;
   }
   for (const u of webUsers) {
-    const hasCred = getCredential(u.id) ? 'login-enabled' : 'login-disabled';
+    const hasCred = (await getCredential(u.id)) ? 'login-enabled' : 'login-disabled';
     console.log(`${u.id}\t${u.display_name ?? ''}\t${hasCred}`);
   }
 }
@@ -230,8 +230,8 @@ async function main(): Promise<void> {
   const [cmd, ...rest] = process.argv.slice(2);
   const flags = parseFlags(rest);
 
-  const db = initDb(path.join(DATA_DIR, 'v2.db'));
-  runMigrations(db); // idempotent — ensures web_credentials exists
+  const db = await initDb(path.join(DATA_DIR, 'v2.db'));
+  await runMigrations(db); // idempotent — ensures web_credentials exists
 
   switch (cmd) {
     case 'add':
@@ -241,10 +241,10 @@ async function main(): Promise<void> {
       await cmdSetPassword(flags);
       break;
     case 'remove':
-      cmdRemove(flags);
+      await cmdRemove(flags);
       break;
     case 'list':
-      cmdList();
+      await cmdList();
       break;
     default:
       console.error('Usage: web-user.ts <add|set-password|remove|list> [flags] — see file header.');
