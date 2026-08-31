@@ -154,17 +154,25 @@ async function fanEcho(input: EchoFanInput): Promise<number> {
   let written = 0;
   for (const target of targets) {
     try {
-      await writeSessionMessage(input.agentGroupId, target.id, {
-        id: echoRowId(input.origMessageId, target.id),
-        kind: 'chat',
-        timestamp: input.timestamp,
-        platformId: input.platformId,
-        channelType: ECHO_CHANNEL_TYPE,
-        threadId: null,
-        content,
-        trigger: false,
-        sourceSessionId: input.sourceSessionId,
-      });
+      await writeSessionMessage(
+        input.agentGroupId,
+        target.id,
+        {
+          id: echoRowId(input.origMessageId, target.id),
+          kind: 'chat',
+          timestamp: input.timestamp,
+          platformId: input.platformId,
+          channelType: ECHO_CHANNEL_TYPE,
+          threadId: null,
+          content,
+          trigger: false,
+          sourceSessionId: input.sourceSessionId,
+          // Echoes are ambient context, not activity in the sibling thread — don't
+          // bump its last_active or it re-sorts above the genuinely-active thread
+          // in the web thread list (calcifer-650b).
+        },
+        { bumpLastActive: false },
+      );
       written++;
     } catch (err) {
       // Per-target isolation: one broken session DB (or a duplicate id from a

@@ -15,7 +15,7 @@ vi.mock('../../config.js', async () => {
 
 import { closeDb, createAgentGroup, initTestDb, runMigrations } from '../../db/index.js';
 import { createMessagingGroup } from '../../db/messaging-groups.js';
-import { createSession } from '../../db/sessions.js';
+import { createSession, getSession } from '../../db/sessions.js';
 import { createDestination } from '../agent-to-agent/db/agent-destinations.js';
 import { inboundDbPath } from '../../mailbox/sqlite/paths.js';
 import type { MessagingGroup, Session } from '../../types.js';
@@ -191,6 +191,24 @@ describe('fanInboundMessage', () => {
     expect(fs.existsSync(inboundDbPath('ag-2', 's-other-group'))).toBe(false);
     // Source session itself never receives its own echo.
     expect(readEchoRows('s-dm')).toHaveLength(0);
+  });
+
+  it('does NOT bump a sibling session last_active — echoes are context, not activity (calcifer-650b)', async () => {
+    await fanInboundMessage({
+      session: SRC_DM,
+      mg: DM_MG,
+      messageId: 'msg-la:ag-1',
+      kind: 'chat',
+      channelType: 'slack',
+      content: chatContent('private note'),
+      timestamp: NOW,
+    });
+    // The echo landed in the sibling thread...
+    expect(readEchoRows('s-dm-t2')).toHaveLength(1);
+    // ...but it must not re-time the sibling: last_active stays null, so the
+    // echo can't re-sort that conversation above the genuinely-active one in
+    // the web thread list. (Before the fix, the echo write stamped it 'now'.)
+    expect((await getSession('s-dm-t2'))?.last_active).toBeNull();
   });
 
   it('a room trigger reaches same-mg room thread siblings only — room→DM and room→task are retired', async () => {

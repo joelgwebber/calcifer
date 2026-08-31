@@ -4,7 +4,7 @@ title: 'Web thread list: cross-session echo bumps sibling last_active, burying t
 type: bug
 priority: 1
 created: '2026-08-30T23:54:45Z'
-updated: '2026-08-30T23:54:45Z'
+updated: '2026-08-31T00:03:52Z'
 labels:
 - web-ui,cross-session-context
 ---
@@ -18,3 +18,7 @@ ROOT CAUSE (burial by last_active pollution): listThreads() → getActiveSession
 FIX DIRECTIONS: (1, root) don't bump last_active for cross-session ECHO writes — echoes are ambient context, not activity in the sibling thread; give writeSessionMessage an option (or a dedicated echo-write path) that skips the last_active stamp when kind is the echo channel (ECHO_CHANNEL_TYPE='session-echo'). (2) bump the ORIGINATING thread's last_active on agent reply / turn completion so an active conversation rises to the top (today it only bumps on inbound). (3, defense-in-depth) have listThreads derive recency from the newest non-echo (channel_type='web') message rather than raw sessions.last_active, insulating the list from echo pollution. Relates to calcifer-a7b7 (conversation sort order).
 
 SEPARATE/secondary: the '~hung' feel — the reply took ~31s and may not have rendered live (SSE turn-boundary/status). Likely distinct from the burial; note but don't conflate.
+
+---
+▸ 2026-08-31T00:03:52Z
+Fixed (option 1, root cause): writeSessionMessage gained an opts.bumpLastActive (default true); the cross-session fan echo write (fan.ts) passes bumpLastActive:false so ambient echoes no longer re-stamp sibling sessions' last_active — the active thread stays on top of the web list. Added a fan.test.ts regression asserting a sibling's last_active stays null after a fan. tsc + 20 fan tests pass. Host code → built + service restart to deploy. NOTE: existing sessions still carry the old bumped timestamps; the list self-heals as threads are used (offer a one-off recompute if desired).

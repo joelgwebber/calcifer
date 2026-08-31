@@ -281,6 +281,16 @@ export async function writeSessionMessage(
      */
     onWake?: boolean;
   },
+  opts: {
+    /**
+     * Whether this write counts as session activity (bumps `last_active`,
+     * which orders the web thread list). Defaults to true. Cross-session
+     * echo writes pass false — they are ambient context copied in from other
+     * conversations, not activity in THIS thread, so they must not re-sort it
+     * (calcifer-650b).
+     */
+    bumpLastActive?: boolean;
+  } = {},
 ): Promise<void> {
   // Documented reset: operators `rm -rf` a session folder to clear a stuck
   // session. The sessions row survives, so the next message takes the
@@ -309,7 +319,9 @@ export async function writeSessionMessage(
       onWake: message.onWake ?? false,
     });
   });
-  await updateSession(sessionId, { last_active: new Date().toISOString() });
+  if (opts.bumpLastActive !== false) {
+    await updateSession(sessionId, { last_active: new Date().toISOString() });
+  }
 }
 
 /**
