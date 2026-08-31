@@ -72,6 +72,12 @@ systemctl --user restart calcifer
 launchctl kickstart -k gui/$(id -u)/com.nanoclaw
 ```
 
+> ⚠️ **After a local commit, stamp the upgrade tripwire before you restart**, or the host
+> `process.exit(1)`s on boot ("install not on the sanctioned path") and crash-loops behind the
+> circuit breaker — the app goes down. Only setup / `/update-nanoclaw` / `/migrate-nanoclaw` stamp
+> the marker; a plain dev commit does not. Review the commit and run the needed build/tests/migrations,
+> then: `pnpm exec tsx scripts/upgrade-state.ts set`. See [docs/upgrade-recovery.md](docs/upgrade-recovery.md).
+
 Note: a host restart does **not** recycle agent containers — on shutdown it leaves them running,
 and on startup `adoptRunningSessions()` re-adopts the live ones. So host-code changes are live for
 the host immediately, but anything already loaded inside a running container stays until that
@@ -225,5 +231,11 @@ docker ps --format '{{.Names}}\t{{.Status}}'      # running agent containers (na
 - **2026-08-23** — Fastmail app password returns `401` on JMAP; JMAP requires a Bearer API token.
 - **2026-08-23** — Adding a remote MCP server is config-only (`type:http`) — the stack forwards it
   to the Claude Agent SDK; no code/dep/rebuild.
+- **2026-08-30** — Restarting the host after a **local commit** trips the upgrade tripwire
+  (`enforceUpgradeTripwire` → `process.exit(1)`): the host refuses to boot when HEAD's commit/tree
+  ≠ the last sanctioned marker in `data/upgrade-state.json`, and crash-loops (app down). Dev commits
+  don't stamp the marker — only setup / `/update-nanoclaw` / `/migrate-nanoclaw` do. After a reviewed
+  commit (+ build/tests/migrations as needed), stamp then restart: `pnpm exec tsx scripts/upgrade-state.ts set`.
+  Latent hazard: it fires on the *first* restart after any unstamped commit, not necessarily the one that changed code. See docs/upgrade-recovery.md.
 - **2026-08-23** — Zed auto-loads a single rules file (`AGENTS.md → CLAUDE.md`); adding `.rules`
   would supersede it. Keep fork notes here + a fenced pointer in `CLAUDE.md`.
