@@ -7,7 +7,8 @@ import { forwardAttachedFiles, isSafeAttachmentName, routeAgentMessage } from '.
 import { log } from '../../log.js';
 import { createDestination } from './db/agent-destinations.js';
 import { initTestDb, closeDb, runMigrations, createAgentGroup } from '../../db/index.js';
-import { createSession, updateSession } from '../../db/sessions.js';
+import { createMessagingGroup, createMessagingGroupAgent } from '../../db/messaging-groups.js';
+import { createSession, findSession, updateSession } from '../../db/sessions.js';
 import { inboundDbPath } from '../../mailbox/sqlite/paths.js';
 import { initSessionFolder, sessionDir, writeSessionMessage } from '../../session-manager.js';
 import type { Session } from '../../types.js';
@@ -599,5 +600,104 @@ describe('routeAgentMessage return-path', () => {
     const targetPath = path.join(sessionDir(B, SB.id), parsed.attachments[0].localPath);
     expect(fs.existsSync(targetPath)).toBe(true);
     expect(fs.readFileSync(targetPath, 'utf-8')).toBe('legit-bytes');
+  });
+});
+
+// calcifer-226a: an agent-initiated relay to a web-backed recipient must land
+// in a durable, listed per-correspondent web thread (a per-thread session on
+// the recipient's web messaging group, keyed `peer:<sender-ag-id>`), NOT the
+// null-mg agent-shared session that listThreads never enumerates.
+describe('routeAgentMessage web-recipient durability (calcifer-226a)', () => {
+  const A = 'ag-sender';
+  const W = 'ag-web-recipient';
+  const WEB_MG = 'mg-web-recipient';
+  let SA: Session;
+
+  beforeEach(async () => {
+    if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true });
+    fs.mkdirSync(TEST_DIR, { recursive: true });
+
+    const db = await initTestDb();
+    await runMigrations(db);
+
+    await createAgentGroup({ id: A, name: 'Sender', folder: 'sender', agent_provider: null, created_at: now() });
+    await createAgentGroup({ id: W, name: 'WebRcpt', folder: 'web-rcpt', agent_provider: null, created_at: now() });
+
+    // The recipient is backed by a web messaging group, wired per-thread.
+    await createMessagingGroup({
+      id: WEB_MG,
+      channel_type: 'web',
+      platform_id: 'web:anais',
+      name: 'anais',
+      is_group: 0,
+      unknown_sender_policy: 'public',
+      created_at: now(),
+    });
+    await createMessagingGroupAgent({
+      id: 'mga-web',
+      messaging_group_id: WEB_MG,
+      agent_group_id: W,
+      engage_mode: 'pattern',
+      engage_pattern: '.',
+      sender_scope: 'all',
+      ignored_message_policy: 'drop',
+      session_mode: 'per-thread',
+      priority: 0,
+      created_at: now(),
+    });
+
+    SA = {
+      id: 'sess-sender',
+      agent_group_id: A,
+      messaging_group_id: null,
+      thread_id: 'test:sender',
+      agent_provider: null,
+      status: 'active',
+      container_status: 'stopped',
+      last_active: null,
+      created_at: now(),
+    };
+    await createSession(SA);
+    initSessionFolder(A, SA.id);
+
+    // Sender is permitted to relay to the web recipient.
+    await createDestination({
+      agent_group_id: A,
+      local_name: 'anais',
+      target_type: 'agent',
+      target_id: W,
+      created_at: now(),
+    });
+  });
+
+  afterEach(async () => {
+    await closeDb();
+    if (fs.existsSync(TEST_DIR)) fs.rmSync(TEST_DIR, { recursive: true });
+  });
+
+  it('routes a fresh relay into a durable per-correspondent web thread, not agent-shared', async () => {
+    await routeAgentMessage(
+      {
+        id: 'relay-from-A',
+        platform_id: W,
+        content: JSON.stringify({ text: 'Joel had me pass this along' }),
+        in_reply_to: null,
+      },
+      SA,
+    );
+
+    // A per-thread session on the recipient's WEB messaging group, keyed by the
+    // sender's agent group, now exists and carries the relayed message.
+    const thread = await findSession(WEB_MG, `peer:${A}`);
+    expect(thread).toBeDefined();
+    expect(thread!.agent_group_id).toBe(W);
+    expect(thread!.messaging_group_id).toBe(WEB_MG);
+
+    const rows = readInbound(W, thread!.id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].platform_id).toBe(A);
+    expect(rows[0].channel_type).toBe('agent');
+    expect(JSON.parse(rows[0].content).text).toBe('Joel had me pass this along');
+    expect(rows[0].source_session_id).toBe(SA.id); // return address preserved
   });
 });

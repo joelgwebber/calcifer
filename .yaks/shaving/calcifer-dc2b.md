@@ -4,7 +4,7 @@ title: 'Agent->human delivery: durable, channel-aware, per-correspondent threadi
 type: feature
 priority: 2
 created: '2026-09-02T03:28:54Z'
-updated: '2026-09-02T03:28:54Z'
+updated: '2026-09-02T03:33:28Z'
 labels:
 - web-ui,family,agent-to-agent
 ---

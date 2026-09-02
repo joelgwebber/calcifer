@@ -24,6 +24,7 @@ import path from 'path';
 import { isSafeAttachmentName } from '../../attachment-safety.js';
 import { ensureContainedInboxDir, isPathInside } from '../../inbox-safety.js';
 import { getAgentGroup } from '../../db/agent-groups.js';
+import { getMessagingGroupsByAgentGroup } from '../../db/messaging-groups.js';
 import { getSession } from '../../db/sessions.js';
 import { wakeContainer } from '../../container-runner.js';
 import { GuardDenyError, guard } from '../../guard/index.js';
@@ -201,9 +202,17 @@ export interface RoutableAgentMessage {
  *    me, which target session was driving? Route the reply there, since
  *    that's the session most plausibly in active conversation.
  *
- * 3. **Newest active session**: legacy heuristic. Used when no prior a2a
- *    has been recorded with `source_session_id` (e.g. fresh installs,
- *    pre-migration data).
+ * 3a. **Durable per-correspondent web thread**: no return-path/peer-affinity
+ *    origin means this is an unsolicited or agent-initiated relay (the first
+ *    hop of a peer relay, or an unbidden notification). When the recipient is
+ *    backed by a MULTI-THREAD channel (web), surface it into a durable,
+ *    deterministic per-correspondent thread so it lists and survives refresh
+ *    (calcifer-226a) — see resolvePeerWebThreadSession.
+ *
+ * 3b. **Newest active session / agent-shared**: legacy heuristic. Used for
+ *    single-channel recipients (WhatsApp/SMS), where the agent-shared session
+ *    IS the DM and the surfacing is already durable + notified, and for fresh
+ *    installs / pre-migration data.
  */
 async function resolveTargetSession(
   msg: RoutableAgentMessage,
@@ -229,7 +238,44 @@ async function resolveTargetSession(
       return candidate;
     }
   }
+
+  const webThread = await resolvePeerWebThreadSession(targetAgentGroupId, sourceSession.agent_group_id);
+  if (webThread) return webThread;
+
   return (await resolveSession(targetAgentGroupId, null, null, 'agent-shared')).session;
+}
+
+/** thread_id prefix for a per-correspondent (peer-agent) web thread. The tail
+ * is the sending agent group id; calcifer-bd2f parses it back out for the
+ * correspondent tag + UI label. */
+const PEER_THREAD_PREFIX = 'peer:';
+
+/**
+ * A durable per-correspondent web thread in the target agent group, keyed by
+ * the sending agent group (`peer:<sourceAgentGroupId>`), or null when the
+ * target isn't backed by a web messaging group (or the relay is a self-message).
+ *
+ * This is what makes an agent-initiated relay visible to a web recipient
+ * (calcifer-226a). The surfacing runs in a real per-thread session on the
+ * recipient's web:<handle> messaging group, so writeSessionRouting points the
+ * recipient Calcifer's reply at that web thread and the turn is persisted in
+ * the session's outbound.db — a durable, listed thread (listThreads /
+ * loadThreadHistory read it) instead of a lost SSE push into a null-mg
+ * agent-shared session. The deterministic thread_id means repeated relays from
+ * the same peer converge on ONE standing thread.
+ */
+async function resolvePeerWebThreadSession(
+  targetAgentGroupId: string,
+  sourceAgentGroupId: string,
+): Promise<Session | null> {
+  // A self-message (e.g. a post-approval follow-up injected into an agent's own
+  // session) is not a correspondent relay — leave it on the agent-shared path.
+  if (sourceAgentGroupId === targetAgentGroupId) return null;
+  const groups = await getMessagingGroupsByAgentGroup(targetAgentGroupId);
+  const web = groups.find((mg) => mg.channel_type === 'web' && !mg.detached_at);
+  if (!web) return null;
+  const threadId = `${PEER_THREAD_PREFIX}${sourceAgentGroupId}`;
+  return (await resolveSession(targetAgentGroupId, web.id, threadId, 'per-thread')).session;
 }
 
 export async function routeAgentMessage(
