@@ -4,7 +4,8 @@ title: Peer-agent relay to a WEB-only member doesn't surface as a visible chat
 type: bug
 priority: 1
 created: '2026-09-02T02:46:29Z'
-updated: '2026-09-02T02:46:29Z'
+updated: '2026-09-02T03:31:41Z'
+parent: calcifer-dc2b
 labels:
 - family,web-ui,cross-session-context
 ---
