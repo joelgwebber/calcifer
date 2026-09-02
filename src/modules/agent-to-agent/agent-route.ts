@@ -26,6 +26,7 @@ import { ensureContainedInboxDir, isPathInside } from '../../inbox-safety.js';
 import { getAgentGroup } from '../../db/agent-groups.js';
 import { getMessagingGroupsByAgentGroup } from '../../db/messaging-groups.js';
 import { getSession } from '../../db/sessions.js';
+import { peerThreadId } from '../../correspondent.js';
 import { wakeContainer } from '../../container-runner.js';
 import { GuardDenyError, guard } from '../../guard/index.js';
 import { log } from '../../log.js';
@@ -245,11 +246,6 @@ async function resolveTargetSession(
   return (await resolveSession(targetAgentGroupId, null, null, 'agent-shared')).session;
 }
 
-/** thread_id prefix for a per-correspondent (peer-agent) web thread. The tail
- * is the sending agent group id; calcifer-bd2f parses it back out for the
- * correspondent tag + UI label. */
-const PEER_THREAD_PREFIX = 'peer:';
-
 /**
  * A durable per-correspondent web thread in the target agent group, keyed by
  * the sending agent group (`peer:<sourceAgentGroupId>`), or null when the
@@ -274,8 +270,7 @@ async function resolvePeerWebThreadSession(
   const groups = await getMessagingGroupsByAgentGroup(targetAgentGroupId);
   const web = groups.find((mg) => mg.channel_type === 'web' && !mg.detached_at);
   if (!web) return null;
-  const threadId = `${PEER_THREAD_PREFIX}${sourceAgentGroupId}`;
-  return (await resolveSession(targetAgentGroupId, web.id, threadId, 'per-thread')).session;
+  return (await resolveSession(targetAgentGroupId, web.id, peerThreadId(sourceAgentGroupId), 'per-thread')).session;
 }
 
 export async function routeAgentMessage(

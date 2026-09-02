@@ -20,9 +20,16 @@ import fs from 'fs';
 
 import Database from 'better-sqlite3';
 
-import { getMessagingGroupAgents, getMessagingGroupByPlatform } from '../db/messaging-groups.js';
+import { getAgentGroup } from '../db/agent-groups.js';
+import {
+  getMessagingGroupAgents,
+  getMessagingGroupByPlatform,
+  getMessagingGroupsByAgentGroup,
+} from '../db/messaging-groups.js';
 import { findSessionForAgent, getActiveSessionsByMessagingGroup } from '../db/sessions.js';
 import { getThreadMetaFor, setThreadArchived, setThreadPinned, setThreadTitle } from '../db/thread-meta.js';
+import { getUser } from '../modules/permissions/db/users.js';
+import { type Correspondent, parseCorrespondent } from '../correspondent.js';
 import { log } from '../log.js';
 import { inboundDbPath, outboundDbPath } from '../mailbox/sqlite/index.js';
 import { type WebCard } from './web-cards.js';
@@ -128,6 +135,32 @@ function openReadonly(dbPath: string): Database.Database | null {
 function truncate(text: string, max = 40): string {
   const t = text.trim();
   return t.length <= max ? t : t.slice(0, max).trimEnd() + '…';
+}
+
+/** Human-ish label from a channel platform_id or bare source (`web:joel` → `Joel`). */
+function prettifyHandle(value: string): string {
+  const handle = value.includes(':') ? value.slice(value.indexOf(':') + 1) : value;
+  return handle ? handle.charAt(0).toUpperCase() + handle.slice(1) : value;
+}
+
+/**
+ * Human label for a thread's correspondent (calcifer-bd2f). For a peer agent,
+ * resolve the person behind the peer agent group: its web messaging group's
+ * user display_name (e.g. `Joel`, `Anaïs`), falling back to a prettified handle,
+ * then the agent group name. For a system source, prettify the source label
+ * (`reminders` → `Reminders`).
+ */
+async function correspondentLabel(c: Correspondent): Promise<string> {
+  if (c.kind === 'system') return prettifyHandle(c.ref);
+  const groups = await getMessagingGroupsByAgentGroup(c.ref);
+  const web = groups.find((mg) => mg.channel_type === CHANNEL_TYPE);
+  if (web) {
+    const user = await getUser(web.platform_id);
+    if (user?.display_name && user.display_name.trim()) return user.display_name.trim();
+    return prettifyHandle(web.platform_id);
+  }
+  const ag = await getAgentGroup(c.ref);
+  return ag?.name ?? c.ref;
 }
 
 /**
@@ -242,8 +275,14 @@ async function enrichedThreads(platformId: string): Promise<EnrichedThread[]> {
     if (session.agent_group_id !== agentGroupId) continue; // scope to the current wiring
     if (!session.thread_id) continue; // per-thread sessions only
 
-    let title = 'Conversation';
-    const inDb = openReadonly(inboundDbPath(session.agent_group_id, session.id));
+    // A per-correspondent thread (calcifer-226a) is titled by WHO it's with
+    // ("Joel", "Reminders"), derived from the thread_id — not its first message
+    // (which is an agent surfacing turn, or a user reply that isn't the thread's
+    // name). Correspondent label beats the first-message title; an explicit
+    // rename override (below) still beats both.
+    const correspondent = parseCorrespondent(session.thread_id);
+    let title = correspondent ? await correspondentLabel(correspondent) : 'Conversation';
+    const inDb = correspondent ? null : openReadonly(inboundDbPath(session.agent_group_id, session.id));
     if (inDb) {
       try {
         // Same channel_type scope as loadThreadHistory: title from the first
