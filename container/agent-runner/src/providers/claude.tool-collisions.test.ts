@@ -30,3 +30,16 @@ describe('built-in tools that collide with NanoClaw MCP tools', () => {
     expect(overlap).toEqual([]);
   });
 });
+
+// calcifer-a9d9 / calcifer-11b1: fastmail-native's compose_event is an MCP-UI
+// widget tool with no headless host surface — it silently stages-but-never-
+// commits and renders no card here. Hard-blocked so the agent uses the direct
+// create_event/update_event instead.
+describe('MCP-UI tools with no headless surface are disallowed', () => {
+  it('blocks fastmail-native compose_event but not the rest of the namespace', () => {
+    expect(SDK_DISALLOWED_TOOLS).toContain('mcp__fastmail-native__compose_event');
+    // A specific-tool block, not a whole-server block: create_event/search_events
+    // and the email tools stay reachable via the mcp__fastmail-native__* allow.
+    expect(SDK_DISALLOWED_TOOLS).not.toContain('mcp__fastmail-native__create_event');
+  });
+});

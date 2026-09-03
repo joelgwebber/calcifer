@@ -86,6 +86,14 @@ export function classifyRateLimitEvent(
 //   headless container (~9.3KB/turn schema).
 // - ReportFindings: code-review-reporting UI affordance with no headless
 //   host surface to receive it (~1.9KB/turn schema).
+// - mcp__fastmail-native__compose_event: Fastmail's first-party MCP exposes an
+//   interactive "compose" tool that stages a draft and waits for the user to
+//   confirm in an MCP-UI widget — a host surface NanoClaw doesn't have, so it
+//   silently no-ops (stages, never commits) and renders no card. Block it so the
+//   agent uses the direct create_event/update_event instead (calcifer-a9d9,
+//   calcifer-11b1). Unlike the entries above, this is an MCP tool, matched by
+//   its full mcp__<server>__<tool> name; the rest of mcp__fastmail-native__*
+//   stays allowed.
 export const SDK_DISALLOWED_TOOLS = [
   'CronCreate',
   'CronDelete',
@@ -99,6 +107,7 @@ export const SDK_DISALLOWED_TOOLS = [
   'ExitWorktree',
   'DesignSync',
   'ReportFindings',
+  'mcp__fastmail-native__compose_event',
 ];
 
 // Tool allowlist for NanoClaw agent containers. MCP-tool entries are derived
