@@ -29,3 +29,21 @@ export function getTaskSeriesId(): string | null {
   const threadId = getSessionRouting().thread_id;
   return threadId?.startsWith(TASK_THREAD_PREFIX) ? threadId.slice(TASK_THREAD_PREFIX.length) : null;
 }
+
+const PEER_THREAD_PREFIX = 'peer:';
+
+/**
+ * The peer agent group id encoded in a per-correspondent thread's canonical
+ * thread id (`peer:<agentGroupId>`), or null for an ordinary chat/task thread.
+ *
+ * Mirrors the host grammar in src/correspondent.ts — the host and container are
+ * separate runtimes that share no code, so the prefix is duplicated on purpose.
+ * Used to tell the agent which peer a standing correspondent thread relays to,
+ * so a reply typed there routes back over the a2a return path (calcifer-2279).
+ */
+export function getCorrespondentAgentGroupId(): string | null {
+  const threadId = getSessionRouting().thread_id;
+  if (!threadId?.startsWith(PEER_THREAD_PREFIX)) return null;
+  const ref = threadId.slice(PEER_THREAD_PREFIX.length);
+  return ref || null;
+}

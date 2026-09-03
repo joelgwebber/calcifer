@@ -10,6 +10,7 @@
  * The host re-validates on the delivery side against the central DB,
  * so even if this table is stale the host's enforcement is authoritative.
  */
+import { getCorrespondentAgentGroupId } from './db/session-routing.js';
 import { getAgentMailbox } from './mailbox/index.js';
 import type { Destination } from './mailbox/types.js';
 
@@ -69,7 +70,38 @@ export function buildSystemPromptAddendum(assistantName?: string, mode: SessionM
 
   sections.push(buildDestinationsSection(mode));
 
+  if (mode.kind === 'chat') {
+    const correspondent = buildCorrespondentSection();
+    if (correspondent) sections.push(correspondent);
+  }
+
   return sections.join('\n\n');
+}
+
+/**
+ * When this session is a standing per-correspondent thread (`peer:<ag>`, from
+ * calcifer-226a), tell the agent which peer it relays to so a reply typed here
+ * routes back over the a2a return path (calcifer-2279). Resolved live from the
+ * destinations map: the thread's peer agent group id is matched to the agent
+ * destination that targets it, so the note names whatever local alias the
+ * operator wired (e.g. `joel`). Returns null for ordinary chats or when no
+ * matching destination exists.
+ */
+function buildCorrespondentSection(): string | null {
+  const ref = getCorrespondentAgentGroupId();
+  if (!ref) return null;
+  const peer = getAllDestinations().find((d) => d.type === 'agent' && d.agentGroupId === ref);
+  if (!peer) return null;
+  const who =
+    peer.displayName && peer.displayName !== peer.name ? `\`${peer.name}\` (${peer.displayName})` : `\`${peer.name}\``;
+  return [
+    '## This is a correspondent thread',
+    '',
+    `This standing thread carries the back-and-forth between your human and the peer agent ${who}. ` +
+      `When your human writes here, treat it as a reply to ${who}: relay it by addressing ${who} ` +
+      `(a \`<message to="${peer.name}">…</message>\` block), preserving their full intent, and confirm to ` +
+      `your human that you passed it along. A genuinely new, unrelated request can still go wherever it belongs.`,
+  ].join('\n');
 }
 
 function buildDestinationsSection(mode: SessionMode): string {

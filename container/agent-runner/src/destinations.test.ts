@@ -74,3 +74,59 @@ describe('buildSystemPromptAddendum — multi-destination routing guidance', () 
     expect(prompt).not.toContain('default to addressing');
   });
 });
+
+function seedAgentDestination(name: string, displayName: string, agentGroupId: string): void {
+  getInboundDb()
+    .prepare(
+      `INSERT INTO destinations (name, display_name, type, channel_type, platform_id, agent_group_id)
+       VALUES (?, ?, 'agent', NULL, NULL, ?)`,
+    )
+    .run(name, displayName, agentGroupId);
+}
+
+function setThreadId(threadId: string): void {
+  const db = getInboundDb();
+  // The host writes session_routing live on each wake; the test session DB
+  // doesn't ship it, so create it here (getSessionRouting tolerates absence).
+  db.exec(
+    `CREATE TABLE IF NOT EXISTS session_routing (id INTEGER PRIMARY KEY, channel_type TEXT, platform_id TEXT, thread_id TEXT)`,
+  );
+  db.prepare(`INSERT OR REPLACE INTO session_routing (id, channel_type, platform_id, thread_id) VALUES (1, ?, ?, ?)`).run(
+    'web',
+    'web:anais',
+    threadId,
+  );
+}
+
+// calcifer-2279: a standing per-correspondent thread (peer:<ag>) tells the agent
+// which peer to relay a reply back to.
+describe('buildSystemPromptAddendum — correspondent thread (calcifer-2279)', () => {
+  it('names the peer to relay to when the session is a peer:<ag> thread', () => {
+    seedAgentDestination('joel', 'Joel', 'ag-joel');
+    setThreadId('peer:ag-joel');
+
+    const prompt = buildSystemPromptAddendum('Calcifer');
+
+    expect(prompt).toContain('This is a correspondent thread');
+    expect(prompt).toContain('`joel` (Joel)');
+    expect(prompt).toContain('<message to="joel">');
+  });
+
+  it('adds no correspondent note for an ordinary web chat thread', () => {
+    seedAgentDestination('joel', 'Joel', 'ag-joel');
+    setThreadId('f57dc81f-c2e8-4f91-bb28-9006866b53c0');
+
+    const prompt = buildSystemPromptAddendum('Calcifer');
+
+    expect(prompt).not.toContain('This is a correspondent thread');
+  });
+
+  it('skips the note when the peer thread has no matching agent destination', () => {
+    // peer:<ag> thread but no destination targets that agent group.
+    setThreadId('peer:ag-unknown');
+
+    const prompt = buildSystemPromptAddendum('Calcifer');
+
+    expect(prompt).not.toContain('This is a correspondent thread');
+  });
+});
