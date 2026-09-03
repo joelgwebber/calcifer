@@ -200,11 +200,20 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     };
 
     const onTyping = (event: MessageEvent) => {
+      // Intentionally does NOT drive the running indicator. The status
+      // side-channel is the single, precise source of truth for `running`
+      // (calcifer-5b6b.4): every turn opens a `Working…` envelope up front and
+      // closes it with a null label at the exact turn boundary. `typing`, by
+      // contrast, has no "stopped" counterpart and the host re-fires it for a
+      // few seconds after turn-end (heartbeat-gated) — and skips its
+      // post-delivery pause entirely for a2a-only turns. Letting `typing` set
+      // running=true would re-strand the indicator right after `status=null`
+      // cleared it, leaving an all-relay turn spinning forever (calcifer-4dad).
+      // Kept as a handler only to register a thread we haven't seen yet.
       const payload = JSON.parse(event.data) as TypingEventPayload;
       const state = useStore.getState();
       const threadId = payload.threadId ?? state.currentThreadId;
       state.ensureThread(threadId);
-      state.setRunning(threadId, true);
     };
 
     const onStatus = (event: MessageEvent) => {
