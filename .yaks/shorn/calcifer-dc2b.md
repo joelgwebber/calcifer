@@ -4,7 +4,7 @@ title: 'Agent->human delivery: durable, channel-aware, per-correspondent threadi
 type: feature
 priority: 2
 created: '2026-09-02T03:28:54Z'
-updated: '2026-09-02T03:33:28Z'
+updated: '2026-09-03T16:27:07Z'
 labels:
 - web-ui,family,agent-to-agent
 ---
@@ -29,3 +29,13 @@ SKETCH (thread_meta + routing):
 - KEY FORK: (A) route the a2a relay DIRECTLY into the recipients channel thread (simple; bakes channel choice into routing - fine for single-channel recipients, does not honor decision 1 for multi-channel), vs (B) two-hop: a2a lands in the recipients agent, whose Calcifer CHOOSES channel + correspondent thread then surfaces (honors 1; needs richer send-addressing: channel + optional thread). Decision 1 leans B; the durable-thread primitive is needed either way.
 
 SLICES (children): 226a durable web thread (first), correspondent tag + threadId keying + UI label, reply routing from correspondent threads, recipient-Calcifer channel choice, relay fidelity + surface-reliability guidance, (future) delivery receipts.
+
+---
+▸ 2026-09-03T16:27:07Z
+SHORN (delivered scope). The agent->human durable, channel-aware, per-correspondent delivery path is built + deployed:
+- 226a: agent-initiated relays to web recipients land in a DURABLE per-correspondent web thread (peer:<sender-ag>), listed + survives refresh — not a lost SSE push. (commit 5c697984)
+- bd2f: those threads are labeled by WHO they're with ('Joel'/'Reminders'), via a shared peer:/sys: grammar (src/correspondent.ts). (6a5e559b)
+- 2279: a reply typed in a correspondent thread reliably relays back to the peer — deterministic correspondent note in the recipient's system prompt + the existing a2a return path. (cb53205e)
+- eedc: always-on relay conduct in all four family personas — confirm-to-origin after relaying (decisions/4dad), preserve full intent (#2), surface reliably (#4). (76d18922)
+Also surfaced + fixed two adjacent bugs while here: 4dad (relay-only turn stranded the web running indicator — status is now the sole driver, 694a28bd) and a9d9 (fastmail compose_event silent no-op — consolidated on fastmail-native, 5c8a697d).
+DEFERRED to root (owner-scoped as later work): 632e (recipient-Calcifer channel choice — only needed for multi-channel recipients) and 7175 (delivery receipts, p4). Also open: d254 (mid-turn-kill running-indicator edge), 18ad (no yaks CLI in containers).
