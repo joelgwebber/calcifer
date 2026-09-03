@@ -1,65 +1,44 @@
 ---
 name: fastmail
-description: Fastmail email, calendar, and contacts via IMAP/CalDAV/CardDAV. Use when the user wants to read or send email, check or create calendar events, or look up contacts.
-allowed-tools: mcp__fastmail__*
-env-guard: FASTMAIL_EMAIL
+description: Fastmail email, calendar, and contacts via Fastmail's first-party MCP server. Use when the user wants to read or send email, check or create calendar events, or look up contacts.
+allowed-tools: mcp__fastmail-native__*
 ---
 
-# Fastmail Email, Calendar, and Contacts
+# Fastmail (email, calendar, contacts)
 
-## Email Tools
+Fastmail is wired through **Fastmail's own first-party MCP server**, `fastmail-native`
+(`mcp__fastmail-native__*`). Its tools are self-describing — read each tool's own
+description for exact parameters. This skill only covers the things the tool
+descriptions get wrong for *this* install.
 
-**mcp__fastmail__fastmail_list_folders** — List all mailboxes
+## ⚠️ Never use the interactive "compose" / widget tools here
 
-**mcp__fastmail__fastmail_list_messages** — List messages in a folder
-- `folder` (default: INBOX), `limit` (default: 20), `search` (optional IMAP criteria)
-- Results are returned **newest-first**, and `limit` keeps the most recent matches. So for a prolific sender you still see their latest mail without raising `limit`.
-- Search examples: `["UNSEEN"]`, `["FROM", "user@example.com"]`, `["SUBJECT", "invoice"]`
-- To scope by date, add `SINCE` with a `DD-Mon-YYYY` date, e.g. `["FROM", "user@example.com", "SINCE", "01-Aug-2026"]`. This is far cheaper than paging with a large `limit`.
-- `list_messages` searches **one folder at a time**. If you don't know where a message lives, check both `INBOX` and `Archive` (most Fastmail mail is auto-archived); use `fastmail_list_folders` to enumerate the rest.
+Some fastmail-native tools (e.g. **`compose_event`**, and any other tool whose
+description says it opens an interactive widget for the user to confirm) assume an
+MCP host that renders **MCP-UI widgets** and reads the confirmation back. **This
+install has no such host** — the agent runner is headless. If you call one of these
+tools:
 
-**mcp__fastmail__fastmail_read_message** — Read full message content
-- `folder`, `uid` (from list_messages)
+- it returns a *staged draft* as if it succeeded, but **nothing is ever created or
+  changed** (silent no-op — the "success" is a lie), and
+- there is no widget, no confirmation step, and no log trail.
 
-**mcp__fastmail__fastmail_send_message** — Send an email
-- `to`, `subject`, `body`, `cc` (optional), `bcc` (optional)
+`compose_event`'s own description tells you to *prefer* it whenever a user is
+present. **Ignore that here.** It does not work.
 
-## Calendar Tools
+### Do this instead
 
-**mcp__fastmail__fastmail_list_calendars** — List all calendars
+- **Creating / editing calendar events** → call the **direct** tools:
+  `create_event` / `update_event` (they commit immediately, no widget).
+- **Sending / drafting email** → use the direct send/draft tools, not any
+  "compose-in-a-widget" variant.
+- **If you ever call a widget-gated tool anyway** → immediately verify with
+  `search_events` (or the equivalent list/search tool). If the item isn't there,
+  it was NOT created — redo it with the direct tool. Never tell the user something
+  was scheduled/sent until you've confirmed it exists.
 
-**mcp__fastmail__fastmail_list_events** — List events in a date range
-- `calendar` (default: Default), `start_date` (ISO 8601), `end_date` (ISO 8601)
+## Everything else
 
-**mcp__fastmail__fastmail_create_event** — Create a calendar event
-- `calendar`, `summary`, `start` (ISO 8601), `end` (ISO 8601), `description` (optional), `location` (optional)
-
-## Contacts Tools
-
-**mcp__fastmail__fastmail_list_contacts** — List all contacts
-- `limit` (default: 50)
-
-**mcp__fastmail__fastmail_search_contacts** — Search contacts by name or email
-- `query`
-
-## Example
-
-```
-# List recent emails
-mcp__fastmail__fastmail_list_messages(folder="INBOX", limit=10)
-
-# Read a message
-mcp__fastmail__fastmail_read_message(folder="INBOX", uid=1234)
-
-# Send email
-mcp__fastmail__fastmail_send_message(to="someone@example.com", subject="Hello", body="Message here")
-
-# Upcoming events
-mcp__fastmail__fastmail_list_events(calendar="Default", start_date="2026-04-18T00:00:00Z", end_date="2026-04-25T23:59:59Z")
-
-# Create event
-mcp__fastmail__fastmail_create_event(calendar="Default", summary="Team Meeting", start="2026-04-20T10:00:00Z", end="2026-04-20T11:00:00Z")
-
-# Search contacts
-mcp__fastmail__fastmail_search_contacts(query="john")
-```
+The direct email, calendar, and contacts tools work normally — trust their own
+descriptions for parameters and usage. When unsure whether an action actually
+took effect, read it back with a search/list tool before reporting success.

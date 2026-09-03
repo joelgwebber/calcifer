@@ -207,16 +207,19 @@ docker ps --format '{{.Names}}\t{{.Status}}'      # running agent containers (na
 
 ## Fastmail (current state)
 
-- **stdio server** `container/agent-runner/src/fastmail-mcp-stdio.ts` (IMAP/SMTP/CalDAV/CardDAV),
-  wired as MCP server `fastmail` → `mcp__fastmail__*`. Track A reliability fixes applied:
-  `list_messages` now awaits all `simpleParser` promises before resolving (fixes non-deterministic
-  result counts) and sorts newest-first (fixes recent mail hidden for prolific senders).
-- **JMAP** needs a **Bearer API token** (app password → `401 "not bearer"` on
-  `api.fastmail.com/jmap`). A hand-rolled thin JMAP client is the parked fallback.
-- **Fastmail native MCP** at `https://api.fastmail.com/mcp` — Streamable-HTTP, Bearer, scope
+- **Consolidated on Fastmail's first-party MCP** `fastmail-native` at
+  `https://api.fastmail.com/mcp` — Streamable-HTTP, Bearer, scope
   `https://www.fastmail.com/dev/mcp`. Wired as `fastmail-native` (`type:http`) →
-  `mcp__fastmail-native__*`. Being evaluated as the primary path (first-party, config-only).
-- Tracking: yak `calcifer-569e` (+ children).
+  `mcp__fastmail-native__*`. Config-only, no code/deps.
+- The old homegrown stdio server (`fastmail-mcp-stdio.ts`, IMAP/SMTP/CalDAV/CardDAV,
+  `mcp__fastmail__*`) was **retired** (`calcifer-a9d9`): source deleted, MCP entry
+  removed from dm-with-joel, skill rewritten. Its reliability-fix history lives in the
+  shorn `calcifer-569e` (+ children), `calcifer-3175`, `calcifer-3250`.
+- ⚠️ **Headless caveat**: fastmail-native's `compose_event` (and any widget-confirm
+  tool) assumes an MCP-UI host we don't have — it stages a draft, returns "success",
+  but **commits nothing** (silent no-op, no log trail). Use the direct
+  `create_event`/`update_event` instead and verify with `search_events`. The `fastmail`
+  skill (`container/skills/fastmail/SKILL.md`) carries this guidance for the agent.
 
 ---
 
