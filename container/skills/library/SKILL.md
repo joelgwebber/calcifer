@@ -61,6 +61,12 @@ Prefer EPUB over PDF when available:
 mcp__annas__annas_search_books(query="Title Author", format="epub")
 ```
 
+Search runs in a real browser behind DDoS-Guard. Usually you get results straight back. Sometimes the mirror answers with a **CAPTCHA** instead — the tool returns the CAPTCHA image inline plus instructions:
+
+1. **Read it yourself first.** Look at the returned image and read the distorted characters. If you can read them confidently, call `mcp__annas__annas_solve_captcha(answer="<text>")`.
+2. **Fall back to the user** if you can't. The image is also saved to `/tmp/annas-captcha.png` — send it to the user (attach the file) and ask them to type exactly what they see, then pass their answer to `annas_solve_captcha`.
+3. On success the search resumes and returns results. If the answer is rejected, the tool returns a **fresh** CAPTCHA image — repeat. The DDoS-Guard cookie is remembered in the browser profile, so once you clear it, later searches this session usually skip the wall.
+
 Present results to the user (title, author, format, size, year, MD5). Wait for the user to pick one.
 
 **Step 2: Download**
